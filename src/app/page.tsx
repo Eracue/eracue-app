@@ -1,8 +1,24 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-white px-6">
-      <h1 className="text-6xl font-bold tracking-tight text-neutral-900">ERA CUE</h1>
-      <p className="mt-4 text-lg text-neutral-600">The record that proves someone checked.</p>
+    <main className="min-h-screen flex flex-col items-center justify-center bg-white px-6">
+      <div className="max-w-2xl text-center">
+        <h1 className="text-5xl font-light tracking-tight text-neutral-900 mb-4">
+          ERA CUE
+        </h1>
+        <p className="text-lg text-neutral-600 mb-12">
+          The record that proves someone checked.
+        </p>
+        <div className="flex gap-4 justify-center">
+          <Link
+            href="/drafts"
+            className="px-6 py-3 bg-neutral-900 text-white text-sm font-medium rounded-md hover:bg-neutral-800 transition"
+          >
+            View drafts
+          </Link>
+        </div>
+      </div>
     </main>
   );
 }
