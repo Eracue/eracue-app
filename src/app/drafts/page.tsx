@@ -74,6 +74,7 @@ export default async function DraftsPage() {
               </tr>
             </thead>
             <tbody>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {drafts.map((d: any) => (
                 <tr key={d.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
                   <td className="px-4 py-3">
