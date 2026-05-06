@@ -109,8 +109,7 @@ export default async function Home() {
           {[
             { role: "Speaker", action: "Submit a draft", href: "/submit", note: "Pre-publication check" },
             { role: "System", action: "View drafts", href: "/drafts", note: "All verdicts logged" },
-            { role: "Reviewer", action: "Reviewer queue", href: "/reviewer/queue", note: "Override or confirm" },
-            { role: "Authority", action: "Governance rules", href: "/rules", note: "Authorized policies" },
+            { role: "Reviewer", action: "Reviewer queue", href: "/reviewer/queue", note: "Blocked and escalated drafts awaiting a named principal's decision. Structured review with full audit trail." },
           ].map((step) => (
             <Link key={step.role} href={step.href} className="block bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 hover:border-indigo-400 dark:hover:border-indigo-500 transition">
               <div className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-1">{step.role}</div>
@@ -118,6 +117,17 @@ export default async function Home() {
               <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">{step.note}</div>
             </Link>
           ))}
+          {/* Card 4 — Principal (governance oversight) with secondary Manage rules link */}
+          <div className="block bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 hover:border-indigo-400 dark:hover:border-indigo-500 transition">
+            <Link href="/dashboard" className="block">
+              <div className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-1">Principal</div>
+              <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Principal dashboard →</div>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">Governance oversight dashboard. Rules performance, reviewer activity, and gap report.</div>
+            </Link>
+            <Link href="/rules" className="inline-block mt-2 text-xs text-indigo-700 dark:text-indigo-400 hover:underline">
+              Manage rules →
+            </Link>
+          </div>
         </div>
       </div>
 
