@@ -122,7 +122,15 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
       {/* Screen-only top nav */}
       <div className="no-print bg-neutral-100 border-b border-neutral-200 px-6 py-3 flex items-center justify-between sticky top-0">
         <a href={`/drafts/${draft.id}`} className="text-sm text-neutral-600 hover:text-neutral-900">← Back to draft</a>
-        <PrintButton />
+        <div className="flex gap-2">
+          <a
+            href={`/drafts/${draft.id}/examiner/pdf`}
+            className="px-4 py-1.5 bg-neutral-900 text-white text-sm font-medium rounded-md hover:bg-neutral-800 transition"
+          >
+            Download PDF
+          </a>
+          <PrintButton />
+        </div>
       </div>
 
       <div className="max-w-3xl mx-auto px-8 py-12">
