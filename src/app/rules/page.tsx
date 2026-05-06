@@ -140,6 +140,31 @@ export default async function RulesPage({ searchParams }: PageProps) {
           </div>
         </div>
 
+        {/* Engine coverage explainer */}
+        <div className="bg-white border border-neutral-200 rounded-lg p-5 mb-6">
+          <div className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Engine coverage</div>
+          <p className="text-sm text-neutral-700 mb-3">
+            Of <span className="font-medium">5 governance checks</span>, <span className="font-medium">2 are evaluating these rules today</span>.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-xs text-neutral-600">
+            <div>
+              <div className="font-medium text-green-800 mb-1">Active</div>
+              <ul className="space-y-1">
+                <li>✓ Keyword Check — matches rule keywords against draft text</li>
+                <li>✓ Timing Check — verifies rule is effective at submission</li>
+              </ul>
+            </div>
+            <div>
+              <div className="font-medium text-neutral-700 mb-1">Available with customer data</div>
+              <ul className="space-y-1 text-neutral-500">
+                <li>○ Consistency Check — requires prior statement corpus</li>
+                <li>○ Audience Check — requires audience profile</li>
+                <li>○ Alignment Check — requires narrative profile</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         <RulesFilter currentFilter={filter} />
 
         {/* Rules grouped by type */}
@@ -184,15 +209,21 @@ export default async function RulesPage({ searchParams }: PageProps) {
                           </div>
                         )}
 
-                        <div className="mt-3 pt-3 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-500">
-                          <span className={status.tone === "expired" ? "text-neutral-400" : status.tone === "future" ? "text-neutral-500" : "text-green-700"}>
-                            {status.label}
-                          </span>
-                          {r.users && (
-                            <span>
-                              Authorized by {r.users.name}{r.users.title ? `, ${r.users.title}` : ""}
+                        <div className="mt-3 pt-3 border-t border-neutral-100">
+                          <div className="flex items-center justify-between text-xs text-neutral-500 mb-2">
+                            <span className={status.tone === "expired" ? "text-neutral-400" : status.tone === "future" ? "text-neutral-500" : "text-green-700"}>
+                              {status.label}
                             </span>
-                          )}
+                            {r.users && (
+                              <span>
+                                Authorized by {r.users.name}{r.users.title ? `, ${r.users.title}` : ""}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-neutral-500">
+                            <span className="text-neutral-400">Evaluated by:</span>{" "}
+                            <span>Keyword Check + Timing Check</span>
+                          </div>
                         </div>
                       </div>
                     );
