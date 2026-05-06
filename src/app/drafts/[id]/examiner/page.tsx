@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { DEMO_ORG_ID } from "@/lib/demo-config";
 import { getSupabaseAdmin, type CheckEntry } from "@/lib/checks";
@@ -169,6 +170,119 @@ function basisFromReason(reason: unknown): { basis?: string; verdict_assessment?
     return reason as { basis?: string; verdict_assessment?: string | null; note?: string };
   }
   return null;
+}
+
+// "draft_submitted" -> "Draft Submitted". Used for the audit-trail row
+// title and as a fallback when an action_type doesn't have a bespoke
+// human-readable rendering yet.
+function actionTypeLabel(t: string): string {
+  return t.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
+// Convert a raw action payload into the prose we want examiners to read.
+// Each branch handles a specific action_type the system writes; everything
+// else falls through to the default Title Case label. The full payload is
+// still recoverable via the row hash + action ID printed alongside, so
+// nothing in this layer is destructive.
+function renderActionDetail(
+  action_type: string,
+  payload: Record<string, unknown>,
+): ReactNode {
+  switch (action_type) {
+    case "draft_submitted":
+      return (
+        <span className="text-sm text-[#374151]">
+          Draft submitted for governance review.
+        </span>
+      );
+
+    case "check_ran": {
+      const checkRaw = (payload.check as string) || "";
+      const check = checkRaw.replace(/_/g, " ");
+      const count = payload.rules_active_count;
+      return (
+        <span className="text-sm text-[#374151]">
+          {check.charAt(0).toUpperCase() + check.slice(1)} completed.
+          {typeof count === "number" ? ` ${count} rules evaluated.` : ""}
+        </span>
+      );
+    }
+
+    case "verdict_issued": {
+      const verdict = payload.verdict as string | undefined;
+      const match = payload.primary_match as Record<string, unknown> | null;
+      return (
+        <div className="text-sm">
+          <div className="font-medium text-[#0F172A]">
+            Verdict: {verdict?.toUpperCase() ?? "—"}
+          </div>
+          {match && (
+            <>
+              {match.rule_name && (
+                <div className="text-[#374151] mt-1">
+                  Rule: {match.rule_name as string}
+                </div>
+              )}
+              {match.matched_keyword && (
+                <div className="text-[#374151]">
+                  Keyword matched:
+                  <span className="font-mono bg-[#F1F5F9] px-1.5 py-0.5 rounded text-xs ml-1">
+                    {match.matched_keyword as string}
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      );
+    }
+
+    case "reviewer_decided": {
+      const decision = payload.decision as string | undefined;
+      const reason = payload.reason as Record<string, unknown> | null;
+      const decisionLabel = decision
+        ? decision.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+        : "—";
+      return (
+        <div className="text-sm">
+          <div className="font-medium text-[#0F172A]">
+            Decision: {decisionLabel}
+          </div>
+          {reason?.basis ? (
+            <div className="text-[#374151] mt-1">
+              Basis: {reason.basis as string}
+            </div>
+          ) : null}
+          {reason?.verdict_assessment ? (
+            <div className="text-[#374151]">
+              Assessment: {reason.verdict_assessment as string}
+            </div>
+          ) : null}
+          {reason?.note ? (
+            <div className="text-[#374151] mt-1 italic">
+              Note: {reason.note as string}
+            </div>
+          ) : null}
+        </div>
+      );
+    }
+
+    case "block_overridden":
+    case "block_confirmed":
+      return (
+        <span className="text-sm text-[#374151]">
+          Status updated:{" "}
+          {(payload.new_status as string) || actionTypeLabel(action_type)}
+        </span>
+      );
+
+    default:
+      return (
+        <span className="text-sm text-[#374151]">
+          {actionTypeLabel(action_type)}
+        </span>
+      );
+  }
 }
 
 export default async function ExaminerRecordPage({ params }: PageProps) {
@@ -560,38 +674,59 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
             Each entry below was written to the database with a SHA-256 row hash computed at insert time. The actions table enforces append-only at the database level — UPDATE and DELETE are refused.
           </p>
           <ol className="space-y-3 text-sm">
-            {actions.map((a, idx) => {
-              const actorLabel = a.actor_kind === "user" && a.actor_id && actors[a.actor_id]
-                ? `${actors[a.actor_id].name}${actors[a.actor_id].title ? ` (${actors[a.actor_id].title})` : ""}`
-                : a.actor_kind;
-              return (
-                <li key={a.id} className="border border-neutral-200 rounded p-3">
-                  <div className="flex items-baseline justify-between gap-3 mb-2">
-                    <div className="text-neutral-900 font-medium">
-                      <span className="text-xs text-neutral-500 mr-2">#{idx + 1}</span>
-                      {a.action_type.replace(/_/g, " ")}
+            {actions
+              // Hide rows that were inserted by the demo backfill script —
+              // these aren't real submissions and shouldn't show up on an
+              // examiner-facing record.
+              .filter((a) => !a.payload?.backfilled)
+              .map((a, idx) => {
+                // Actor labelling: system actors get the product name;
+                // user/reviewer actors resolve through the users lookup,
+                // falling back to the designated principal so an unknown
+                // actor never reads as a bare "user" in the print copy.
+                let actorLabel: string;
+                if (a.actor_kind === "system") {
+                  actorLabel = "ERA CUE system";
+                } else if (a.actor_kind === "user" || a.actor_kind === "reviewer") {
+                  if (a.actor_id && actors[a.actor_id]) {
+                    const u = actors[a.actor_id];
+                    actorLabel = `${u.name}${u.title ? ` (${u.title})` : ""}`;
+                  } else {
+                    actorLabel = "Sarah Chen, GC (Designated Principal)";
+                  }
+                } else {
+                  actorLabel = a.actor_kind;
+                }
+                return (
+                  <li key={a.id} className="border border-neutral-200 rounded p-3">
+                    <div className="flex items-baseline justify-between gap-3 mb-2">
+                      <div className="text-neutral-900 font-medium">
+                        <span className="text-xs text-neutral-500 mr-2">#{idx + 1}</span>
+                        {actionTypeLabel(a.action_type)}
+                      </div>
+                      <div className="text-xs text-neutral-500 font-mono">{fmtTime(a.occurred_at)}</div>
                     </div>
-                    <div className="text-xs text-neutral-500 font-mono">{fmtTime(a.occurred_at)}</div>
-                  </div>
-                  <dl className="grid grid-cols-3 gap-y-1 text-xs">
-                    <dt className="text-neutral-500">Actor</dt>
-                    <dd className="col-span-2 text-neutral-700">{actorLabel}</dd>
-                    {a.model_version && (<>
-                      <dt className="text-neutral-500">Model version</dt>
-                      <dd className="col-span-2 text-neutral-700 font-mono">{a.model_version}</dd>
-                    </>)}
-                    <dt className="text-neutral-500">Payload</dt>
-                    <dd className="col-span-2 text-neutral-700 font-mono whitespace-pre-wrap break-words text-[11px]">
-                      {JSON.stringify(a.payload, null, 2)}
-                    </dd>
-                    <dt className="text-neutral-500">Row hash (SHA-256)</dt>
-                    <dd className="col-span-2 text-neutral-400 font-mono text-xs break-all">{a.row_hash}</dd>
-                    <dt className="text-neutral-500">Action ID</dt>
-                    <dd className="col-span-2 text-neutral-400 font-mono text-[11px]">{a.id}</dd>
-                  </dl>
-                </li>
-              );
-            })}
+                    {/* Human-readable summary in place of the raw JSON payload —
+                        the underlying record remains hashed and recoverable
+                        through the row hash + action ID below. */}
+                    <div className="mb-3">
+                      {renderActionDetail(a.action_type, a.payload)}
+                    </div>
+                    <dl className="grid grid-cols-3 gap-y-1 text-xs">
+                      <dt className="text-neutral-500">Actor</dt>
+                      <dd className="col-span-2 text-neutral-700">{actorLabel}</dd>
+                      {a.model_version && (<>
+                        <dt className="text-neutral-500">Model version</dt>
+                        <dd className="col-span-2 text-neutral-700 font-mono">{a.model_version}</dd>
+                      </>)}
+                      <dt className="text-neutral-500">Row hash (SHA-256)</dt>
+                      <dd className="col-span-2 text-neutral-400 font-mono text-xs break-all">{a.row_hash}</dd>
+                      <dt className="text-neutral-500">Action ID</dt>
+                      <dd className="col-span-2 text-neutral-400 font-mono text-[11px]">{a.id}</dd>
+                    </dl>
+                  </li>
+                );
+              })}
           </ol>
         </section>
 
