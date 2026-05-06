@@ -1,15 +1,31 @@
 import Link from "next/link";
-import { ThemeToggle } from "./theme-toggle";
 
 export function SiteHeader() {
   return (
-    <header className="print:hidden border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
-      <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-        <Link href="/" className="flex items-baseline gap-2">
-          <span className="font-serif text-lg font-medium text-indigo-700 dark:text-indigo-400" style={{ fontFamily: "var(--font-newsreader)" }}>ERA CUE</span>
-          <span className="text-xs uppercase tracking-widest text-neutral-400 dark:text-neutral-600">demo</span>
+    <header className="bg-white border-b border-[#E2E1DC] print:hidden">
+      <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2">
+          <span
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-lg font-light text-[#1C1C1A]"
+          >
+            ERA CUE
+          </span>
+          <span className="text-xs font-mono bg-[#F0EFE9] text-[#6E6E68] px-2 py-0.5 rounded-sm">
+            demo
+          </span>
         </Link>
-        <ThemeToggle />
+        <nav className="flex items-center gap-6 text-xs font-mono text-[#6E6E68]">
+          <Link href="/dashboard" className="hover:text-[#1C1C1A] transition-colors">
+            Dashboard
+          </Link>
+          <Link href="/rules" className="hover:text-[#1C1C1A] transition-colors">
+            Rules
+          </Link>
+          <Link href="/reviewer/queue" className="hover:text-[#1C1C1A] transition-colors">
+            Reviewer
+          </Link>
+        </nav>
       </div>
     </header>
   );

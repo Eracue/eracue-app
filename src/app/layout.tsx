@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
-import { cookies } from "next/headers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,15 +23,13 @@ export const metadata: Metadata = {
   description: "The record that proves someone checked.",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const theme = cookieStore.get("theme")?.value === "dark" ? "dark" : "light";
   return (
-    <html lang="en" className={theme === "dark" ? "dark" : ""}>
+    <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} antialiased`}
       >
