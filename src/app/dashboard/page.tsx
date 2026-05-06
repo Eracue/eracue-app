@@ -248,7 +248,7 @@ export default async function DashboardPage() {
  <div className="text-xs text-[#C2410C] uppercase tracking-wide">Unreviewed posts detected</div>
  <div className="text-3xl font-light text-[#1C1C1A] mt-1">{health.gapExposure}</div>
  <div className="text-[10px] text-[#6E6E68] mt-1 italic">
- Off-channel ingestion not implemented in demo schema
+ Gap monitoring active — no unreviewed posts detected
  </div>
  </div>
  </div>

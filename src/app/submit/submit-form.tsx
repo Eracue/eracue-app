@@ -8,15 +8,23 @@ type Speaker = { id: string; name: string; title: string | null; role: string };
 type Campaign = { id: string; name: string };
 type Props = { speakers: Speaker[]; campaigns: Campaign[] };
 
+// Demo defaults — pre-fill the form with the homepage scenario so a Marcus
+// Rivera (CEO) submission against the Series B Quiet Period rule reproduces
+// instantly. Falls through to the first speaker if Marcus isn't seeded.
+const DEMO_DRAFT_TEXT =
+  "We're aggressively hiring across engineering and sales — excited to share more about our growth plans soon.";
+
 export function SubmitForm({ speakers, campaigns }: Props) {
  const router = useRouter();
  const [submitting, setSubmitting] = useState(false);
  const [error, setError] = useState<string | null>(null);
- const [speakerId, setSpeakerId] = useState(speakers[0]?.id || "");
+ const defaultSpeakerId =
+   speakers.find((s) => s.name === "Marcus Rivera")?.id || speakers[0]?.id || "";
+ const [speakerId, setSpeakerId] = useState(defaultSpeakerId);
  const [channel, setChannel] = useState("linkedin");
- const [sourceOrigin, setSourceOrigin] = useState("human");
+ const [sourceOrigin, setSourceOrigin] = useState("ai_assisted");
  const [campaignId, setCampaignId] = useState("");
- const [draftText, setDraftText] = useState("");
+ const [draftText, setDraftText] = useState(DEMO_DRAFT_TEXT);
 
  async function handleSubmit(e: React.FormEvent) {
  e.preventDefault();
