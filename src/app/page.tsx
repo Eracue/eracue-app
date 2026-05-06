@@ -536,9 +536,6 @@ export default function Home() {
             <Link href="/dashboard" className="text-[#6E6E68] hover:text-[#1C1C1A] transition-colors">
               Dashboard
             </Link>
-            <Link href="/dashboard" className="text-[#6E6E68] hover:text-[#1C1C1A] transition-colors">
-              Dashboard
-            </Link>
           </div>
         </div>
       </footer>
