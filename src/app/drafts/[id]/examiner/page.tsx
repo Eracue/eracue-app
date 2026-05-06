@@ -108,10 +108,38 @@ function fmtTime(iso: string): string {
   return new Date(iso).toISOString().replace("T", " ").replace(/\.\d+Z/, " UTC");
 }
 
-function shortHash(h: string | null | undefined): string {
-  if (!h) return "—";
-  if (h.length <= 16) return h;
-  return h.slice(0, 8) + "..." + h.slice(-8);
+// Effective dates on a rule render in the examiner record as plain
+// English ("April 15, 2026"). The underlying timestamps stay on the
+// rule row; examiners want a date, not a UTC instant.
+function formatRuleDate(dateStr: string | null): string {
+  if (!dateStr) return "no end date";
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+// Rule.rule_type ("block", "escalate", ...) rendered as the same kind
+// of compact uppercase pill the rest of the app uses for verdicts —
+// keeps the visual vocabulary consistent across the dashboard, the
+// drafts list, and the examiner record.
+function ruleTypeBadge(type: string): ReactNode {
+  const colors: Record<string, string> = {
+    block:    "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]",
+    escalate: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]",
+    review:   "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]",
+    guide:    "bg-[#F5F3FF] text-[#6D28D9] border-[#DDD6FE]",
+  };
+  return (
+    <span
+      className={`font-mono text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-sm border ${
+        colors[type] || "bg-[#F1F5F9] text-[#64748B] border-[#E2E8F0]"
+      }`}
+    >
+      {type}
+    </span>
+  );
 }
 
 function CheckResultLabel({ result }: { result: CheckEntry["result"] }) {
@@ -366,8 +394,6 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
           <dl className="grid grid-cols-3 gap-y-2 text-sm">
             <dt className="text-neutral-500">Speaker</dt>
             <dd className="col-span-2 text-base text-[#0F172A] font-medium">{draft.users?.name || "—"}{draft.users?.title ? ` (${draft.users.title})` : ""}</dd>
-            <dt className="text-neutral-500">Email</dt>
-            <dd className="col-span-2 text-neutral-900">{draft.users?.email || "—"}</dd>
             <dt className="text-neutral-500">Channel</dt>
             <dd className="col-span-2 text-neutral-900">{draft.channel}</dd>
             <dt className="text-neutral-500">Campaign</dt>
@@ -393,15 +419,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
                 </>
               );
             })()}
-            {draft.ai_model_used && (<>
-              <dt className="text-neutral-500">AI model used</dt>
-              <dd className="col-span-2 text-neutral-900 font-mono">{draft.ai_model_used}</dd>
-            </>)}
-            {draft.prompt_hash && (<>
-              <dt className="text-neutral-500">Prompt hash (SHA-256)</dt>
-              <dd className="col-span-2 text-neutral-900 font-mono text-xs">{shortHash(draft.prompt_hash)}</dd>
-            </>)}
-            {draft.prompt_used && (<>
+            {draft.prompt_used && draft.prompt_used.trim() && (<>
               <dt className="text-neutral-500">Prompt logged</dt>
               <dd className="col-span-2 text-base text-[#0F172A]">
                 <div className="whitespace-pre-wrap">{draft.prompt_used}</div>
@@ -453,11 +471,19 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
 
             <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">FINRA Rule 2210(b)</dt>
             <dd className="text-sm text-neutral-900 mt-0.5 mb-4">
-              {(draft.communication_category ?? "retail") === "retail"
-                ? "Pre-approval required · Satisfied by ERA CUE principal review at submission"
-                : (draft.communication_category ?? "retail") === "institutional"
-                ? "Content standards applied · Fair and balanced per Rule 2210(d)"
-                : "Supervision required · Satisfied by ERA CUE check engine"}
+              {(() => {
+                // 2210(b)'s pre-approval requirement is retail-only. Rendering
+                // a single "satisfied" line for every category misrepresents
+                // what the rule actually requires.
+                const cat = draft.communication_category ?? "retail";
+                if (cat === "retail") {
+                  return "Pre-approval satisfied — retail communication reviewed by designated principal per Rule 2210(b)";
+                }
+                if (cat === "correspondence") {
+                  return "Correspondence — lighter supervision standard applies per Rule 2210(a)(3). Pre-approval requirement does not apply.";
+                }
+                return "Institutional communication — content standards apply per Rule 2210(a)(2)";
+              })()}
             </dd>
 
             <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">SEC Rule 17a-4 · FINRA Rule 4511</dt>
@@ -553,7 +579,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
                 <li key={r.id} className="border border-neutral-200 rounded p-3">
                   <div className="flex items-baseline justify-between gap-3 mb-1">
                     <div className="font-medium text-neutral-900">{r.name}</div>
-                    <div className="text-xs uppercase tracking-wide text-neutral-500">{r.rule_type}</div>
+                    {ruleTypeBadge(r.rule_type)}
                   </div>
                   {r.wsp_reference && (
                     <div className="font-mono text-[10px] text-[#1447C0] mb-1">
@@ -561,10 +587,9 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
                     </div>
                   )}
                   <div className="text-xs text-neutral-700 mb-1">{r.description}</div>
-                  <div className="text-xs text-neutral-500 font-mono">
-                    Effective {fmtTime(r.effective_from)}{r.effective_to ? ` — ${fmtTime(r.effective_to)}` : " — open"}
+                  <div className="text-xs text-neutral-500">
+                    Effective {formatRuleDate(r.effective_from)} – {formatRuleDate(r.effective_to)}
                   </div>
-                  <div className="text-xs text-neutral-400 font-mono mt-1">Rule ID: {r.id}</div>
                 </li>
               ))}
             </ul>
