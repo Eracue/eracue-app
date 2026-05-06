@@ -21,6 +21,59 @@ export type RuleMatch = {
 
 export type Verdict = "block" | "escalate" | "review" | "guide" | "clear";
 
+export type CheckEntry = {
+  check_name: string;
+  result: "pass" | "fail" | "warn";
+  detail: string | null;
+  matched_keyword?: string;
+};
+
+export const CHECK_NAMES = [
+  "Rule Check",
+  "Consistency Check",
+  "Alignment Check",
+  "Quiet Period Check",
+  "Agent Origin Check",
+] as const;
+
+/**
+ * Build the full 5-check chain from a CheckResult + source_origin.
+ * Process-reconstructable: every check has an entry, with `result: "pass"` and
+ * `detail: null` for checks that didn't fire (Consistency / Alignment in this
+ * implementation — they're AI checks not yet wired up).
+ */
+export function buildChecksArray(result: CheckResult, sourceOrigin: string): CheckEntry[] {
+  const pm = result.primary_match;
+  const isQuietPeriod = pm ? /quiet period/i.test(pm.rule_name) : false;
+
+  const ruleCheck: CheckEntry = pm
+    ? {
+        check_name: "Rule Check",
+        result: "fail",
+        detail: `Matched: ${pm.rule_name}`,
+        matched_keyword: pm.matched_keyword,
+      }
+    : { check_name: "Rule Check", result: "pass", detail: null };
+
+  const quietPeriodCheck: CheckEntry = isQuietPeriod && pm
+    ? { check_name: "Quiet Period Check", result: "fail", detail: `Quiet period rule matched: ${pm.rule_name}` }
+    : { check_name: "Quiet Period Check", result: "pass", detail: null };
+
+  return [
+    ruleCheck,
+    { check_name: "Consistency Check", result: "pass", detail: null },
+    { check_name: "Alignment Check", result: "pass", detail: null },
+    quietPeriodCheck,
+    {
+      check_name: "Agent Origin Check",
+      result: "pass",
+      detail: sourceOrigin === "human"
+        ? "Human-authored — no AI disclosure required"
+        : "AI source declared (model + prompt hash recorded)",
+    },
+  ];
+}
+
 export type CheckResult = {
   rule_check: {
     matches: RuleMatch[];

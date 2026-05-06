@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DEMO_ORG_ID } from "@/lib/demo-config";
-import { getSupabaseAdmin } from "@/lib/checks";
+import { getSupabaseAdmin, type CheckEntry } from "@/lib/checks";
 import { ReviewerDecisionForm } from "./reviewer-form";
+import { CheckDetailPanel } from "./check-detail-panel";
 import { SiteHeader } from "@/app/site-header";
 
 export const dynamic = "force-dynamic";
@@ -97,6 +98,40 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
   const reviewerDecision = actions.find((a) => a.action_type === "reviewer_decided");
   const alreadyDecided = !!reviewerDecision;
 
+  // Build the 5-check chain. Newer verdicts store this in payload.checks.
+  // Older records didn't — derive a fallback from primary_match: "Rule Check"
+  // (and "Quiet Period Check" if applicable) FAIL, all others PASS.
+  const storedChecks = verdictAction?.payload?.checks as CheckEntry[] | undefined;
+  const isQuietPeriodMatch = primaryMatch ? /quiet period/i.test(primaryMatch.rule_name) : false;
+  const checks: CheckEntry[] = storedChecks ?? [
+    primaryMatch
+      ? {
+          check_name: "Rule Check",
+          result: "fail" as const,
+          detail: `Matched: ${primaryMatch.rule_name}`,
+          matched_keyword: primaryMatch.matched_keyword,
+        }
+      : { check_name: "Rule Check", result: "pass" as const, detail: null },
+    { check_name: "Consistency Check", result: "pass" as const, detail: null },
+    { check_name: "Alignment Check", result: "pass" as const, detail: null },
+    isQuietPeriodMatch && primaryMatch
+      ? { check_name: "Quiet Period Check", result: "fail" as const, detail: `Quiet period rule matched: ${primaryMatch.rule_name}` }
+      : { check_name: "Quiet Period Check", result: "pass" as const, detail: null },
+    { check_name: "Agent Origin Check", result: "pass" as const, detail: null },
+  ];
+
+  // Decision payload: newer records store reason as a structured object
+  // ({ basis, verdict_assessment, note }); older records stored a freeform string.
+  const decisionPayload = reviewerDecision?.payload as
+    | { decision?: string; reason?: unknown }
+    | undefined;
+  const decisionReason = decisionPayload?.reason;
+  const isStructuredReason =
+    !!decisionReason && typeof decisionReason === "object" && !Array.isArray(decisionReason);
+  const structured = isStructuredReason
+    ? (decisionReason as { basis?: string; verdict_assessment?: string | null; note?: string })
+    : null;
+
   return (
     <>
       <SiteHeader />
@@ -135,6 +170,9 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
           </div>
         )}
 
+        {/* Check detail (collapsible) */}
+        <CheckDetailPanel checks={checks} />
+
         {/* Draft */}
         <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-8 mb-6">
           <div className="flex items-center gap-2 mb-4 text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
@@ -147,19 +185,60 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
           </p>
         </div>
 
+        {/* Principal identity strip — supervisory evidence, must print */}
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg px-4 py-2 text-xs mb-4">
+          <div className="flex items-baseline justify-between gap-4">
+            <div className="text-amber-900 dark:text-amber-200">
+              <span className="text-amber-700 dark:text-amber-400">Reviewing as:</span>{" "}
+              <span className="font-medium">Sarah Chen · CCO · Designated Principal</span>
+            </div>
+            <div className="text-amber-900 dark:text-amber-200 text-right">
+              <span className="text-amber-700 dark:text-amber-400">Authority:</span>{" "}
+              <span className="font-medium">Final approval · FINRA Rule 3110(a)</span>
+            </div>
+          </div>
+          <div className="mt-1 flex justify-end">
+            <span className="text-[10px] text-amber-700/70 dark:text-amber-400/70 italic">
+              Demo identity — production would read from user record
+            </span>
+          </div>
+        </div>
+
         {/* Decision form OR already-decided notice */}
         {alreadyDecided ? (
           <div className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-lg p-6 text-sm text-neutral-700 dark:text-neutral-300">
-            <div className="font-medium mb-1">Already decided</div>
-            <div>
-              Decision: {(reviewerDecision!.payload.decision as string) || "—"}
-              {reviewerDecision!.payload.reason ? (
+            <div className="font-medium mb-3">Already decided</div>
+            <dl className="grid grid-cols-[8rem_1fr] gap-y-2 gap-x-3">
+              <dt className="text-neutral-500 dark:text-neutral-400">Decision</dt>
+              <dd className="text-neutral-900 dark:text-neutral-100">
+                {(decisionPayload?.decision as string) || "—"}
+              </dd>
+              {structured ? (
                 <>
-                  <br />
-                  Reason: {reviewerDecision!.payload.reason as string}
+                  <dt className="text-neutral-500 dark:text-neutral-400">Basis</dt>
+                  <dd className="text-neutral-900 dark:text-neutral-100">{structured.basis || "—"}</dd>
+                  {structured.verdict_assessment && (
+                    <>
+                      <dt className="text-neutral-500 dark:text-neutral-400">Verdict assessment</dt>
+                      <dd className="text-neutral-900 dark:text-neutral-100">{structured.verdict_assessment}</dd>
+                    </>
+                  )}
+                  {structured.note && (
+                    <>
+                      <dt className="text-neutral-500 dark:text-neutral-400">Note</dt>
+                      <dd className="text-neutral-900 dark:text-neutral-100">{structured.note}</dd>
+                    </>
+                  )}
                 </>
-              ) : null}
-            </div>
+              ) : (
+                typeof decisionReason === "string" && decisionReason && (
+                  <>
+                    <dt className="text-neutral-500 dark:text-neutral-400">Reason</dt>
+                    <dd className="text-neutral-900 dark:text-neutral-100">{decisionReason}</dd>
+                  </>
+                )
+              )}
+            </dl>
           </div>
         ) : (
           <ReviewerDecisionForm

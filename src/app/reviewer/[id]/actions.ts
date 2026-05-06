@@ -3,16 +3,27 @@
 import { DEMO_ORG_ID } from "@/lib/demo-config";
 import { getSupabaseAdmin } from "@/lib/checks";
 
+export type DecisionReason = {
+  basis: string;
+  verdict_assessment: string | null;
+  note: string;
+};
+
 type DecisionInput = {
   draftId: string;
   decision: "approve" | "reject" | "override" | "confirm_block";
-  reason: string | null;
+  reason: DecisionReason;
 };
 
 type DecisionResult = { success: true; error?: undefined } | { success?: undefined; error: string };
 
 export async function reviewerDecisionAction(input: DecisionInput): Promise<DecisionResult> {
   const sb = getSupabaseAdmin();
+
+  // Validate the structured reason server-side too — basis is always required.
+  if (!input.reason || !input.reason.basis) {
+    return { error: "Basis for decision is required." };
+  }
 
   // Find the principal
   const { data: principal, error: pErr } = await sb
@@ -31,7 +42,8 @@ export async function reviewerDecisionAction(input: DecisionInput): Promise<Deci
   else if (input.decision === "confirm_block") newStatus = "blocked";
   else return { error: "Invalid decision" };
 
-  // Write reviewer_decided action
+  // Write reviewer_decided action — reason is now a structured object
+  // ({ basis, verdict_assessment, note }) rather than a freeform string.
   const { error: rdErr } = await sb.from("actions").insert({
     org_id: DEMO_ORG_ID,
     draft_id: input.draftId,

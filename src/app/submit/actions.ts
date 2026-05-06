@@ -1,7 +1,7 @@
 "use server";
 
 import { DEMO_ORG_ID } from "@/lib/demo-config";
-import { runChecks, verdictToStatus, getSupabaseAdmin } from "@/lib/checks";
+import { runChecks, verdictToStatus, getSupabaseAdmin, buildChecksArray } from "@/lib/checks";
 
 type SubmitInput = {
   speakerId: string;
@@ -74,6 +74,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
   });
 
   // 6. Write verdict_issued action
+  const checks = buildChecksArray(result, input.sourceOrigin);
   await sb.from("actions").insert({
     org_id: DEMO_ORG_ID,
     draft_id: draft.id,
@@ -83,6 +84,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
       verdict: result.verdict,
       primary_match: result.primary_match,
       checks_passed: ["rule_check", "timing_check"],
+      checks,
     },
     rules_active: result.rules_active,
   });
