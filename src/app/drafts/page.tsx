@@ -81,16 +81,16 @@ export default async function DraftsPage() {
         <div className="max-w-5xl mx-auto px-6 py-12">
           <div className="mb-8">
             <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-              SUPERVISION RECORD · SARAH CHEN, GC
+              SUPERVISION ARCHIVE
             </div>
             <h1
               style={{ fontFamily: "var(--font-newsreader)" }}
               className="font-light text-3xl text-[#0F172A] mt-2"
             >
-              Communications
+              Archive
             </h1>
             <p className="text-sm text-[#374151] mt-2 max-w-2xl leading-relaxed">
-              The complete supervision record — every submission, every verdict, every principal decision on file.
+              Every communication submitted through ERA CUE — checked, recorded, and on file.
             </p>
             <p className="font-mono text-xs text-[#94A3B8] mt-2">
               {drafts.length} communications in the demo organization

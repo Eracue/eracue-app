@@ -21,13 +21,13 @@ export function SiteHeader() {
             Check a draft →
           </Link>
           <Link href="/dashboard" className="hover:text-[#0F172A] transition-colors">
-            Dashboard
+            Review
           </Link>
           <Link href="/rules" className="hover:text-[#0F172A] transition-colors">
             Rules
           </Link>
           <Link href="/drafts" className="hover:text-[#0F172A] transition-colors">
-            Communications
+            Archive
           </Link>
         </nav>
       </div>

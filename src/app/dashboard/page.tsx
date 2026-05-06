@@ -381,7 +381,7 @@ export default async function DashboardPage() {
             <div className="flex items-start justify-between gap-6">
               <div>
                 <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-                  PRINCIPAL DASHBOARD · SARAH CHEN, GC
+                  REVIEW · SARAH CHEN, GC
                 </div>
                 <h1
                   style={{ fontFamily: "var(--font-newsreader)" }}
@@ -390,7 +390,7 @@ export default async function DashboardPage() {
                   The complete governance record.
                 </h1>
                 <p className="text-sm text-[#64748B] mt-1 max-w-xl">
-                  Every speaker. Every draft. Every decision.
+                  Blocked drafts, governance decisions, and the complete supervision record.
                 </p>
               </div>
             </div>
