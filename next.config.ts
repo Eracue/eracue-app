@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Explicitly leave `output` undefined. `output: "export"` would force
+  // static pre-rendering of every page at build time, defeating the
+  // module-level `export const dynamic = "force-dynamic"` directives the
+  // page files rely on. Pinning it to undefined here makes that
+  // assumption visible in the config rather than implicit.
+  output: undefined,
+
   // Disable client-side Router Cache staleness for both dynamic and static
   // segments. Combined with `export const dynamic = "force-dynamic"` and
   // `revalidate = 0` on the page modules, this guarantees every navigation
