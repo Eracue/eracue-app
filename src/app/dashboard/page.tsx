@@ -6,494 +6,477 @@ import { SiteHeader } from "@/app/site-header";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+// ---------- Types ---------------------------------------------------------
+
 type DraftLite = {
- id: string;
- status: string;
- source_origin: string;
+  id: string;
+  status: string;
+  source_origin: string;
 };
 
 type RuleRow = {
- id: string;
- name: string;
- rule_type: "block" | "escalate" | "review" | "guide";
- description: string;
- effective_from: string;
- effective_to: string | null;
+  id: string;
+  name: string;
+  rule_type: "block" | "escalate" | "review" | "guide";
+  description: string;
+  effective_from: string;
+  effective_to: string | null;
 };
 
 type VerdictAction = {
- id: string;
- occurred_at: string;
- payload: {
- verdict?: string;
- primary_match?: { rule_id?: string; rule_name?: string } | null;
- };
+  id: string;
+  occurred_at: string;
+  payload: {
+    verdict?: string;
+    primary_match?: { rule_id?: string; rule_name?: string } | null;
+  };
 };
 
 type ReviewerAction = {
- id: string;
- occurred_at: string;
- draft_id: string;
- payload: {
- decision?: string;
- reason?: unknown;
- new_status?: string;
- };
- drafts: {
- id: string;
- draft_text: string;
- users: { name: string; title: string | null } | null;
- } | null;
+  id: string;
+  occurred_at: string;
+  draft_id: string;
+  payload: {
+    decision?: string;
+    reason?: unknown;
+    new_status?: string;
+  };
+  drafts: {
+    id: string;
+    draft_text: string;
+    users: { name: string; title: string | null } | null;
+  } | null;
 };
 
 type RulePerf = {
- id: string;
- name: string;
- rule_type: RuleRow["rule_type"];
- timesTriggered: number;
- lastTriggered: string | null;
- isActive: boolean;
+  id: string;
+  name: string;
+  rule_type: RuleRow["rule_type"];
+  timesTriggered: number;
+  lastTriggered: string | null;
+  isActive: boolean;
 };
 
 type SpeakerStat = {
- name: string;
- title: string;
- totalDrafts: number;
- blocked: number;
- escalated: number;
- overridden: number;
- everBlocked: number; // blocked + overridden
+  name: string;
+  title: string;
+  totalDrafts: number;
+  blocked: number;
+  escalated: number;
 };
 
 type SpeakerJoinRow = {
- status: string;
- users: { name: string; title: string | null } | null;
+  status: string;
+  users: { name: string; title: string | null } | null;
 };
 
+// ---------- Data fetch ----------------------------------------------------
+
 async function getDashboardData() {
- const sb = getSupabaseAdmin();
+  const sb = getSupabaseAdmin();
 
- const [draftsRes, rulesRes, verdictsRes, reviewerActionsRes, speakerStatsRes] = await Promise.all([
- sb
- .from("drafts")
- .select("id, status, source_origin")
- .eq("org_id", DEMO_ORG_ID),
- sb
- .from("rules")
- .select("id, name, rule_type, description, effective_from, effective_to")
- .eq("org_id", DEMO_ORG_ID)
- .order("rule_type"),
- sb
- .from("actions")
- .select("id, occurred_at, payload")
- .eq("org_id", DEMO_ORG_ID)
- .eq("action_type", "verdict_issued"),
- sb
- .from("actions")
- .select("id, occurred_at, draft_id, payload, drafts(id, draft_text, users:speaker_id(name, title))")
- .eq("org_id", DEMO_ORG_ID)
- .eq("action_type", "reviewer_decided")
- // Only real form-driven decisions. The seed.ts script also wrote
- // reviewer_decided rows where payload.decision mirrors the draft status
- // ("approved" / "blocked" / "escalated") — those are system events, not
- // reviewer decisions, and must not appear in the activity feed.
- .in("payload->>decision", ["override", "confirm_block", "approve", "reject"])
- .order("occurred_at", { ascending: false })
- .limit(10),
- sb
- .from("drafts")
- .select("status, users:speaker_id(name, title)")
- .eq("org_id", DEMO_ORG_ID),
- ]);
+  const [draftsRes, rulesRes, verdictsRes, reviewerActionsRes, speakerStatsRes] = await Promise.all([
+    sb.from("drafts").select("id, status, source_origin").eq("org_id", DEMO_ORG_ID),
+    sb
+      .from("rules")
+      .select("id, name, rule_type, description, effective_from, effective_to")
+      .eq("org_id", DEMO_ORG_ID)
+      .order("rule_type"),
+    sb
+      .from("actions")
+      .select("id, occurred_at, payload")
+      .eq("org_id", DEMO_ORG_ID)
+      .eq("action_type", "verdict_issued"),
+    sb
+      .from("actions")
+      .select("id, occurred_at, draft_id, payload, drafts(id, draft_text, users:speaker_id(name, title))")
+      .eq("org_id", DEMO_ORG_ID)
+      .eq("action_type", "reviewer_decided")
+      // Strict filter: only real form-driven decisions. Seed.ts also wrote
+      // reviewer_decided rows where payload.decision mirrors draft status —
+      // those are status mirrors, not decisions, and must not appear.
+      .in("payload->>decision", ["override", "confirm_block", "approve", "reject"])
+      .order("occurred_at", { ascending: false })
+      .limit(10),
+    sb.from("drafts").select("status, users:speaker_id(name, title)").eq("org_id", DEMO_ORG_ID),
+  ]);
 
- if (draftsRes.error) throw new Error("drafts: " + draftsRes.error.message);
- if (rulesRes.error) throw new Error("rules: " + rulesRes.error.message);
- if (verdictsRes.error) throw new Error("verdicts: " + verdictsRes.error.message);
- if (reviewerActionsRes.error) throw new Error("reviewer actions: " + reviewerActionsRes.error.message);
- if (speakerStatsRes.error) throw new Error("speaker stats: " + speakerStatsRes.error.message);
+  if (draftsRes.error) throw new Error("drafts: " + draftsRes.error.message);
+  if (rulesRes.error) throw new Error("rules: " + rulesRes.error.message);
+  if (verdictsRes.error) throw new Error("verdicts: " + verdictsRes.error.message);
+  if (reviewerActionsRes.error) throw new Error("reviewer actions: " + reviewerActionsRes.error.message);
+  if (speakerStatsRes.error) throw new Error("speaker stats: " + speakerStatsRes.error.message);
 
- const drafts = (draftsRes.data || []) as DraftLite[];
- const rules = (rulesRes.data || []) as RuleRow[];
- const verdicts = (verdictsRes.data || []) as VerdictAction[];
- const reviewerActions = (reviewerActionsRes.data || []) as unknown as ReviewerAction[];
+  const drafts = (draftsRes.data || []) as DraftLite[];
+  const rules = (rulesRes.data || []) as RuleRow[];
+  const verdicts = (verdictsRes.data || []) as VerdictAction[];
+  const reviewerActions = (reviewerActionsRes.data || []) as unknown as ReviewerAction[];
 
- // Section 1 — governance health
- const draftsReviewed = drafts.length; // every draft in this app went through the verdict engine
- const blocked = drafts.filter((d) => d.status === "blocked").length;
- const blockRatePct = draftsReviewed === 0 ? 0 : Math.round((blocked / draftsReviewed) * 100);
- // Override rate: # of override decisions / # of drafts that were ever blocked.
- // Drafts currently 'blocked' or 'overridden' were both blocked at some point,
- // so the union is the right denominator (NOT the count of reviewer_decided rows,
- // which under-counts since the principal hasn't acted on every blocked draft yet).
- const overrideDecisions = reviewerActions.filter(
- (a) => (a.payload?.decision as string | undefined) === "override"
- ).length;
- const everBlocked = drafts.filter(
- (d) => d.status === "blocked" || d.status === "overridden"
- ).length;
- const overrideRatePct =
- everBlocked === 0 ? 0 : Math.round((overrideDecisions / everBlocked) * 100);
- // Gap exposure: schema doesn't model unreviewed posts — always 0 until ingestion is built.
- const gapExposure = drafts.filter(
- (d) =>
- // none of the current source_origin values trigger this; left here for when
- // off-channel ingestion adds a new value
- (d.source_origin as string) === "direct_post"
- ).length;
+  // Governance health
+  const draftsReviewed = drafts.length;
+  const blocked = drafts.filter((d) => d.status === "blocked").length;
+  const blockRatePct = draftsReviewed === 0 ? 0 : Math.round((blocked / draftsReviewed) * 100);
+  const overrideDecisions = reviewerActions.filter(
+    (a) => (a.payload?.decision as string | undefined) === "override"
+  ).length;
+  // Override rate denominator: drafts that were ever blocked (currently blocked
+  // OR overridden — both groups were blocked at some point).
+  const everBlocked = drafts.filter(
+    (d) => d.status === "blocked" || d.status === "overridden"
+  ).length;
+  const overrideRatePct =
+    everBlocked === 0 ? 0 : Math.round((overrideDecisions / everBlocked) * 100);
+  // Gap exposure: schema has no off-channel ingestion column yet — always 0.
+  const gapExposure = drafts.filter(
+    (d) => (d.source_origin as string) === "direct_post"
+  ).length;
 
- // Section 2 — rules performance
- const now = Date.now();
- const rulesPerf: RulePerf[] = rules.map((rule) => {
- const matches = verdicts.filter((v) => v.payload?.primary_match?.rule_id === rule.id);
- const lastTriggered = matches.length === 0
- ? null
- : matches.reduce((max, m) => (m.occurred_at > max ? m.occurred_at : max), matches[0].occurred_at);
- const fromTime = new Date(rule.effective_from).getTime();
- const toTime = rule.effective_to ? new Date(rule.effective_to).getTime() : null;
- const isActive = now >= fromTime && (toTime === null || now <= toTime);
- return {
- id: rule.id,
- name: rule.name,
- rule_type: rule.rule_type,
- timesTriggered: matches.length,
- lastTriggered,
- isActive,
- };
- }).sort((a, b) => b.timesTriggered - a.timesTriggered);
+  // Rules performance
+  const now = Date.now();
+  const rulesPerf: RulePerf[] = rules
+    .map((rule) => {
+      // Match by rule_id if present; fall back to rule_name for legacy seed rows.
+      const matches = verdicts.filter((v) => {
+        const pm = v.payload?.primary_match;
+        if (!pm) return false;
+        if (pm.rule_id && pm.rule_id === rule.id) return true;
+        return pm.rule_name === rule.name;
+      });
+      const lastTriggered = matches.length === 0
+        ? null
+        : matches.reduce(
+            (max, m) => (m.occurred_at > max ? m.occurred_at : max),
+            matches[0].occurred_at
+          );
+      const fromTime = new Date(rule.effective_from).getTime();
+      const toTime = rule.effective_to ? new Date(rule.effective_to).getTime() : null;
+      const isActive = now >= fromTime && (toTime === null || now <= toTime);
+      return {
+        id: rule.id,
+        name: rule.name,
+        rule_type: rule.rule_type,
+        timesTriggered: matches.length,
+        lastTriggered,
+        isActive,
+      };
+    })
+    .sort((a, b) => b.timesTriggered - a.timesTriggered);
 
- // Section 4 — compact active rules list
- const activeRules = rules.filter((r) => {
- const fromTime = new Date(r.effective_from).getTime();
- if (now < fromTime) return false;
- if (r.effective_to && now > new Date(r.effective_to).getTime()) return false;
- return true;
- });
+  // Speaker exposure — group drafts by speaker name. blocked count includes
+  // overridden drafts (they were blocked first); escalated stands alone.
+  const speakerMap = new Map<string, SpeakerStat>();
+  for (const row of (speakerStatsRes.data || []) as unknown as SpeakerJoinRow[]) {
+    const u = row.users;
+    if (!u) continue;
+    if (!speakerMap.has(u.name)) {
+      speakerMap.set(u.name, {
+        name: u.name,
+        title: u.title || "",
+        totalDrafts: 0,
+        blocked: 0,
+        escalated: 0,
+      });
+    }
+    const s = speakerMap.get(u.name)!;
+    s.totalDrafts++;
+    if (row.status === "blocked" || row.status === "overridden") s.blocked++;
+    else if (row.status === "escalated") s.escalated++;
+  }
+  const speakerStats = Array.from(speakerMap.values()).sort(
+    (a, b) => b.blocked - a.blocked
+  );
 
- // Speaker exposure — aggregate drafts by speaker name. Status 'overridden'
- // counts toward both the "blocked" exposure (it was blocked first) and the
- // "overridden" tally; everBlocked is what determines the highest-exposure flag.
- const speakerMap = new Map<string, SpeakerStat>();
- for (const row of (speakerStatsRes.data || []) as unknown as SpeakerJoinRow[]) {
- const u = row.users;
- if (!u) continue;
- if (!speakerMap.has(u.name)) {
- speakerMap.set(u.name, {
- name: u.name,
- title: u.title || "",
- totalDrafts: 0,
- blocked: 0,
- escalated: 0,
- overridden: 0,
- everBlocked: 0,
- });
- }
- const s = speakerMap.get(u.name)!;
- s.totalDrafts++;
- if (row.status === "blocked") { s.blocked++; s.everBlocked++; }
- else if (row.status === "escalated") s.escalated++;
- else if (row.status === "overridden") { s.overridden++; s.everBlocked++; }
- }
- const speakerStats = Array.from(speakerMap.values()).sort(
- (a, b) => b.everBlocked - a.everBlocked
- );
-
- return {
- health: { draftsReviewed, blockRatePct, overrideRatePct, gapExposure },
- rulesPerf,
- reviewerFeed: reviewerActions,
- activeRules,
- speakerStats,
- };
+  return {
+    health: { draftsReviewed, blockRatePct, overrideRatePct, gapExposure },
+    rulesPerf,
+    reviewerFeed: reviewerActions,
+    speakerStats,
+  };
 }
 
-function ruleTypeColor(t: string): string {
- if (t === "block") return "text-[#B91C1C] bg-[#FEF2F2] border-[#FECACA]";
- if (t === "escalate") return "text-[#C2410C] bg-[#FFF7ED] border-[#FED7AA]";
- if (t === "review") return "text-[#1D4ED8] bg-[#EFF6FF] border-[#BFDBFE]";
- return "text-[#6D28D9] bg-[#F5F3FF] border-[#DDD6FE]";
+// ---------- Helpers -------------------------------------------------------
+
+function fmtRelative(iso: string | null): string {
+  if (!iso) return "—";
+  const now = Date.now();
+  const then = new Date(iso).getTime();
+  const diffMs = now - then;
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 60) return minutes <= 0 ? "just now" : `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function decisionColor(d: string | undefined): string {
- if (d === "override") return "text-[#3730A3] bg-[#EEF2FF] border-[#C7D2FE]";
- if (d === "approve") return "text-[#166534] bg-[#F0FDF4] border-[#BBF7D0]";
- if (d === "reject" || d === "confirm_block") return "text-[#B91C1C] bg-[#FEF2F2] border-[#FECACA]";
- return "text-[#6E6E68] bg-[#F7F6F3] border-[#E2E1DC]";
-}
-
-function fmtDateTime(iso: string | null): string {
- if (!iso) return "—";
- return new Date(iso).toLocaleString("en-US", {
- month: "short",
- day: "numeric",
- hour: "numeric",
- minute: "2-digit",
- });
+function fmtDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function basisFromReason(reason: unknown): string | null {
- if (!reason) return null;
- if (typeof reason === "string") return reason;
- if (typeof reason === "object" && reason !== null && "basis" in reason) {
- const b = (reason as { basis?: unknown }).basis;
- return typeof b === "string" ? b : null;
- }
- return null;
+  if (!reason) return null;
+  if (typeof reason === "string") return reason;
+  if (typeof reason === "object" && reason !== null && "basis" in reason) {
+    const b = (reason as { basis?: unknown }).basis;
+    return typeof b === "string" ? b : null;
+  }
+  return null;
 }
 
+function verdictDot(t: string): string {
+  if (t === "block") return "bg-[#B91C1C]";
+  if (t === "escalate") return "bg-[#C2410C]";
+  if (t === "review") return "bg-[#1D4ED8]";
+  return "bg-[#6D28D9]";
+}
+
+function decisionBadge(d: string | undefined): { cls: string; label: string } {
+  if (d === "override")
+    return { cls: "bg-[#EEF2FF] text-[#3730A3] border-[#C7D2FE]", label: "OVERRIDE" };
+  if (d === "approve")
+    return { cls: "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]", label: "APPROVE" };
+  if (d === "confirm_block")
+    return { cls: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]", label: "CONFIRM BLOCK" };
+  if (d === "reject")
+    return { cls: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]", label: "REJECT" };
+  return { cls: "bg-[#F7F6F3] text-[#6E6E68] border-[#E2E1DC]", label: (d || "—").toUpperCase() };
+}
+
+// ---------- Page ----------------------------------------------------------
+
 export default async function DashboardPage() {
- const { health, rulesPerf, reviewerFeed, activeRules, speakerStats } = await getDashboardData();
- const topExposureName = speakerStats[0]?.everBlocked > 0 ? speakerStats[0].name : null;
+  const { health, rulesPerf, reviewerFeed, speakerStats } = await getDashboardData();
+  const top = speakerStats[0]?.blocked > 0 ? speakerStats[0].name : null;
 
- return (
- <>
- <SiteHeader />
- <main className="min-h-screen bg-[#F7F6F3]">
- <div className="max-w-6xl mx-auto px-6 py-12">
- {/* SECTION 5 — Header (with role-disambiguating subtitle + reviewer link) */}
- <div className="mb-8">
- <Link href="/" className="text-sm text-[#6E6E68] hover:text-[#1C1C1A]">← Home</Link>
- <div className="flex items-baseline justify-between gap-4 mt-2">
- <div>
- <h1 className="text-3xl font-light tracking-tight text-[#1C1C1A]">
- Principal dashboard
- </h1>
- <p className="text-sm text-[#1C1C1A] mt-1 font-medium">
- Governance oversight — not the reviewer queue
- </p>
- <p className="text-xs text-[#6E6E68] mt-1">
- Sarah Chen · General Counsel
- </p>
- </div>
- <Link
- href="/reviewer/queue"
- className="text-sm text-[#C9A92C] hover:underline shrink-0"
- >
- Go to reviewer queue →
- </Link>
- </div>
- </div>
+  return (
+    <>
+      <SiteHeader />
+      <main className="min-h-screen bg-[#F7F6F3]">
+        <div className="max-w-[1100px] mx-auto px-6">
+          {/* HEADER */}
+          <div className="pt-10 pb-8 border-b border-[#E2E1DC]">
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+                  PRINCIPAL DASHBOARD · SARAH CHEN, GC
+                </div>
+                <h1
+                  style={{ fontFamily: "var(--font-newsreader)" }}
+                  className="font-light text-3xl text-[#1C1C1A] mt-2"
+                >
+                  The complete governance record.
+                </h1>
+                <p className="text-sm text-[#6E6E68] mt-1 max-w-xl">
+                  Every speaker. Every draft. Every decision. One principal. One record.
+                </p>
+              </div>
+              <Link
+                href="/reviewer/queue"
+                className="font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] shrink-0 mt-1"
+              >
+                Go to reviewer queue →
+              </Link>
+            </div>
+          </div>
 
- {/* SECTION 1 — Governance health strip */}
- <section className="mb-10">
- <div className="text-xs uppercase tracking-widest text-[#6E6E68] mb-3">
- Governance health
- </div>
- <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
- <div className="bg-white border border-[#E2E1DC] rounded-sm p-5">
- <div className="text-xs text-[#6E6E68] uppercase tracking-wide">Drafts reviewed</div>
- <div className="text-3xl font-light text-[#1C1C1A] mt-1">{health.draftsReviewed}</div>
- <div className="text-xs text-[#6E6E68] mt-1">Across all speakers and campaigns</div>
- </div>
- <div className="bg-white border border-[#E2E1DC] rounded-sm p-5">
- <div className="text-xs text-[#B91C1C] uppercase tracking-wide">Block rate</div>
- <div className="text-3xl font-light text-[#1C1C1A] mt-1">{health.blockRatePct}%</div>
- <div className="text-xs text-[#6E6E68] mt-1">Drafts halted by hard rules</div>
- </div>
- <div className="bg-white border border-[#E2E1DC] rounded-sm p-5">
- <div className="text-xs text-[#6D28D9] uppercase tracking-wide">Override rate</div>
- <div className="text-3xl font-light text-[#1C1C1A] mt-1">{health.overrideRatePct}%</div>
- <div className="text-xs text-[#6E6E68] mt-1">Of decisions on blocked drafts</div>
- </div>
- <div className="bg-white border border-[#E2E1DC] rounded-sm p-5">
- <div className="text-xs text-[#C2410C] uppercase tracking-wide">Unreviewed posts detected</div>
- <div className="text-3xl font-light text-[#1C1C1A] mt-1">{health.gapExposure}</div>
- <div className="text-[10px] text-[#6E6E68] mt-1 italic">
- Gap monitoring active — no unreviewed posts detected
- </div>
- </div>
- </div>
- </section>
+          {/* SECTION 1 — Governance health */}
+          <section className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+                DRAFTS REVIEWED
+              </div>
+              <div className="font-mono text-4xl font-light text-[#1C1C1A]">
+                {health.draftsReviewed}
+              </div>
+              <div className="text-xs text-[#6E6E68] mt-1">Across all speakers</div>
+            </div>
+            <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+                BLOCK RATE
+              </div>
+              <div className="font-mono text-4xl font-light text-[#B91C1C]">
+                {health.blockRatePct}%
+              </div>
+              <div className="text-xs text-[#6E6E68] mt-1">Drafts halted by hard rules</div>
+            </div>
+            <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+                OVERRIDE RATE
+              </div>
+              <div className="font-mono text-4xl font-light text-[#1C1C1A]">
+                {health.overrideRatePct}%
+              </div>
+              <div className="text-xs text-[#6E6E68] mt-1">Of blocked drafts overridden</div>
+            </div>
+            <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+                GAP EXPOSURE
+              </div>
+              <div className="font-mono text-4xl font-light text-[#1C1C1A]">
+                {health.gapExposure}
+              </div>
+              <div className="text-xs text-[#6E6E68] mt-1">Gap monitoring active</div>
+            </div>
+          </section>
 
- {/* SECTION 1.5 — Speaker exposure (real data, top-blocked highlighted) */}
- <section className="mb-10">
- <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] mb-3">
- Speaker exposure
- </div>
- <div className="grid grid-cols-2 gap-3 mt-4">
- {speakerStats.slice(0, 4).map((s) => {
- const isTopExposure = topExposureName !== null && s.name === topExposureName;
- return (
- <div
- key={s.name}
- className={`bg-white border border-[#E2E1DC] rounded-sm p-5 ${
- isTopExposure ? "border-t-2 border-t-[#B91C1C]" : ""
- }`}
- >
- <div className="flex items-baseline justify-between gap-3">
- <div className="text-sm font-medium text-[#1C1C1A]">{s.name}</div>
- <div className="font-mono text-xs text-[#6E6E68]">{s.title}</div>
- </div>
- <div className="flex gap-4 mt-3">
- <div>
- <div className="font-mono text-xl font-light text-[#1C1C1A]">{s.totalDrafts}</div>
- <div className="font-mono text-[10px] uppercase text-[#6E6E68]">Drafts</div>
- </div>
- <div>
- <div className="font-mono text-xl font-light text-[#1C1C1A]">{s.blocked}</div>
- <div className="font-mono text-[10px] uppercase text-[#6E6E68]">Blocked</div>
- </div>
- <div>
- <div className="font-mono text-xl font-light text-[#1C1C1A]">{s.escalated}</div>
- <div className="font-mono text-[10px] uppercase text-[#6E6E68]">Escalated</div>
- </div>
- </div>
- {isTopExposure && (
- <div className="font-mono text-[10px] text-[#B91C1C] uppercase tracking-wide mt-3">
- Highest exposure
- </div>
- )}
- </div>
- );
- })}
- </div>
- </section>
+          {/* SECTION 2 — Speaker exposure */}
+          <section className="mt-10">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+              SPEAKER EXPOSURE
+            </div>
+            <p className="text-sm text-[#6E6E68] mt-1 mb-4">
+              Governance activity by speaker this period.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {speakerStats.slice(0, 4).map((s) => {
+                const isTop = top !== null && s.name === top;
+                return (
+                  <div
+                    key={s.name}
+                    className={`bg-white border border-[#E2E1DC] rounded-sm p-5 ${
+                      isTop ? "border-t-2 border-t-[#B91C1C]" : ""
+                    }`}
+                  >
+                    <div className="text-sm font-medium text-[#1C1C1A]">{s.name}</div>
+                    <div className="font-mono text-xs text-[#6E6E68] mt-0.5">{s.title}</div>
+                    <div className="flex gap-6 mt-4">
+                      <div>
+                        <div className="font-mono text-2xl font-light text-[#1C1C1A]">{s.totalDrafts}</div>
+                        <div className="font-mono text-[10px] uppercase text-[#6E6E68] mt-1">total</div>
+                      </div>
+                      <div>
+                        <div className="font-mono text-2xl font-light text-[#1C1C1A]">{s.blocked}</div>
+                        <div className="font-mono text-[10px] uppercase text-[#6E6E68] mt-1">blocked</div>
+                      </div>
+                      <div>
+                        <div className="font-mono text-2xl font-light text-[#1C1C1A]">{s.escalated}</div>
+                        <div className="font-mono text-[10px] uppercase text-[#6E6E68] mt-1">escalated</div>
+                      </div>
+                    </div>
+                    {isTop && (
+                      <div className="font-mono text-[10px] text-[#B91C1C] uppercase tracking-wide mt-3 text-right">
+                        Highest exposure
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
 
- {/* SECTION 2 — Rules performance table */}
- <section className="mb-10">
- <div className="flex items-baseline justify-between mb-3">
- <div className="text-xs uppercase tracking-widest text-[#6E6E68]">
- Rules performance
- </div>
- <span className="text-xs text-[#6E6E68]">{rulesPerf.length} rules</span>
- </div>
- <div className="bg-white border border-[#E2E1DC] rounded-sm overflow-hidden">
- <table className="w-full text-sm">
- <thead className="bg-[#F7F6F3] border-b border-[#E2E1DC]">
- <tr>
- <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Rule</th>
- <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Type</th>
- <th className="text-right px-4 py-3 font-medium text-[#6E6E68]">Times triggered</th>
- <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Last triggered</th>
- <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Status</th>
- </tr>
- </thead>
- <tbody>
- {rulesPerf.length === 0 ? (
- <tr>
- <td colSpan={5} className="px-4 py-6 text-center text-[#6E6E68]">
- No rules configured.
- </td>
- </tr>
- ) : (
- rulesPerf.map((r) => (
- <tr key={r.id} className="border-b border-[#E2E1DC] last:border-0">
- <td className="px-4 py-3 text-[#1C1C1A] font-medium">{r.name}</td>
- <td className="px-4 py-3">
- <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide border uppercase ${ruleTypeColor(r.rule_type)}`}>
- {r.rule_type}
- </span>
- </td>
- <td className="px-4 py-3 text-right text-[#1C1C1A] font-medium">{r.timesTriggered}</td>
- <td className="px-4 py-3 text-[#6E6E68] text-xs font-mono">
- {r.lastTriggered ? fmtDateTime(r.lastTriggered) : "—"}
- </td>
- <td className="px-4 py-3">
- <span className={r.isActive
- ? "text-xs text-[#166534]"
- : "text-xs text-[#6E6E68]"}>
- {r.isActive ? "Active" : "Inactive"}
- </span>
- </td>
- </tr>
- ))
- )}
- </tbody>
- </table>
- </div>
- </section>
+          {/* SECTION 3 — Rules performance (rows, not a table) */}
+          <section className="mt-10">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+              RULES PERFORMANCE
+            </div>
+            <p className="text-sm text-[#6E6E68] mt-1 mb-4">
+              Which rules are governing communications right now.
+            </p>
+            <div>
+              {rulesPerf.length === 0 ? (
+                <div className="bg-white border border-[#E2E1DC] rounded-sm p-8 text-center text-sm text-[#6E6E68]">
+                  No rules configured.
+                </div>
+              ) : (
+                rulesPerf.map((r) => (
+                  <div
+                    key={r.id}
+                    className="bg-white border border-[#E2E1DC] rounded-sm mb-1 px-5 py-4 flex items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${verdictDot(r.rule_type)}`} aria-hidden />
+                      <span className="text-sm font-medium text-[#1C1C1A] truncate">{r.name}</span>
+                      <span className="font-mono text-[10px] uppercase text-[#6E6E68] bg-[#F0EFE9] px-2 py-0.5 rounded-sm shrink-0">
+                        {r.rule_type}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-8 shrink-0">
+                      <div className="text-right">
+                        <div className="font-mono text-lg font-light text-[#1C1C1A]">{r.timesTriggered}</div>
+                        <div className="font-mono text-[10px] text-[#6E6E68]">triggers</div>
+                      </div>
+                      <div className="font-mono text-xs text-[#6E6E68] w-20 text-right">
+                        {fmtRelative(r.lastTriggered)}
+                      </div>
+                      <span
+                        className={
+                          r.isActive
+                            ? "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0] font-mono text-[10px] px-2 py-0.5 rounded-sm border uppercase"
+                            : "bg-[#F7F6F3] text-[#6E6E68] border-[#E2E1DC] font-mono text-[10px] px-2 py-0.5 rounded-sm border uppercase"
+                        }
+                      >
+                        {r.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
 
- {/* SECTION 3 — Reviewer activity feed (audit-of-the-auditors) */}
- <section className="mb-10">
- <div className="flex items-baseline justify-between mb-3">
- <div className="text-xs uppercase tracking-widest text-[#6E6E68]">
- Reviewer activity
- </div>
- <span className="text-xs text-[#6E6E68]">{reviewerFeed.length} recent decisions</span>
- </div>
- <div className="bg-white border border-[#E2E1DC] rounded-sm overflow-hidden">
- {reviewerFeed.length === 0 ? (
- <div className="px-4 py-6 text-center text-[#6E6E68] text-sm">
- No reviewer decisions yet.
- </div>
- ) : (
- <ul className="divide-y divide-[#E2E1DC]">
- {reviewerFeed.map((a) => {
- const speakerName = a.drafts?.users?.name || "—";
- const speakerTitle = a.drafts?.users?.title || "";
- const decision = a.payload?.decision;
- const basis = basisFromReason(a.payload?.reason);
- return (
- <li key={a.id} className="px-4 py-3 flex items-start gap-4">
- <div className="shrink-0">
- <span className={`inline-flex items-center px-2 py-1 rounded text-[10px] font-bold tracking-wide border uppercase ${decisionColor(decision)}`}>
- {decision || "—"}
- </span>
- </div>
- <div className="flex-1 min-w-0">
- <div className="text-sm text-[#1C1C1A]">
- <span className="font-medium">Sarah Chen · CCO</span>
- <span className="text-[#6E6E68]"> decided on draft from </span>
- <span className="font-medium">{speakerName}</span>
- {speakerTitle && (
- <span className="text-[#6E6E68]"> ({speakerTitle})</span>
- )}
- </div>
- {basis && (
- <div className="text-xs text-[#6E6E68] mt-1">
- Basis: {basis}
- </div>
- )}
- </div>
- <div className="shrink-0 flex flex-col items-end gap-1">
- <span className="text-xs text-[#6E6E68] font-mono">
- {fmtDateTime(a.occurred_at)}
- </span>
- {a.draft_id && (
- <Link
- href={`/drafts/${a.draft_id}`}
- className="text-xs text-[#C9A92C] hover:underline"
- >
- View draft →
- </Link>
- )}
- </div>
- </li>
- );
- })}
- </ul>
- )}
- </div>
- </section>
-
- {/* SECTION 4 — Compact active rules list */}
- <section className="mb-10">
- <div className="flex items-baseline justify-between mb-3">
- <div className="text-xs uppercase tracking-widest text-[#6E6E68]">
- Active rules
- </div>
- <Link href="/rules" className="text-xs text-[#C9A92C] hover:underline">
- Manage rules →
- </Link>
- </div>
- <div className="bg-white border border-[#E2E1DC] rounded-sm p-4">
- {activeRules.length === 0 ? (
- <p className="text-sm text-[#6E6E68] text-center py-4">No rules currently active.</p>
- ) : (
- <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
- {activeRules.map((r) => (
- <li key={r.id} className="flex items-baseline gap-3 text-sm">
- <span className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide border uppercase ${ruleTypeColor(r.rule_type)}`}>
- {r.rule_type}
- </span>
- <span className="text-[#1C1C1A] truncate">{r.name}</span>
- </li>
- ))}
- </ul>
- )}
- </div>
- </section>
- </div>
- </main>
- </>
- );
+          {/* SECTION 4 — Reviewer decisions */}
+          <section className="mt-10 pb-16">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+              REVIEWER DECISIONS
+            </div>
+            <p className="text-sm text-[#6E6E68] mt-1 mb-4">
+              Decisions made by the designated principal on blocked and escalated drafts.
+            </p>
+            {reviewerFeed.length === 0 ? (
+              <div className="bg-white border border-[#E2E1DC] rounded-sm p-8 text-center text-sm text-[#6E6E68]">
+                No reviewer decisions yet. Decisions appear here after a principal reviews a blocked or escalated draft.
+              </div>
+            ) : (
+              reviewerFeed.map((a) => {
+                const speakerName = a.drafts?.users?.name || "—";
+                const speakerTitle = a.drafts?.users?.title || "";
+                const decision = a.payload?.decision;
+                const badge = decisionBadge(decision);
+                const basis = basisFromReason(a.payload?.reason);
+                return (
+                  <div
+                    key={a.id}
+                    className="bg-white border border-[#E2E1DC] rounded-sm mb-1 px-5 py-4 flex items-start justify-between gap-4"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-sm border font-mono text-[10px] uppercase ${badge.cls}`}
+                      >
+                        {badge.label}
+                      </span>
+                      <div className="text-sm text-[#1C1C1A] mt-2">
+                        Sarah Chen · CCO decided on draft from{" "}
+                        <span className="font-medium">{speakerName}</span>
+                        {speakerTitle && <span className="text-[#6E6E68]"> ({speakerTitle})</span>}
+                      </div>
+                      {basis && (
+                        <div className="font-mono text-xs text-[#6E6E68] mt-1">Basis: {basis}</div>
+                      )}
+                    </div>
+                    <div className="shrink-0 flex flex-col items-end gap-1">
+                      <span className="font-mono text-xs text-[#6E6E68]">{fmtDateTime(a.occurred_at)}</span>
+                      {a.draft_id && (
+                        <Link
+                          href={`/drafts/${a.draft_id}`}
+                          className="font-mono text-xs text-[#C9A92C] hover:text-[#8A7520]"
+                        >
+                          View draft →
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </section>
+        </div>
+      </main>
+    </>
+  );
 }

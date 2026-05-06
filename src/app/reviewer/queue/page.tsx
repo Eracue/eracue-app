@@ -81,17 +81,18 @@ export default async function ReviewerQueuePage() {
       <main className="min-h-screen bg-[#F7F6F3]">
         <div className="max-w-5xl mx-auto px-6 py-12">
           <div className="mb-8">
-            <Link href="/" className="text-sm text-[#6E6E68] hover:text-[#1C1C1A]">← Home</Link>
-            <h1 className="text-3xl font-light tracking-tight text-[#1C1C1A] mt-2">
-              Reviewer queue
+            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+              REVIEWER QUEUE
+            </div>
+            <h1
+              style={{ fontFamily: "var(--font-newsreader)" }}
+              className="font-light text-2xl text-[#1C1C1A] mt-2"
+            >
+              {queue.length} draft{queue.length === 1 ? "" : "s"} awaiting principal review
             </h1>
-            <p className="text-sm text-[#6E6E68] mt-1">
-              {queue.length} draft{queue.length === 1 ? "" : "s"} waiting on you
-            </p>
-            <p className="text-sm text-[#6E6E68] mt-3 max-w-2xl">
-              Every speaker&apos;s blocked and escalated drafts — in one queue. Override
-              with a documented reason or confirm the system&apos;s decision. Every choice
-              on the record.
+            <p className="text-sm text-[#6E6E68] mt-1 max-w-xl">
+              Every speaker&apos;s blocked and escalated drafts — grouped for review.
+              Override with a documented reason or confirm the system&apos;s decision.
             </p>
           </div>
 
