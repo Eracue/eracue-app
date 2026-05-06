@@ -237,7 +237,7 @@ export default function Home() {
                 href="/submit"
                 className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-6 transition-colors"
               >
-                Submit a draft →
+                Check a draft →
               </Link>
             </div>
 
@@ -322,8 +322,8 @@ export default function Home() {
           {[
             { name: "Marcus Rivera", role: "CEO",      drafts: 6, blocked: 4, escalated: 1, highest: true },
             { name: "Lena Brooks",   role: "VP Comms", drafts: 5, blocked: 3, escalated: 0, highest: false },
-            { name: "James Kim",     role: "VP Sales", drafts: 4, blocked: 0, escalated: 2, highest: false },
-            { name: "Priya Patel",   role: "CMO",      drafts: 3, blocked: 1, escalated: 1, highest: false },
+            { name: "James Kim",     role: "VP Sales", drafts: 4, blocked: 1, escalated: 2, highest: false },
+            { name: "Priya Patel",   role: "CMO",      drafts: 3, blocked: 2, escalated: 1, highest: false },
           ].map((s) => (
             <div
               key={s.name}
@@ -363,7 +363,7 @@ export default function Home() {
           {/* Governance summary strip */}
           <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm px-5 py-3 mt-1 flex justify-between items-center">
             <span className="font-mono text-xs text-[#64748B]">
-              18 drafts · 8 blocked · 3 escalated · 2 overridden
+              38 drafts · 14 blocked · 5 escalated · 2 overridden
             </span>
             <span className="font-mono text-xs text-[#64748B]">
               Governed by: Sarah Chen · GC · Designated Principal
