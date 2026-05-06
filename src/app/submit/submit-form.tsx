@@ -553,16 +553,16 @@ export function SubmitForm() {
               Outlook. Salesforce. Marketo. Your CMS. Any AI-generated
               content submits to ERA CUE before it publishes — automatically.
             </p>
-            {/* Inline-styled <pre> — Tailwind v4 arbitrary-value classes
-                were occasionally getting purged in production builds for
-                this code block, leaving the API sample rendering as plain
-                text. Inline styles guarantee the dark-terminal treatment
-                renders end-to-end. */}
+            {/* Inline-styled <pre> with dangerouslySetInnerHTML — bypasses
+                any downstream markdown / MDX processing of the JSX
+                children that was occasionally swallowing the curly braces
+                and quote marks. Quotes are HTML-entity-escaped so XSS is
+                impossible (the payload is a fixed literal anyway). */}
             <pre
               style={{
                 backgroundColor: "#0F172A",
                 color: "#7DD3FC",
-                fontFamily: "monospace",
+                fontFamily: "ui-monospace, monospace",
                 fontSize: "11px",
                 lineHeight: "1.6",
                 padding: "12px",
@@ -570,21 +570,25 @@ export function SubmitForm() {
                 overflowX: "auto",
                 whiteSpace: "pre",
                 margin: "8px 0",
+                display: "block",
               }}
-            >
-{`POST https://api.eracue.com/v1/check
-Authorization: Bearer {org_api_key}
-X-ERA-CUE-WSP: "Section 4.2"
-
-{
-  "speaker": "ceo",
-  "draft": "...",
-  "channel": "earnings_call",
-  "campaign": "q2_2026",
-  "submission_type": "agent",
-  "source": "outlook_copilot"
-}`}
-            </pre>
+              dangerouslySetInnerHTML={{
+                __html: [
+                  "POST https://api.eracue.com/v1/check",
+                  "Authorization: Bearer {org_api_key}",
+                  "X-ERA-CUE-WSP: &quot;Section 4.2&quot;",
+                  "",
+                  "{",
+                  "  &quot;speaker&quot;: &quot;ceo&quot;,",
+                  "  &quot;draft&quot;: &quot;...&quot;,",
+                  "  &quot;channel&quot;: &quot;earnings_call&quot;,",
+                  "  &quot;campaign&quot;: &quot;q2_2026&quot;,",
+                  "  &quot;submission_type&quot;: &quot;agent&quot;,",
+                  "  &quot;source&quot;: &quot;outlook_copilot&quot;",
+                  "}",
+                ].join("\n"),
+              }}
+            />
             <div className="font-mono text-[10px] text-[#94A3B8] mt-3 space-y-1">
               <div>✓ Rule inheritance by role and division</div>
               <div>✓ Campaign-scoped consistency checking</div>
