@@ -7,6 +7,7 @@ import { CheckDetailPanel } from "./check-detail-panel";
 import { SiteHeader } from "@/app/site-header";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type PageProps = { params: Promise<{ id: string }> };
 
