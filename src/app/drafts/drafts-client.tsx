@@ -37,57 +37,6 @@ function formatChannel(ch: string): string {
   return map[ch] ?? ch;
 }
 
-// Status badge logic:
-//   overridden → its own blue 'Overridden' pill regardless of who acted.
-//     Avoids the BLOCK / PRINCIPAL APPROVED contradiction where the same
-//     row reads as both blocked-by-system and approved-by-principal.
-//   approved   → green 'Principal approved' when a reviewer_decided
-//                action exists, slate 'System cleared' otherwise.
-//   pending / escalated / blocked → status-coloured pill.
-function statusBadge(
-  status: string,
-  draftId: string,
-  principalApprovedIds: Set<string>,
-) {
-  if (status === "overridden") {
-    return (
-      <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border bg-[#EFF8FF] text-[#1A56DB] border-[#BAE6FD]">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB]" aria-hidden />
-        Overridden
-      </span>
-    );
-  }
-  if (status === "approved") {
-    if (principalApprovedIds.has(draftId)) {
-      return (
-        <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#166534]" aria-hidden />
-          Principal approved
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border bg-[#F1F5F9] text-[#64748B] border-[#E2E8F0]">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#64748B]" aria-hidden />
-        System cleared
-      </span>
-    );
-  }
-  const colors: Record<string, string> = {
-    pending:   "bg-[#F1F5F9] text-[#0F172A]",
-    escalated: "bg-[#FFF7ED] text-[#C2410C]",
-    blocked:   "bg-[#FEF2F2] text-[#B91C1C]",
-  };
-  const cls = colors[status] || "bg-[#F1F5F9] text-[#0F172A]";
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide ${cls}`}
-    >
-      {status}
-    </span>
-  );
-}
-
 // Plain-English label for the per-row "see the record" link. Tailors to
 // what the reader is actually clicking into — overridden drafts open an
 // override record, blocked/escalated drafts open the review-in-progress
@@ -100,51 +49,144 @@ function recordLinkLabel(status: string): string {
   return "Governance record →";
 }
 
-// Plain-English subtext that sits under the status badge so the row
-// reads as a sentence, not a state-machine token. Whether a principal
-// has acted on the draft changes the description for some statuses.
-function statusDescription(
-  status: string,
-  hasPrincipalDecision: boolean,
-): string {
-  switch (status) {
-    case "blocked":
-      return hasPrincipalDecision
-        ? "Reviewed by principal"
-        : "Stopped — awaiting review";
-    case "escalated":
-      return hasPrincipalDecision
-        ? "Escalated — decision recorded"
-        : "Escalated — awaiting review";
-    case "approved":
-      return hasPrincipalDecision
-        ? "Reviewed and approved"
-        : "Passed all checks";
-    case "overridden":
-      return "Approved despite flag";
-    case "pending":
-      return "Awaiting principal review";
-    default:
-      return "";
+// Combined status descriptor — folds the raw verdict + status + whether
+// a principal has decided into one labelled badge plus a plain-English
+// subtext line. Replaces the separate VerdictBadge / statusBadge /
+// statusDescription helpers so the table doesn't show contradictions
+// like 'BLOCK · PRINCIPAL APPROVED' on the same row.
+type CombinedStatus = {
+  badge: string;
+  bg: string;
+  text: string;
+  border: string;
+  dot: string;
+  desc: string;
+};
+
+function combinedStatus(
+  d: { id: string; status: string; verdict: string | null },
+  principalApprovedIds: Set<string>,
+): CombinedStatus {
+  const verdict = d.verdict?.toLowerCase() ?? null;
+  const status = d.status?.toLowerCase() ?? "";
+  const hasPrincipal = principalApprovedIds.has(d.id);
+
+  // Overridden — principal cleared a draft despite a block/escalate
+  // verdict. Always wins so the row never reads as both flagged and
+  // approved at the same time.
+  if (status === "overridden") {
+    return {
+      badge: "OVERRIDDEN",
+      bg: "bg-[#EFF8FF]",
+      text: "text-[#1A56DB]",
+      border: "border-[#BAE6FD]",
+      dot: "bg-[#1A56DB]",
+      desc: "Approved despite flag",
+    };
   }
+
+  if (verdict === "block" && status === "blocked" && !hasPrincipal) {
+    return {
+      badge: "BLOCKED",
+      bg: "bg-[#FEF2F2]",
+      text: "text-[#B91C1C]",
+      border: "border-[#FECACA]",
+      dot: "bg-[#B91C1C]",
+      desc: "Awaiting review",
+    };
+  }
+
+  if (verdict === "block" && hasPrincipal) {
+    return {
+      badge: "REVIEWED",
+      bg: "bg-[#FEF2F2]",
+      text: "text-[#B91C1C]",
+      border: "border-[#FECACA]",
+      dot: "bg-[#B91C1C]",
+      desc: "Reviewed by principal",
+    };
+  }
+
+  if (verdict === "escalate" && !hasPrincipal) {
+    return {
+      badge: "ESCALATED",
+      bg: "bg-[#FFF7ED]",
+      text: "text-[#C2410C]",
+      border: "border-[#FED7AA]",
+      dot: "bg-[#C2410C]",
+      desc: "Awaiting review",
+    };
+  }
+
+  if (verdict === "escalate" && hasPrincipal) {
+    return {
+      badge: "ESCALATED",
+      bg: "bg-[#FFF7ED]",
+      text: "text-[#C2410C]",
+      border: "border-[#FED7AA]",
+      dot: "bg-[#C2410C]",
+      desc: "Decision recorded",
+    };
+  }
+
+  if (status === "approved" && hasPrincipal) {
+    return {
+      badge: "APPROVED",
+      bg: "bg-[#F0FDF4]",
+      text: "text-[#166534]",
+      border: "border-[#BBF7D0]",
+      dot: "bg-[#166534]",
+      desc: "Reviewed and approved",
+    };
+  }
+
+  if (status === "approved" && !hasPrincipal) {
+    return {
+      badge: "CLEARED",
+      bg: "bg-[#F1F5F9]",
+      text: "text-[#64748B]",
+      border: "border-[#E2E8F0]",
+      dot: "bg-[#64748B]",
+      desc: "Passed all checks",
+    };
+  }
+
+  if (status === "pending" || verdict === "review") {
+    return {
+      badge: "PENDING",
+      bg: "bg-[#EFF6FF]",
+      text: "text-[#1D4ED8]",
+      border: "border-[#BFDBFE]",
+      dot: "bg-[#1D4ED8]",
+      desc: "Awaiting principal review",
+    };
+  }
+
+  return {
+    badge: status?.toUpperCase() || "—",
+    bg: "bg-[#F1F5F9]",
+    text: "text-[#64748B]",
+    border: "border-[#E2E8F0]",
+    dot: "bg-[#64748B]",
+    desc: "",
+  };
 }
 
-function VerdictBadge({ verdict }: { verdict: string | null }) {
-  if (!verdict) {
-    return <span className="text-xs text-[#64748B]">—</span>;
-  }
-  const styles: Record<string, { bg: string; text: string; border: string; label: string }> = {
-    block:    { bg: "bg-[#FEF2F2]", text: "text-[#B91C1C]", border: "border-[#FECACA]", label: "BLOCK" },
-    escalate: { bg: "bg-[#FFF7ED]", text: "text-[#C2410C]", border: "border-[#FED7AA]", label: "ESCALATE" },
-    review:   { bg: "bg-[#EFF6FF]", text: "text-[#1D4ED8]", border: "border-[#BFDBFE]", label: "REVIEW" },
-    guide:    { bg: "bg-[#F5F3FF]", text: "text-[#6D28D9]", border: "border-[#DDD6FE]", label: "GUIDE" },
-    clear:    { bg: "bg-[#F0FDF4]", text: "text-[#166534]", border: "border-[#BBF7D0]", label: "CLEAR" },
-  };
-  const s = styles[verdict.toLowerCase()] || styles.clear;
+function StatusCell({ s }: { s: CombinedStatus }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide border ${s.bg} ${s.text} ${s.border}`}>
-      {s.label}
-    </span>
+    <div>
+      <span
+        className={`inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm border ${s.bg} ${s.text} ${s.border}`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.dot}`} aria-hidden />
+        {s.badge}
+      </span>
+      {s.desc && (
+        <div className="font-mono text-[10px] text-[#94A3B8] mt-0.5">
+          {s.desc}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -433,16 +475,15 @@ export function DraftsClient({
           above so the table scrolls horizontally if the viewport is
           narrower than the column-natural width. */}
       <div className="hidden sm:block bg-white border border-[#E2E8F0] rounded-sm overflow-x-auto">
-        <table className="w-full min-w-[860px] text-sm">
+        <table className="w-full min-w-[700px] text-sm">
           <thead className="bg-[#F8F9FB] border-b border-[#E2E8F0]">
             <tr>
-              <th className="w-40 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Speaker</th>
-              <th className="w-24 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Date</th>
-              <th className="w-28 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Channel</th>
+              <th className="w-44 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Speaker</th>
+              <th className="w-20 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Date</th>
+              <th className="w-24 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Channel</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Draft</th>
-              <th className="w-24 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Verdict</th>
-              <th className="w-28 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Status</th>
-              <th className="w-44 px-4 py-3" aria-label="Examiner record link" />
+              <th className="w-44 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Status</th>
+              <th className="w-36 px-4 py-3" aria-label="Examiner record link" />
             </tr>
           </thead>
           <tbody>
@@ -451,7 +492,7 @@ export function DraftsClient({
                 key={d.id}
                 className="border-b border-[#E2E8F0] last:border-0 hover:bg-[#F8F9FB]"
               >
-                <td className="px-4 py-3 whitespace-nowrap">
+                <td className="w-44 px-4 py-3 whitespace-nowrap">
                   <Link href={`/drafts/${d.id}`} className="block group">
                     <div className="text-sm font-semibold text-[#0F172A] group-hover:underline truncate">
                       {d.users?.name || "—"}
@@ -459,13 +500,13 @@ export function DraftsClient({
                     <div className="text-xs text-[#64748B] truncate">{d.users?.title || ""}</div>
                   </Link>
                 </td>
-                <td className="w-24 px-4 py-3 font-mono text-xs text-[#94A3B8] whitespace-nowrap">
+                <td className="w-20 px-4 py-3 font-mono text-xs text-[#94A3B8] whitespace-nowrap">
                   {new Date(d.submitted_at).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
                   })}
                 </td>
-                <td className="px-4 py-3 text-[#374151] truncate whitespace-nowrap">{formatChannel(d.channel)}</td>
+                <td className="w-24 px-4 py-3 text-[#374151] truncate whitespace-nowrap">{formatChannel(d.channel)}</td>
                 <td className="px-4 py-3 max-w-xs">
                   <div className="flex items-start gap-2">
                     <div className="text-sm text-[#374151] line-clamp-2 leading-snug min-w-0">
@@ -478,18 +519,10 @@ export function DraftsClient({
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <VerdictBadge verdict={d.verdict} />
+                <td className="w-44 px-4 py-3 whitespace-nowrap">
+                  <StatusCell s={combinedStatus(d, principalApprovedSet)} />
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  {statusBadge(d.status, d.id, principalApprovedSet)}
-                  {statusDescription(d.status, principalApprovedSet.has(d.id)) && (
-                    <div className="font-mono text-[10px] text-[#94A3B8] mt-1 whitespace-nowrap">
-                      {statusDescription(d.status, principalApprovedSet.has(d.id))}
-                    </div>
-                  )}
-                </td>
-                <td className="w-44 px-4 py-3 text-right whitespace-nowrap">
+                <td className="w-36 px-4 py-3 text-right whitespace-nowrap">
                   <Link
                     href={`/drafts/${d.id}/examiner`}
                     className="inline-flex items-center gap-1 font-mono text-xs font-medium text-[#1A56DB] hover:text-[#1447C0] bg-[#EFF8FF] border border-[#BAE6FD] px-2 py-1 rounded-sm transition-colors whitespace-nowrap"
@@ -501,7 +534,7 @@ export function DraftsClient({
             ))}
             {deduplicated.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-sm text-[#64748B]">
+                <td colSpan={6} className="px-4 py-12 text-center text-sm text-[#64748B]">
                   No communications match the current filters.{" "}
                   <button
                     type="button"
@@ -534,22 +567,19 @@ export function DraftsClient({
         ) : (
           deduplicated.map((d) => (
             <div key={d.id} className="bg-white border border-[#E2E8F0] rounded-sm p-4">
-              {/* Speaker + date header */}
-              <div className="flex items-start justify-between mb-2 gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-[#0F172A] truncate">
-                    {d.users?.name || "—"}
-                  </div>
-                  <div className="font-mono text-xs text-[#64748B] truncate">
-                    {d.users?.title ? `${d.users.title} · ` : ""}
-                    {new Date(d.submitted_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </div>
+              {/* Speaker + date header — verdict moved into the combined
+                  status block at the bottom, so the header is just the
+                  speaker context. */}
+              <div className="mb-2">
+                <div className="text-sm font-semibold text-[#0F172A] truncate">
+                  {d.users?.name || "—"}
                 </div>
-                <div className="shrink-0">
-                  <VerdictBadge verdict={d.verdict} />
+                <div className="font-mono text-xs text-[#64748B] truncate">
+                  {d.users?.title ? `${d.users.title} · ` : ""}
+                  {new Date(d.submitted_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })}
                 </div>
               </div>
 
@@ -563,16 +593,9 @@ export function DraftsClient({
                 )}
               </div>
 
-              {/* Status badge + description + record link */}
+              {/* Combined status badge + description + record link */}
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex flex-col gap-1">
-                  {statusBadge(d.status, d.id, principalApprovedSet)}
-                  {statusDescription(d.status, principalApprovedSet.has(d.id)) && (
-                    <div className="font-mono text-[10px] text-[#94A3B8]">
-                      {statusDescription(d.status, principalApprovedSet.has(d.id))}
-                    </div>
-                  )}
-                </div>
+                <StatusCell s={combinedStatus(d, principalApprovedSet)} />
                 <Link
                   href={`/drafts/${d.id}/examiner`}
                   className="font-mono text-xs font-medium text-[#1A56DB] hover:text-[#1447C0] transition-colors min-h-[44px] inline-flex items-center"
