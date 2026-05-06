@@ -67,34 +67,6 @@ function VerdictBadge({ verdict }: { verdict: string | null }) {
   );
 }
 
-// Category column — communication_category is the populated column;
-// source_origin (the previous "Source" column) is mostly empty so we drop it.
-// Null categories render as a muted em-dash so the row stays calm.
-function CategoryBadge({ category }: { category: string | null }) {
-  if (category === "retail") {
-    return (
-      <span className="font-mono text-[10px] bg-[#EFF8FF] text-[#1447C0] border border-[#BAE6FD] px-1.5 py-0.5 rounded-sm">
-        Retail
-      </span>
-    );
-  }
-  if (category === "institutional") {
-    return (
-      <span className="font-mono text-[10px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] px-1.5 py-0.5 rounded-sm">
-        Institutional
-      </span>
-    );
-  }
-  if (category === "correspondence") {
-    return (
-      <span className="font-mono text-[10px] bg-[#F8F9FB] text-[#475569] border border-[#E2E8F0] px-1.5 py-0.5 rounded-sm">
-        Correspondence
-      </span>
-    );
-  }
-  return <span className="text-xs text-[#94A3B8]">—</span>;
-}
-
 const SELECT_CLASSES =
   "border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-xs font-mono text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]";
 
@@ -204,17 +176,15 @@ export function DraftsClient({ drafts }: { drafts: DraftRecord[] }) {
       </div>
 
       <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden">
-        <table className="w-full text-sm">
+        <table className="w-full table-fixed text-sm">
           <thead className="bg-[#F8F9FB] border-b border-[#E2E8F0]">
             <tr>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Speaker</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Channel</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] w-40 shrink-0">Speaker</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] w-24 shrink-0">Channel</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Draft</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Campaign</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Verdict</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Category</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Status</th>
-              <th className="px-4 py-3" aria-label="Examiner record link" />
+              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] w-24 shrink-0">Verdict</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] w-28 shrink-0">Status</th>
+              <th className="px-4 py-3 w-36 shrink-0" aria-label="Examiner record link" />
             </tr>
           </thead>
           <tbody>
@@ -223,31 +193,31 @@ export function DraftsClient({ drafts }: { drafts: DraftRecord[] }) {
                 key={d.id}
                 className="border-b border-[#E2E8F0] last:border-0 hover:bg-[#F8F9FB]"
               >
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 w-40 shrink-0">
                   <Link href={`/drafts/${d.id}`} className="block group">
-                    <div className="text-sm font-semibold text-[#0F172A] group-hover:underline">
+                    <div className="text-sm font-semibold text-[#0F172A] group-hover:underline truncate">
                       {d.users?.name || "—"}
                     </div>
-                    <div className="text-xs text-[#64748B]">{d.users?.title || ""}</div>
+                    <div className="text-xs text-[#64748B] truncate">{d.users?.title || ""}</div>
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-[#374151]">{formatChannel(d.channel)}</td>
-                <td className="px-4 py-3 text-[#0F172A] max-w-md truncate">{d.draft_text}</td>
-                <td className="px-4 py-3 text-[#374151]">{d.campaigns?.name || "—"}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 text-[#374151] w-24 shrink-0 truncate">{formatChannel(d.channel)}</td>
+                <td className="px-4 py-3 overflow-hidden">
+                  <div className="text-sm text-[#374151] line-clamp-2 leading-snug">
+                    {d.draft_text}
+                  </div>
+                </td>
+                <td className="px-4 py-3 w-24 shrink-0">
                   <VerdictBadge verdict={d.verdict} />
                 </td>
-                <td className="px-4 py-3">
-                  <CategoryBadge category={d.communication_category} />
-                </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 w-28 shrink-0">
                   <span
                     className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide ${statusBadge(d.status)}`}
                   >
                     {d.status}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right w-36 shrink-0">
                   <Link
                     href={`/drafts/${d.id}/examiner`}
                     className="inline-flex items-center gap-1 font-mono text-xs font-medium text-[#1A56DB] hover:text-[#1447C0] bg-[#EFF8FF] border border-[#BAE6FD] px-2 py-1 rounded-sm transition-colors whitespace-nowrap"
@@ -259,7 +229,7 @@ export function DraftsClient({ drafts }: { drafts: DraftRecord[] }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-sm text-[#64748B]">
+                <td colSpan={6} className="px-4 py-12 text-center text-sm text-[#64748B]">
                   No communications match the current filters.{" "}
                   <button
                     type="button"
