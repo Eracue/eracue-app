@@ -78,6 +78,11 @@ async function getDashboardData() {
       .select("id, occurred_at, draft_id, payload, drafts(id, draft_text, users:speaker_id(name, title))")
       .eq("org_id", DEMO_ORG_ID)
       .eq("action_type", "reviewer_decided")
+      // Only real form-driven decisions. The seed.ts script also wrote
+      // reviewer_decided rows where payload.decision mirrors the draft status
+      // ("approved" / "blocked" / "escalated") — those are system events, not
+      // reviewer decisions, and must not appear in the activity feed.
+      .in("payload->>decision", ["override", "confirm_block", "approve", "reject"])
       .order("occurred_at", { ascending: false })
       .limit(20),
   ]);
@@ -96,16 +101,18 @@ async function getDashboardData() {
   const draftsReviewed = drafts.length; // every draft in this app went through the verdict engine
   const blocked = drafts.filter((d) => d.status === "blocked").length;
   const blockRatePct = draftsReviewed === 0 ? 0 : Math.round((blocked / draftsReviewed) * 100);
-  // Override rate: of decisions made on drafts that were ever blocked, how many were overrides?
+  // Override rate: # of override decisions / # of drafts that were ever blocked.
+  // Drafts currently 'blocked' or 'overridden' were both blocked at some point,
+  // so the union is the right denominator (NOT the count of reviewer_decided rows,
+  // which under-counts since the principal hasn't acted on every blocked draft yet).
   const overrideDecisions = reviewerActions.filter(
     (a) => (a.payload?.decision as string | undefined) === "override"
   ).length;
-  const blockedDecisions = reviewerActions.filter((a) => {
-    const d = a.payload?.decision as string | undefined;
-    return d === "override" || d === "confirm_block";
-  }).length;
+  const everBlocked = drafts.filter(
+    (d) => d.status === "blocked" || d.status === "overridden"
+  ).length;
   const overrideRatePct =
-    blockedDecisions === 0 ? 0 : Math.round((overrideDecisions / blockedDecisions) * 100);
+    everBlocked === 0 ? 0 : Math.round((overrideDecisions / everBlocked) * 100);
   // Gap exposure: schema doesn't model unreviewed posts — always 0 until ingestion is built.
   const gapExposure = drafts.filter(
     (d) =>
