@@ -66,12 +66,26 @@ export default function Home() {
          ============================================================ */}
       <section>
         <div className="max-w-[1100px] mx-auto px-6 pt-20 pb-16">
-          <Eyebrow>
-            GOVERNANCE INFRASTRUCTURE · FINRA RULE 3110 · EU AI ACT ARTICLE 50
-          </Eyebrow>
+          <div className="flex flex-wrap items-center gap-2 mb-6">
+            {/* Badge 1 — Governance Infrastructure */}
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-[#F8FAFC] text-[#475569] border-[#CBD5E1]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#64748B] inline-block shrink-0"></span>
+              Governance Infrastructure
+            </span>
+            {/* Badge 2 — FINRA Rule 3110 */}
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-[#EEF2FF] text-[#4338CA] border-[#C7D2FE]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#4F46E5] inline-block shrink-0"></span>
+              FINRA Rule 3110
+            </span>
+            {/* Badge 3 — EU AI Act */}
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] inline-block shrink-0"></span>
+              EU AI Act Art. 50
+            </span>
+          </div>
 
           <h1
-            className="font-light leading-tight tracking-tight text-[#1C1C1A] mt-4 text-5xl md:text-6xl max-w-3xl mb-6"
+            className="font-light leading-tight tracking-tight text-[#1C1C1A] text-5xl md:text-6xl max-w-3xl mb-6"
             style={{ fontFamily: "var(--font-newsreader)" }}
           >
             The governed moment between AI and publish.
@@ -93,10 +107,21 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs font-mono text-[#6E6E68]">
-            <span>✓ FINRA Rule 3110</span>
-            <span>✓ EU AI Act Article 50</span>
-            <span>✓ SEC 17a-4</span>
+          <div className="flex flex-wrap items-center gap-3 mt-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#4338CA]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#4F46E5] inline-block"></span>
+              FINRA Rule 3110
+            </span>
+            <span className="text-[#E2E1DC] text-xs select-none">·</span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#92400E]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] inline-block"></span>
+              EU AI Act Article 50
+            </span>
+            <span className="text-[#E2E1DC] text-xs select-none">·</span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#475569]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#64748B] inline-block"></span>
+              SEC 17a-4
+            </span>
           </div>
         </div>
       </section>
