@@ -14,6 +14,25 @@ const nextConfig: NextConfig = {
       static: 0,
     },
   },
+  // Belt-and-braces cache busting: tell Vercel's edge and the browser to
+  // never cache *any* response. Without this, Vercel's ISR layer can serve
+  // stale pre-rendered pages even when the page module declares
+  // force-dynamic + revalidate=0 — the directives only control the SSR
+  // path, not the CDN response cache. `no-store` skips the CDN entirely
+  // and forces the browser to revalidate on every request.
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store, must-revalidate",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
