@@ -128,7 +128,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
         <div className="flex gap-2">
           <a
             href={`/drafts/${draft.id}/examiner/pdf`}
-            className="px-4 py-1.5 bg-neutral-900 text-white text-sm font-medium rounded-md hover:bg-neutral-800 transition"
+            className="px-4 py-1.5 bg-neutral-900 dark:bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-neutral-800 dark:hover:bg-indigo-500 transition"
           >
             Download PDF
           </a>

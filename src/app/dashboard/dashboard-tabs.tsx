@@ -181,7 +181,7 @@ function SpeakerView({ speakers }: { speakers: Speaker[] }) {
         </thead>
         <tbody>
           {speakers.map((s) => (
-            <tr key={s.id} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0 hover:bg-neutral-50 dark:hover:hover:bg-neutral-900">
+            <tr key={s.id} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0 hover:bg-neutral-50 dark:hover:bg-neutral-900">
               <td className="px-4 py-3">
                 <div className="font-medium text-neutral-900 dark:text-neutral-100">{s.name}</div>
                 <div className="text-xs text-neutral-500 dark:text-neutral-400">{s.title || ""}</div>

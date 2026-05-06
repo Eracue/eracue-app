@@ -82,7 +82,7 @@ export function SubmitForm({ speakers, campaigns }: Props) {
       </div>
       {error && (<div className="px-4 py-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-md text-sm text-red-800 dark:text-red-300">{error}</div>)}
       <div className="flex justify-end gap-3 pt-2">
-        <button type="submit" disabled={submitting} className="px-6 py-2 bg-neutral-900 text-white text-sm font-medium rounded-md hover:bg-neutral-800 transition disabled:opacity-50 disabled:cursor-not-allowed">
+        <button type="submit" disabled={submitting} className="px-6 py-2 bg-neutral-900 dark:bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-neutral-800 dark:hover:bg-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed">
           {submitting ? "Submitting..." : "Submit for review"}
         </button>
       </div>

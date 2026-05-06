@@ -227,7 +227,7 @@ export default async function DraftDetailPage({ params }: PageProps) {
           <div className="flex gap-2 mt-4">
             <Link
               href={`/drafts/${draft.id}/examiner`}
-              className="px-4 py-2 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-sm font-medium rounded-md hover:bg-neutral-50 dark:hover:hover:bg-neutral-900 transition"
+              className="px-4 py-2 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-sm font-medium rounded-md hover:bg-neutral-50 dark:hover:bg-neutral-900 transition"
             >
               Export examiner record →
             </Link>
@@ -269,7 +269,7 @@ export default async function DraftDetailPage({ params }: PageProps) {
             </div>
             <Link
               href={`/reviewer/${draft.id}`}
-              className="shrink-0 px-4 py-2 bg-neutral-900 text-white text-sm font-medium rounded-md hover:bg-neutral-800 transition"
+              className="shrink-0 px-4 py-2 bg-neutral-900 dark:bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-neutral-800 dark:hover:bg-indigo-500 transition"
             >
               Open in reviewer →
             </Link>

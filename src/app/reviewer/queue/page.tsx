@@ -77,7 +77,7 @@ export default async function ReviewerQueuePage() {
               </thead>
               <tbody>
                 {queue.map((d) => (
-                  <tr key={d.id} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0 hover:bg-neutral-50 dark:hover:hover:bg-neutral-900">
+                  <tr key={d.id} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0 hover:bg-neutral-50 dark:hover:bg-neutral-900">
                     <td className="px-4 py-3">
                       <div className="font-medium text-neutral-900 dark:text-neutral-100">{d.users?.name || "—"}</div>
                       <div className="text-xs text-neutral-500 dark:text-neutral-400">{d.users?.title || ""}</div>

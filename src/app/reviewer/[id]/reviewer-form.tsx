@@ -77,7 +77,7 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
               type="button"
               onClick={() => decide("override")}
               disabled={submitting}
-              className="px-4 py-2 bg-neutral-900 text-white text-sm font-medium rounded-md hover:bg-neutral-800 transition disabled:opacity-50"
+              className="px-4 py-2 bg-neutral-900 dark:bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-neutral-800 dark:hover:bg-indigo-500 transition disabled:opacity-50"
             >
               Override block
             </button>
@@ -85,7 +85,7 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
               type="button"
               onClick={() => decide("confirm_block")}
               disabled={submitting}
-              className="px-4 py-2 bg-white dark:bg-neutral-900 border border-red-300 dark:border-red-900 text-red-700 dark:text-red-400 text-sm font-medium rounded-md hover:bg-red-50 dark:hover:hover:bg-red-950/30 transition disabled:opacity-50"
+              className="px-4 py-2 bg-white dark:bg-neutral-900 border border-red-300 dark:border-red-900 text-red-700 dark:text-red-400 text-sm font-medium rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 transition disabled:opacity-50"
             >
               Confirm block
             </button>
@@ -97,7 +97,7 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
               type="button"
               onClick={() => decide("approve")}
               disabled={submitting}
-              className="px-4 py-2 bg-neutral-900 text-white text-sm font-medium rounded-md hover:bg-neutral-800 transition disabled:opacity-50"
+              className="px-4 py-2 bg-neutral-900 dark:bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-neutral-800 dark:hover:bg-indigo-500 transition disabled:opacity-50"
             >
               Approve
             </button>
@@ -105,7 +105,7 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
               type="button"
               onClick={() => decide("reject")}
               disabled={submitting}
-              className="px-4 py-2 bg-white dark:bg-neutral-900 border border-red-300 dark:border-red-900 text-red-700 dark:text-red-400 text-sm font-medium rounded-md hover:bg-red-50 dark:hover:hover:bg-red-950/30 transition disabled:opacity-50"
+              className="px-4 py-2 bg-white dark:bg-neutral-900 border border-red-300 dark:border-red-900 text-red-700 dark:text-red-400 text-sm font-medium rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 transition disabled:opacity-50"
             >
               Reject
             </button>

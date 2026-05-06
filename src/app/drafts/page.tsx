@@ -82,7 +82,7 @@ export default async function DraftsPage() {
             <tbody>
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {drafts.map((d: any) => (
-                <tr key={d.id} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0 hover:bg-neutral-50 dark:hover:hover:bg-neutral-900">
+                <tr key={d.id} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0 hover:bg-neutral-50 dark:hover:bg-neutral-900">
                   <td className="px-4 py-3">
                     <Link href={`/drafts/${d.id}`} className="block group">
                       <div className="font-medium text-neutral-900 dark:text-neutral-100 group-hover:underline">{d.users?.name || "—"}</div>
