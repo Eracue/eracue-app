@@ -93,7 +93,7 @@ export default async function DraftsPage() {
               The complete supervision record — every submission, every verdict, every principal decision on file.
             </p>
             <p className="font-mono text-xs text-[#94A3B8] mt-2">
-              {drafts.length} drafts in the demo organization
+              {drafts.length} communications in the demo organization
             </p>
           </div>
 

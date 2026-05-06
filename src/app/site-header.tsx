@@ -21,7 +21,7 @@ export function SiteHeader() {
             Rules
           </Link>
           <Link href="/drafts" className="hover:text-[#0F172A] transition-colors">
-            Drafts
+            Communications
           </Link>
         </nav>
       </div>
