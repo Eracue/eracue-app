@@ -1,4 +1,5 @@
 "use client";
+// v2 — scope selector with role/person chips
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
