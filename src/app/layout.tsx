@@ -1,6 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
+
+// Drives the <meta name="viewport"> tag. Without this iOS / Android render
+// the page at ~980px and zoom out — every other mobile breakpoint is a
+// no-op until this is exported.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

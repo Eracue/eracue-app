@@ -514,7 +514,9 @@ export default async function DashboardPage() {
                         {group.drafts.length} draft{group.drafts.length === 1 ? "" : "s"}
                       </span>
                     </div>
-                    {/* Draft rows */}
+                    {/* Draft rows — draft text takes its own line so the
+                        chips + status + Review link can wrap underneath
+                        on narrow viewports without crushing the title. */}
                     {group.drafts.map((d, idx) => {
                       const isLast = idx === group.drafts.length - 1;
                       const statusCls =
@@ -524,39 +526,41 @@ export default async function DashboardPage() {
                       return (
                         <div
                           key={d.id}
-                          className={`bg-white border-x border-b border-[#E2E8F0] px-5 py-4 flex items-center gap-4 hover:bg-[#F8F9FB] transition-colors ${
+                          className={`bg-white border-x border-b border-[#E2E8F0] px-5 py-4 hover:bg-[#F8F9FB] transition-colors ${
                             isLast ? "rounded-b-sm" : ""
                           }`}
                         >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className="text-sm font-medium text-[#0F172A] truncate min-w-0">{d.draft_text}</div>
-                              {d.duplicate_count > 1 && (
-                                <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] px-1.5 py-0.5 rounded-sm border border-[#E2E8F0] shrink-0">
-                                  ×{d.duplicate_count}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex gap-2 shrink-0">
-                            <span className="font-mono text-xs bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
-                              {formatChannel(d.channel)}
-                            </span>
-                            {d.campaigns?.name && (
-                              <span className="font-mono text-xs bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
-                                {d.campaigns.name}
+                          {/* Draft text — full width, two-line clamp */}
+                          <div className="flex items-start gap-2 mb-2">
+                            <p className="text-sm font-medium text-[#0F172A] line-clamp-2 min-w-0 flex-1">
+                              {d.draft_text}
+                            </p>
+                            {d.duplicate_count > 1 && (
+                              <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] px-1.5 py-0.5 rounded-sm border border-[#E2E8F0] shrink-0">
+                                ×{d.duplicate_count}
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <span
-                              className={`inline-flex font-mono text-xs font-medium uppercase px-2 py-0.5 rounded-sm border ${statusCls}`}
-                            >
-                              {d.status.toUpperCase()}
-                            </span>
+                          {/* Chips + status + Review link — wraps on narrow */}
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono text-xs bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
+                                {formatChannel(d.channel)}
+                              </span>
+                              {d.campaigns?.name && (
+                                <span className="font-mono text-xs bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
+                                  {d.campaigns.name}
+                                </span>
+                              )}
+                              <span
+                                className={`inline-flex font-mono text-xs font-medium uppercase px-2 py-0.5 rounded-sm border ${statusCls}`}
+                              >
+                                {d.status.toUpperCase()}
+                              </span>
+                            </div>
                             <Link
                               href={`/reviewer/${d.id}`}
-                              className="font-mono text-sm font-medium text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+                              className="font-mono text-sm font-medium text-[#1A56DB] hover:text-[#1447C0] transition-colors min-h-[44px] inline-flex items-center whitespace-nowrap"
                             >
                               Review →
                             </Link>
@@ -601,7 +605,7 @@ export default async function DashboardPage() {
                       {s.name}
                     </Link>
                     <div className="text-sm text-[#374151] mt-0.5">{s.title}</div>
-                    <div className="flex gap-6 mt-4">
+                    <div className="flex gap-6 mt-4 flex-wrap">
                       <div>
                         <div className="font-mono text-3xl font-light text-[#0F172A]">{s.totalDrafts}</div>
                         <div className="font-mono text-xs uppercase text-[#64748B] mt-1">total</div>
@@ -748,13 +752,13 @@ export default async function DashboardPage() {
                         <div className="flex gap-3 items-center">
                           <Link
                             href={`/drafts/${a.draft_id}`}
-                            className="font-mono text-sm text-[#64748B] hover:text-[#0F172A] transition-colors"
+                            className="font-mono text-sm text-[#64748B] hover:text-[#0F172A] transition-colors min-h-[44px] inline-flex items-center"
                           >
                             View draft →
                           </Link>
                           <Link
                             href={`/drafts/${a.draft_id}/examiner`}
-                            className="font-mono text-sm text-[#1A56DB] hover:text-[#0F172A] font-medium transition-colors"
+                            className="font-mono text-sm text-[#1A56DB] hover:text-[#0F172A] font-medium transition-colors min-h-[44px] inline-flex items-center"
                           >
                             Examiner record →
                           </Link>

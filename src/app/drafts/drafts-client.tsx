@@ -375,11 +375,11 @@ export function DraftsClient({
         </Link>
       </div>
 
-      {/* overflow-x-auto allows the table to scroll on narrow viewports
-          rather than crushing the Draft column. min-w-[860px] reserves
-          enough room that columns size naturally without table-fixed
-          forcing equal widths. */}
-      <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-x-auto">
+      {/* Desktop table — hidden on mobile in favour of the card list
+          below. overflow-x-auto + min-w-[860px] still apply at sm and
+          above so the table scrolls horizontally if the viewport is
+          narrower than the column-natural width. */}
+      <div className="hidden sm:block bg-white border border-[#E2E8F0] rounded-sm overflow-x-auto">
         <table className="w-full min-w-[860px] text-sm">
           <thead className="bg-[#F8F9FB] border-b border-[#E2E8F0]">
             <tr>
@@ -457,6 +457,67 @@ export function DraftsClient({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile card list — visible below sm. Same data as the table,
+          stacked into compact cards with thumb-friendly tap targets. */}
+      <div className="sm:hidden space-y-2">
+        {deduplicated.length === 0 ? (
+          <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 text-center text-sm text-[#64748B]">
+            No communications match the current filters.{" "}
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] ml-1"
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : (
+          deduplicated.map((d) => (
+            <div key={d.id} className="bg-white border border-[#E2E8F0] rounded-sm p-4">
+              {/* Speaker + date header */}
+              <div className="flex items-start justify-between mb-2 gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-[#0F172A] truncate">
+                    {d.users?.name || "—"}
+                  </div>
+                  <div className="font-mono text-xs text-[#64748B] truncate">
+                    {d.users?.title ? `${d.users.title} · ` : ""}
+                    {new Date(d.submitted_at).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </div>
+                </div>
+                <div className="shrink-0">
+                  <VerdictBadge verdict={d.verdict} />
+                </div>
+              </div>
+
+              {/* Draft text */}
+              <div className="text-sm text-[#374151] line-clamp-2 leading-snug mb-3">
+                {d.draft_text}
+                {d.duplicate_count > 1 && (
+                  <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#94A3B8] px-1.5 py-0.5 rounded-sm border border-[#E2E8F0] ml-2">
+                    ×{d.duplicate_count}
+                  </span>
+                )}
+              </div>
+
+              {/* Status badge + examiner record link */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                {statusBadge(d.status, d.id, principalApprovedSet)}
+                <Link
+                  href={`/drafts/${d.id}/examiner`}
+                  className="font-mono text-xs font-medium text-[#1A56DB] hover:text-[#1447C0] transition-colors min-h-[44px] inline-flex items-center"
+                >
+                  Examiner record →
+                </Link>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </>
   );
