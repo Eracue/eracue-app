@@ -118,6 +118,43 @@ function CheckResultLabel({ result }: { result: CheckEntry["result"] }) {
   );
 }
 
+// Map a draft.source_origin into the three regulatory-frame fields the
+// examiner record renders in Section 1. Centralised here so the disclosure
+// language is consistent across formats and the legacy raw-string display
+// is no longer leaked into the dl/dt/dd.
+function formatSourceOrigin(origin: string | null): {
+  declaration: string;
+  euAiAct: string;
+  note: string;
+} {
+  switch (origin) {
+    case "ai_assisted":
+      return {
+        declaration: "AI involvement declared: Yes",
+        euAiAct: "EU AI Act Article 50: Disclosure required at publication",
+        note: "Human reviewed before submission",
+      };
+    case "human":
+      return {
+        declaration: "AI involvement declared: No",
+        euAiAct: "EU AI Act Article 50: No disclosure required",
+        note: "Human-authored communication",
+      };
+    case "agent_submitted":
+      return {
+        declaration: "Submission type: Automated agent",
+        euAiAct: "FINRA 2026 agentic AI guidance: Principal review required",
+        note: "ERA CUE review is the human checkpoint",
+      };
+    default:
+      return {
+        declaration: "Source: " + (origin || "not declared"),
+        euAiAct: "",
+        note: "",
+      };
+  }
+}
+
 function basisFromReason(reason: unknown): { basis?: string; verdict_assessment?: string | null; note?: string } | string | null {
   if (!reason) return null;
   if (typeof reason === "string") return reason;
@@ -214,8 +251,27 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
             <dd className="col-span-2 text-neutral-900">{draft.channel}</dd>
             <dt className="text-neutral-500">Campaign</dt>
             <dd className="col-span-2 text-neutral-900">{draft.campaigns?.name || "—"}</dd>
-            <dt className="text-neutral-500">Source origin</dt>
-            <dd className="col-span-2 text-neutral-900">{draft.source_origin.replace("_", " ")}</dd>
+            {(() => {
+              const formatted = formatSourceOrigin(draft.source_origin);
+              return (
+                <>
+                  <dt className="text-neutral-500">AI Declaration</dt>
+                  <dd className="col-span-2 text-neutral-900">{formatted.declaration}</dd>
+                  {formatted.euAiAct && (
+                    <>
+                      <dt className="text-neutral-500">Regulatory basis</dt>
+                      <dd className="col-span-2 text-neutral-900">{formatted.euAiAct}</dd>
+                    </>
+                  )}
+                  {formatted.note && (
+                    <>
+                      <dt className="text-neutral-500">Note</dt>
+                      <dd className="col-span-2 text-neutral-900">{formatted.note}</dd>
+                    </>
+                  )}
+                </>
+              );
+            })()}
             {draft.ai_model_used && (<>
               <dt className="text-neutral-500">AI model used</dt>
               <dd className="col-span-2 text-neutral-900 font-mono">{draft.ai_model_used}</dd>

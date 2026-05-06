@@ -324,6 +324,37 @@ export function RulesClient({ rules }: Props) {
             })
           )}
         </div>
+
+        {/* Coming-soon — AI content detection. Shown only on tabs where active
+            rules are visible (Active or All). */}
+        {(tab === "active" || tab === "all") && (
+          <div className="mt-6 bg-[#F7F6F3] border border-[#E2E1DC] rounded-sm p-6">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-3">
+              COMING SOON — AI CONTENT DETECTION
+            </div>
+            <div className="text-sm font-medium text-[#1C1C1A] mb-2">
+              Automatic AI-generated content detection and routing
+            </div>
+            <p className="text-sm text-[#6E6E68] mb-4 leading-relaxed">
+              ERA CUE will automatically detect AI-generated content and route
+              it for principal review — without requiring manual declaration.
+              Agent submission fingerprinting ensures every autonomous post has
+              a human checkpoint.
+            </p>
+            <div className="space-y-2">
+              {[
+                "LLM-generated content detection",
+                "Agent submission fingerprinting",
+                "Automatic EU AI Act Article 50 disclosure flagging",
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-2">
+                  <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-[#C9A92C] shrink-0" />
+                  <span className="font-mono text-xs text-[#6E6E68]">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <AddRulePanel

@@ -104,7 +104,7 @@ export default function Home() {
               href="/submit"
               className="inline-flex items-center bg-[#1C1C1A] text-white text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#333331] transition"
             >
-              See it catch something →
+              Check a draft before it goes live →
             </Link>
           </div>
 
@@ -129,6 +129,12 @@ export default function Home() {
               SEC 17a-4
             </span>
           </div>
+
+          <p className="text-xs font-mono text-[#6E6E68] mt-4 max-w-md leading-relaxed">
+            Paste any executive communication. ERA CUE checks it against your
+            governance rules, flags violations, and routes it to your designated
+            principal — before it reaches the public.
+          </p>
         </div>
       </section>
 

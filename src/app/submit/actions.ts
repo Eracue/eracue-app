@@ -2,26 +2,25 @@
 
 import { DEMO_ORG_ID } from "@/lib/demo-config";
 import { runChecks, verdictToStatus, getSupabaseAdmin, buildChecksArray } from "@/lib/checks";
-import type { CheckEntry, RuleMatch, Verdict } from "@/lib/checks";
+import type { CheckEntry, Verdict } from "@/lib/checks";
 
 type SubmitInput = {
-  speakerId: string;
-  channel: string;
-  sourceOrigin: string;
-  campaignId: string | null;
   draftText: string;
-  // FINRA Rule 2210 classification — added by the migration; if the columns
-  // aren't yet present in the DB, the insert below will simply error and the
-  // action returns the error message.
-  communicationCategory: "retail" | "institutional" | "correspondence";
-  contentType: "static" | "interactive";
-  intendedAudience: "public" | "limited" | "institutional";
+  speakerName: string;
+  channel: string;
+  // What the form computed from the EU AI Act checkbox: "ai_assisted" | "human"
+  sourceOrigin: string;
+  // FINRA agentic AI flag — agent overrides sourceOrigin to "agent_submitted"
+  submissionType: "human" | "agent";
+  campaignName: string | null;
 };
 
 export type SubmitSuccess = {
   draftId: string;
   verdict: Verdict;
-  primaryMatch: RuleMatch | null;
+  ruleName?: string;
+  ruleDescription?: string;
+  matchedKeyword?: string;
   checks: CheckEntry[];
   error?: undefined;
 };
@@ -30,38 +29,76 @@ type SubmitResult = SubmitSuccess | { draftId?: undefined; error: string };
 export async function submitDraftAction(input: SubmitInput): Promise<SubmitResult> {
   const sb = getSupabaseAdmin();
 
-  // 1. Insert draft
+  if (!input.draftText.trim()) return { error: "Draft text cannot be empty." };
+  if (!input.speakerName) return { error: "Speaker is required." };
+
+  // Resolve speaker name → user id (FK constraint in drafts.speaker_id).
+  const { data: speaker, error: speakerErr } = await sb
+    .from("users")
+    .select("id")
+    .eq("org_id", DEMO_ORG_ID)
+    .eq("name", input.speakerName)
+    .maybeSingle();
+  if (speakerErr) return { error: "Failed to resolve speaker: " + speakerErr.message };
+  if (!speaker) return { error: `Speaker not found: ${input.speakerName}` };
+  const speakerId = speaker.id as string;
+
+  // Resolve campaign name → id (optional; missing campaign just goes null).
+  let campaignId: string | null = null;
+  if (input.campaignName) {
+    const { data: campaign } = await sb
+      .from("campaigns")
+      .select("id")
+      .eq("org_id", DEMO_ORG_ID)
+      .eq("name", input.campaignName)
+      .maybeSingle();
+    campaignId = (campaign?.id as string | undefined) ?? null;
+  }
+
+  // Map submissionType + sourceOrigin → final source_origin column value.
+  // Agent submissions are tagged "agent_submitted" regardless of the EU AI
+  // Act checkbox; human submissions defer to the checkbox-derived value.
+  const finalSourceOrigin =
+    input.submissionType === "agent" ? "agent_submitted" : input.sourceOrigin;
+
+  // 1. Insert draft. The form no longer collects FINRA Rule 2210 classification
+  //    fields, so we default to retail/static/public — the strictest standard.
   const { data: draft, error: draftErr } = await sb.from("drafts").insert({
     org_id: DEMO_ORG_ID,
-    speaker_id: input.speakerId,
-    campaign_id: input.campaignId,
+    speaker_id: speakerId,
+    campaign_id: campaignId,
     channel: input.channel,
     draft_text: input.draftText,
-    source_origin: input.sourceOrigin,
-    ai_model_used: input.sourceOrigin === "human" ? null : "claude-sonnet-4-6",
-    prompt_hash: input.sourceOrigin === "human" ? null : "0".repeat(64),
+    source_origin: finalSourceOrigin,
+    ai_model_used: finalSourceOrigin === "human" ? null : "claude-sonnet-4-6",
+    prompt_hash: finalSourceOrigin === "human" ? null : "0".repeat(64),
     status: "pending",
-    communication_category: input.communicationCategory,
-    content_type: input.contentType,
-    intended_audience: input.intendedAudience,
+    communication_category: "retail",
+    content_type: "static",
+    intended_audience: "public",
   }).select("id, submitted_at").single();
 
   if (draftErr || !draft) return { error: "Failed to save draft: " + (draftErr?.message || "unknown") };
 
-  // 2. Write 'submitted' action
+  // 2. submitted action (records the actor + submission type)
   await sb.from("actions").insert({
     org_id: DEMO_ORG_ID,
     draft_id: draft.id,
     action_type: "submitted",
-    actor_id: input.speakerId,
+    actor_id: speakerId,
     actor_kind: "user",
-    payload: { source_origin: input.sourceOrigin, channel: input.channel, campaign_id: input.campaignId },
+    payload: {
+      source_origin: finalSourceOrigin,
+      submission_type: input.submissionType,
+      channel: input.channel,
+      campaign_id: campaignId,
+    },
   });
 
   // 3. Run checks
   const result = await runChecks(sb, DEMO_ORG_ID, input.draftText, draft.submitted_at);
 
-  // 4. Write check_ran action for rule_check
+  // 4. rule_check action
   await sb.from("actions").insert({
     org_id: DEMO_ORG_ID,
     draft_id: draft.id,
@@ -75,7 +112,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     rules_active: result.rules_active,
   });
 
-  // 5. Write check_ran action for timing_check
+  // 5. timing_check action
   await sb.from("actions").insert({
     org_id: DEMO_ORG_ID,
     draft_id: draft.id,
@@ -90,8 +127,8 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     rules_active: result.rules_active,
   });
 
-  // 6. Write verdict_issued action
-  const checks = buildChecksArray(result, input.sourceOrigin);
+  // 6. verdict_issued action
+  const checks = buildChecksArray(result, finalSourceOrigin);
   await sb.from("actions").insert({
     org_id: DEMO_ORG_ID,
     draft_id: draft.id,
@@ -110,10 +147,14 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
   const newStatus = verdictToStatus(result.verdict);
   await sb.from("drafts").update({ status: newStatus }).eq("id", draft.id);
 
+  // 8. Flat return shape — primary_match unfolded into rule* fields so the
+  //    form can render directly without reaching into a nested object.
   return {
     draftId: draft.id,
     verdict: result.verdict,
-    primaryMatch: result.primary_match,
+    ruleName: result.primary_match?.rule_name,
+    ruleDescription: result.primary_match?.rule_description,
+    matchedKeyword: result.primary_match?.matched_keyword,
     checks,
   };
 }
