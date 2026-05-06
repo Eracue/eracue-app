@@ -78,8 +78,10 @@ export default async function DraftsPage() {
               {drafts.map((d: any) => (
                 <tr key={d.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
                   <td className="px-4 py-3">
-                    <div className="font-medium text-neutral-900">{d.users?.name || "—"}</div>
-                    <div className="text-xs text-neutral-500">{d.users?.title || ""}</div>
+                    <Link href={`/drafts/${d.id}`} className="block group">
+                      <div className="font-medium text-neutral-900 group-hover:underline">{d.users?.name || "—"}</div>
+                      <div className="text-xs text-neutral-500">{d.users?.title || ""}</div>
+                    </Link>
                   </td>
                   <td className="px-4 py-3 text-neutral-600">{d.channel}</td>
                   <td className="px-4 py-3 text-neutral-700 max-w-md truncate">{d.draft_text}</td>
