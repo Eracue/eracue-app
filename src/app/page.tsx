@@ -81,11 +81,11 @@ export default async function Home() {
             </div>
             <ul className="space-y-2">
               {[
-                { name: "Keyword Check", status: "active", detail: "1 rule matched" },
-                { name: "Timing Check", status: "active", detail: "6 rules active at submission" },
+                { name: "Rule Check", status: "active", detail: "1 rule matched" },
+                { name: "Quiet Period Check", status: "active", detail: "Series B Quiet Period matched" },
                 { name: "Consistency Check", status: "available", detail: "AI · available" },
-                { name: "Audience Check", status: "available", detail: "AI · available" },
                 { name: "Alignment Check", status: "available", detail: "AI · available" },
+                { name: "Agent Origin Check", status: "available", detail: "AI · available" },
               ].map((c) => (
                 <li key={c.name} className="flex items-center gap-3 text-sm">
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${c.status === "active" ? "bg-green-100 text-green-800 border border-green-300 dark:bg-green-950 dark:text-green-300 dark:border-green-800" : "bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 border border-neutral-200 dark:border-neutral-700"}`}>
@@ -107,9 +107,10 @@ export default async function Home() {
         <div className="text-xs uppercase tracking-widest text-neutral-500 dark:text-neutral-400 mb-4 text-center">Workflow</div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { role: "Speaker", action: "Submit a draft", href: "/submit", note: "Pre-publication check" },
-            { role: "System", action: "View drafts", href: "/drafts", note: "All verdicts logged" },
-            { role: "Reviewer", action: "Reviewer queue", href: "/reviewer/queue", note: "Blocked and escalated drafts awaiting a named principal's decision. Structured review with full audit trail." },
+            { role: "Speaker",   action: "Submit a draft",      href: "/submit",          note: "Pre-publication check" },
+            { role: "System",    action: "View drafts",         href: "/drafts",          note: "All verdicts logged" },
+            { role: "Reviewer",  action: "Reviewer queue",      href: "/reviewer/queue",  note: "Blocked and escalated drafts awaiting a named principal's decision. Structured review with full audit trail." },
+            { role: "Principal", action: "Principal dashboard", href: "/dashboard",       note: "Governance oversight — rules, reviewer activity, gap report" },
           ].map((step) => (
             <Link key={step.role} href={step.href} className="block bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 hover:border-indigo-400 dark:hover:border-indigo-500 transition">
               <div className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-1">{step.role}</div>
@@ -117,17 +118,11 @@ export default async function Home() {
               <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">{step.note}</div>
             </Link>
           ))}
-          {/* Card 4 — Principal (governance oversight) with secondary Manage rules link */}
-          <div className="block bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 hover:border-indigo-400 dark:hover:border-indigo-500 transition">
-            <Link href="/dashboard" className="block">
-              <div className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-1">Principal</div>
-              <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Principal dashboard →</div>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">Governance oversight dashboard. Rules performance, reviewer activity, and gap report.</div>
-            </Link>
-            <Link href="/rules" className="inline-block mt-2 text-xs text-indigo-700 dark:text-indigo-400 hover:underline">
-              Manage rules →
-            </Link>
-          </div>
+        </div>
+        <div className="mt-4 text-center">
+          <Link href="/rules" className="text-xs text-indigo-700 dark:text-indigo-400 hover:underline">
+            Manage governance rules →
+          </Link>
         </div>
       </div>
 

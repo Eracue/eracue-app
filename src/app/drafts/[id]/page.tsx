@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { DEMO_ORG_ID } from "@/lib/demo-config";
-import { getSupabaseAdmin } from "@/lib/checks";
+import { getSupabaseAdmin, type CheckEntry } from "@/lib/checks";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/app/site-header";
 
@@ -55,42 +55,14 @@ async function getDraftWithActions(id: string) {
   };
 }
 
-const CHECK_DEFINITIONS = [
-  {
-    id: "rule_check",
-    displayName: "Keyword Check",
-    description: "Matches draft text against keywords from active rules",
-    engineType: "deterministic" as const,
-    status: "active" as const,
-  },
-  {
-    id: "timing_check",
-    displayName: "Timing Check",
-    description: "Verifies rule is effective at submission time",
-    engineType: "deterministic" as const,
-    status: "active" as const,
-  },
-  {
-    id: "consistency_check",
-    displayName: "Consistency Check",
-    description: "Compares draft against prior statements (requires corpus)",
-    engineType: "ai" as const,
-    status: "available" as const,
-  },
-  {
-    id: "audience_check",
-    displayName: "Audience Check",
-    description: "Validates tone fits channel and audience",
-    engineType: "ai" as const,
-    status: "available" as const,
-  },
-  {
-    id: "alignment_check",
-    displayName: "Alignment Check",
-    description: "Aligns with organization's narrative profile",
-    engineType: "ai" as const,
-    status: "available" as const,
-  },
+// Canonical 5-check taxonomy. Order matches buildChecksArray() in src/lib/checks.ts.
+// `engine === "deterministic"` → wired up today; `engine === "ai"` → not yet implemented.
+const CHECK_DEFINITIONS: { name: string; description: string; engine: "deterministic" | "ai" }[] = [
+  { name: "Rule Check",         description: "Matches draft text against keywords from active rules",  engine: "deterministic" },
+  { name: "Consistency Check",  description: "Compares draft against prior statements (requires corpus)", engine: "ai" },
+  { name: "Alignment Check",    description: "Aligns with organization's narrative profile",          engine: "ai" },
+  { name: "Quiet Period Check", description: "Detects overlap with active quiet-period rules",        engine: "deterministic" },
+  { name: "Agent Origin Check", description: "Validates AI source disclosure",                        engine: "ai" },
 ];
 
 function VerdictBadge({ verdict }: { verdict: string }) {
@@ -109,15 +81,9 @@ function VerdictBadge({ verdict }: { verdict: string }) {
   );
 }
 
-function ChecksPerformedPanel({ actions }: { actions: ActionRow[] }) {
-  // Find which checks ran (by check name in payload)
-  const checkRanActions = actions.filter((a) => a.action_type === "check_ran");
-  const checksRanMap = new Map<string, ActionRow>();
-  for (const a of checkRanActions) {
-    const checkName = (a.payload as { check?: string })?.check;
-    if (checkName) checksRanMap.set(checkName, a);
-  }
-  const activeCount = CHECK_DEFINITIONS.filter((c) => c.status === "active" && checksRanMap.has(c.id)).length;
+function ChecksPerformedPanel({ checks }: { checks: CheckEntry[] }) {
+  const byName = new Map(checks.map((c) => [c.check_name, c]));
+  const activeCount = CHECK_DEFINITIONS.filter((d) => d.engine === "deterministic" && byName.has(d.name)).length;
   const totalCount = CHECK_DEFINITIONS.length;
 
   return (
@@ -129,29 +95,18 @@ function ChecksPerformedPanel({ actions }: { actions: ActionRow[] }) {
         </div>
       </div>
       <ul className="space-y-3">
-        {CHECK_DEFINITIONS.map((check) => {
-          const ran = checksRanMap.get(check.id);
-          const isActive = check.status === "active" && ran;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const payload = ran ? (ran.payload as any) : null;
-          let resultLine = "";
-          if (isActive && check.id === "rule_check" && payload) {
-            const matchCount = payload.match_count || 0;
-            if (matchCount === 0) {
-              resultLine = "No rules matched";
-            } else {
-              const firstMatch = payload.matches?.[0];
-              resultLine = `${matchCount} rule${matchCount === 1 ? "" : "s"} matched${firstMatch ? `: ${firstMatch.rule_name}` : ""}`;
-            }
-          } else if (isActive && check.id === "timing_check" && payload) {
-            const activeRules = payload.rules_active_count || 0;
-            resultLine = `${activeRules} rule${activeRules === 1 ? "" : "s"} active at submission`;
-          } else if (!isActive) {
-            resultLine = check.description;
-          }
+        {CHECK_DEFINITIONS.map((def) => {
+          const entry = byName.get(def.name);
+          const isActive = def.engine === "deterministic";
+          // For active deterministic checks: show entry detail when present
+          // (e.g., "Matched: Series B Quiet Period"). For AI-available checks:
+          // show the engine description as a "would-do" hint.
+          const resultLine = isActive
+            ? (entry?.detail ?? "No rules matched")
+            : def.description;
 
           return (
-            <li key={check.id} className="flex items-start gap-3">
+            <li key={def.name} className="flex items-start gap-3">
               <div className={`shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                 isActive
                   ? "bg-green-100 dark:bg-green-950/30 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-900"
@@ -161,10 +116,9 @@ function ChecksPerformedPanel({ actions }: { actions: ActionRow[] }) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between gap-3">
-                  <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{check.displayName}</div>
+                  <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{def.name}</div>
                   <div className="text-xs text-neutral-400 dark:text-neutral-500">
-                    {check.engineType === "deterministic" ? "deterministic" : "AI"}
-                    {!isActive && " · available"}
+                    {def.engine === "deterministic" ? "deterministic" : "AI · available"}
                   </div>
                 </div>
                 <div className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">{resultLine}</div>
@@ -200,17 +154,35 @@ export default async function DraftDetailPage({ params }: PageProps) {
   if (!result) notFound();
   const { draft, actions } = result;
 
-  // Find the verdict_issued action
-  const verdictAction = actions.find((a) => a.action_type === "verdict_issued");
+  // Find the MOST RECENT verdict_issued action — older drafts have a second
+  // verdict_issued written by the reclassify script. The first one is stale.
+  const verdictAction = actions.findLast((a) => a.action_type === "verdict_issued");
   const verdict = (verdictAction?.payload?.verdict as string) || null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const primaryMatch = (verdictAction?.payload?.primary_match as any) || null;
   const matchedKeyword = primaryMatch?.matched_keyword as string | undefined;
 
-  // Find rule_check action for the match list
-  const ruleCheck = actions.find((a) => a.action_type === "check_ran" && (a.payload as { check?: string })?.check === "rule_check");
+  // Find the most recent rule_check too (same reasoning).
+  const ruleCheck = actions.findLast((a) => a.action_type === "check_ran" && (a.payload as { check?: string })?.check === "rule_check");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allMatches = (ruleCheck?.payload?.matches as any[]) || [];
+
+  // Canonical 5-check array from verdict_issued payload (set by buildChecksArray
+  // in src/lib/checks.ts). Older records pre-dating that helper don't have it —
+  // synthesize a fallback from primary_match.
+  const storedChecks = verdictAction?.payload?.checks as CheckEntry[] | undefined;
+  const isQuietPeriodMatch = primaryMatch ? /quiet period/i.test(primaryMatch.rule_name) : false;
+  const checks: CheckEntry[] = storedChecks ?? [
+    primaryMatch
+      ? { check_name: "Rule Check", result: "fail" as const, detail: `Matched: ${primaryMatch.rule_name}`, matched_keyword: primaryMatch.matched_keyword }
+      : { check_name: "Rule Check", result: "pass" as const, detail: null },
+    { check_name: "Consistency Check", result: "pass" as const, detail: null },
+    { check_name: "Alignment Check", result: "pass" as const, detail: null },
+    isQuietPeriodMatch && primaryMatch
+      ? { check_name: "Quiet Period Check", result: "fail" as const, detail: `Quiet period rule matched: ${primaryMatch.rule_name}` }
+      : { check_name: "Quiet Period Check", result: "pass" as const, detail: null },
+    { check_name: "Agent Origin Check", result: "pass" as const, detail: null },
+  ];
 
   return (
     <>
@@ -261,8 +233,11 @@ export default async function DraftDetailPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Send to reviewer prompt */}
-        {(draft.status === "blocked" || draft.status === "escalated") && (
+        {/* Send to reviewer prompt — only when verdict and status both indicate
+            the draft genuinely needs review (avoids showing this on drafts whose
+            verdict is CLEAR but status was manually set elsewhere). */}
+        {(draft.status === "blocked" || draft.status === "escalated") &&
+          (verdict === "block" || verdict === "escalate") && (
           <div className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-4 mb-6 flex items-center justify-between gap-4">
             <div className="text-sm text-neutral-700 dark:text-neutral-300">
               This draft needs reviewer attention.
@@ -277,7 +252,7 @@ export default async function DraftDetailPage({ params }: PageProps) {
         )}
 
         {/* Checks Performed */}
-        <ChecksPerformedPanel actions={actions} />
+        <ChecksPerformedPanel checks={checks} />
 
         {/* Draft Text */}
         <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-8 mb-6">
