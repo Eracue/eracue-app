@@ -1,0 +1,208 @@
+"use server";
+
+import { DEMO_ORG_ID } from "@/lib/demo-config";
+import { getSupabaseAdmin } from "@/lib/checks";
+
+// Schema notes:
+//   • DB column is `rule_type` (not `verdict`) — we accept verdict-style names
+//     in inputs and write to the underlying column.
+//   • DB column is `effective_to` (not `effective_until`).
+//   • No `is_active` column (the existing app derives "active" from dates +
+//     rule_status). Skipped on insert/update.
+//   • No `authorized_by` column on rules. Skipped on insert; the principal
+//     identity comes from the audit trail / fixed demo principal.
+
+type DeactivateInput = { ruleId: string; reason: string };
+type DeactivateResult = { ok: true } | { ok: false; error: string };
+
+export async function deactivateRuleAction(
+  input: DeactivateInput
+): Promise<DeactivateResult> {
+  const sb = getSupabaseAdmin();
+  const { error } = await sb
+    .from("rules")
+    .update({
+      rule_status: "deactivated",
+      deactivated_at: new Date().toISOString(),
+      deactivated_reason: input.reason,
+    })
+    .eq("id", input.ruleId)
+    .eq("org_id", DEMO_ORG_ID);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export type CreateRuleInput = {
+  name: string;
+  description: string;
+  verdict: string; // 'block' | 'escalate' | 'review' | 'guide'
+  keywords: string[];
+  scope: string;
+  effective_from: string;
+  effective_until: string | null;
+  regulatory_basis: string;
+  authorized_by: string;
+};
+type CreateRuleResult = { ok: true; ruleId: string } | { ok: false; error: string };
+
+export async function createRuleAction(
+  input: CreateRuleInput
+): Promise<CreateRuleResult> {
+  const sb = getSupabaseAdmin();
+  const { data, error } = await sb
+    .from("rules")
+    .insert({
+      org_id: DEMO_ORG_ID,
+      name: input.name,
+      description: input.description,
+      // DB column is `rule_type`, not `verdict`. The inputs use the friendlier
+      // name; we map here.
+      rule_type: input.verdict,
+      keywords: input.keywords,
+      scope: input.scope,
+      rule_status: "active",
+      effective_from: input.effective_from,
+      // DB column is `effective_to`, not `effective_until`.
+      effective_to: input.effective_until,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, ruleId: data.id };
+}
+
+// ---- Claude rule-drafting (server-side so the API key never reaches the browser) ----
+
+export type DraftedRule = {
+  name: string;
+  description: string;
+  verdict: "block" | "escalate" | "review" | "guide";
+  keywords: string[];
+  scope: string;
+  suggested_end_date: string | null;
+  regulatory_basis: string;
+};
+type DraftResult = { ok: true; drafted: DraftedRule } | { ok: false; error: string };
+
+const CLAUDE_SYSTEM_PROMPT = `You are a compliance rule drafting assistant for ERA CUE, a pre-publication governance platform for regulated communications. Given a plain English description of a governance need, draft a structured compliance rule.
+
+Return ONLY valid JSON with exactly these fields:
+{
+  "name": "Short rule name, 5 words max",
+  "description": "One sentence explaining what this governs",
+  "verdict": "block" | "escalate" | "review" | "guide",
+  "keywords": ["array", "of", "5-15", "trigger", "keywords"],
+  "scope": "all_speakers",
+  "suggested_end_date": "YYYY-MM-DD or null",
+  "regulatory_basis": "FINRA Rule 2210(d) content standard"
+}
+
+Verdict selection:
+- block: hard stops — quiet periods, embargos, material nonpublic information, forward guidance restrictions
+- escalate: needs human review — enterprise claims, competitor mentions, sensitive announcements
+- review: consistency checking — pricing, product claims
+- guide: advisory tone — formality, style guidance
+
+Keywords: specific trigger words/phrases that would appear in violating communications. Be precise, not overly broad. 5-15 keywords per rule.
+
+Return ONLY the JSON object. No explanation. No markdown.`;
+
+function stubDraft(description: string): DraftedRule {
+  // Heuristic offline fallback used when ANTHROPIC_API_KEY isn't configured.
+  const lower = description.toLowerCase();
+  const isQuiet = /quiet|embargo|fundraising|series\s*[a-z]|raise/.test(lower);
+  const isCompetitor = /competitor|fortune|enterprise|sales|customer/.test(lower);
+  const isForward = /forward|guidance|earnings|projection/.test(lower);
+
+  if (isQuiet) {
+    return {
+      name: "Fundraising Quiet Period",
+      description: "No fundraising or financing language during the active quiet window.",
+      verdict: "block",
+      keywords: ["raised", "raising", "fundraising", "round", "series", "valuation", "term sheet", "investors"],
+      scope: "all_speakers",
+      suggested_end_date: null,
+      regulatory_basis: "FINRA Rule 2210(d) content standard",
+    };
+  }
+  if (isCompetitor) {
+    return {
+      name: "Enterprise Sales Claims",
+      description: "Sales claims about enterprise customers must be reviewed by GC before publication.",
+      verdict: "escalate",
+      keywords: ["fortune 500", "enterprise customer", "signed", "closed deal", "contract", "won"],
+      scope: "all_speakers",
+      suggested_end_date: null,
+      regulatory_basis: "FINRA Rule 2210(d) content standard",
+    };
+  }
+  if (isForward) {
+    return {
+      name: "Forward Guidance Restriction",
+      description: "Block forward-looking financial guidance during the earnings quiet period.",
+      verdict: "block",
+      keywords: ["expect", "projection", "guidance", "outlook", "forecast", "anticipate", "next quarter"],
+      scope: "all_speakers",
+      suggested_end_date: null,
+      regulatory_basis: "FINRA Rule 2210(d) content standard · SEC Reg FD",
+    };
+  }
+  return {
+    name: "Custom Communication Rule",
+    description: description.slice(0, 140),
+    verdict: "review",
+    keywords: [],
+    scope: "all_speakers",
+    suggested_end_date: null,
+    regulatory_basis: "FINRA Rule 2210(d) content standard",
+  };
+}
+
+type AnthropicContentBlock = { type: string; text?: string };
+type AnthropicResponse = { content?: AnthropicContentBlock[] };
+
+export async function draftRuleAction(description: string): Promise<DraftResult> {
+  if (!description.trim()) return { ok: false, error: "Description required." };
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    // No key configured → offline stub. Still produces a usable draft so the
+    // demo flow works without external API access.
+    return { ok: true, drafted: stubDraft(description) };
+  }
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        system: CLAUDE_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: description }],
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      return { ok: false, error: `Claude API ${response.status}: ${body.slice(0, 200)}` };
+    }
+
+    const data = (await response.json()) as AnthropicResponse;
+    const text = (data.content || [])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text || "")
+      .join("");
+
+    const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(cleaned) as DraftedRule;
+    return { ok: true, drafted: parsed };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return { ok: false, error: `Could not draft rule: ${msg}` };
+  }
+}
