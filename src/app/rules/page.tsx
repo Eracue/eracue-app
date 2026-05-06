@@ -21,6 +21,7 @@ type RawRuleRow = {
   rule_status: string | null;
   deactivated_at: string | null;
   deactivated_reason: string | null;
+  wsp_reference: string | null;
 };
 
 type VerdictAction = {
@@ -37,7 +38,7 @@ async function getRulesData(): Promise<RuleRow[]> {
       // PostgREST aliases:  alias_name:column_name. Surface DB columns under
       // the friendly names the UI uses.
       .select(
-        "id, name, description, keywords, scope, rule_status, deactivated_at, deactivated_reason, verdict:rule_type, effective_from, effective_until:effective_to"
+        "id, name, description, keywords, scope, rule_status, deactivated_at, deactivated_reason, wsp_reference, verdict:rule_type, effective_from, effective_until:effective_to"
       )
       .eq("org_id", DEMO_ORG_ID)
       .order("name"),

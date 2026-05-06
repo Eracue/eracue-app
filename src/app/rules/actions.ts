@@ -42,6 +42,9 @@ export type CreateRuleInput = {
   effective_until: string | null;
   regulatory_basis: string;
   authorized_by: string;
+  // Optional pointer to the firm's Written Supervisory Procedures section
+  // that this rule enforces. Spread conditionally so older schemas still work.
+  wsp_reference?: string;
 };
 type CreateRuleResult = { ok: true; ruleId: string } | { ok: false; error: string };
 
@@ -49,6 +52,7 @@ export async function createRuleAction(
   input: CreateRuleInput
 ): Promise<CreateRuleResult> {
   const sb = getSupabaseAdmin();
+  const trimmedWsp = input.wsp_reference?.trim();
   const { data, error } = await sb
     .from("rules")
     .insert({
@@ -64,6 +68,7 @@ export async function createRuleAction(
       effective_from: input.effective_from,
       // DB column is `effective_to`, not `effective_until`.
       effective_to: input.effective_until,
+      ...(trimmedWsp ? { wsp_reference: trimmedWsp } : {}),
     })
     .select("id")
     .single();
@@ -80,6 +85,7 @@ export type UpdateRuleInput = {
   scope: string;
   effective_from: string;
   effective_until: string | null;
+  wsp_reference?: string;
 };
 type UpdateRuleResult = { success: true } | { error: string };
 
@@ -87,6 +93,11 @@ export async function updateRuleAction(
   input: UpdateRuleInput
 ): Promise<UpdateRuleResult> {
   const sb = getSupabaseAdmin();
+  // Pass `null` when the user clears the field (so existing values get wiped),
+  // but skip the column entirely if it wasn't supplied at all (e.g. older
+  // callers / pending migration).
+  const wspProvided = Object.prototype.hasOwnProperty.call(input, "wsp_reference");
+  const wspTrimmed = input.wsp_reference?.trim();
   const { error } = await sb
     .from("rules")
     .update({
@@ -97,6 +108,7 @@ export async function updateRuleAction(
       scope: input.scope,
       effective_from: input.effective_from,
       effective_to: input.effective_until,
+      ...(wspProvided ? { wsp_reference: wspTrimmed || null } : {}),
     })
     .eq("id", input.ruleId)
     .eq("org_id", DEMO_ORG_ID);

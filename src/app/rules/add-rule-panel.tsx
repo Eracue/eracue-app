@@ -22,6 +22,7 @@ export type InitialRule = {
   scope: string | null;
   effective_from: string | null;
   effective_until: string | null;
+  wsp_reference: string | null;
 };
 
 type Props = {
@@ -100,6 +101,7 @@ export function AddRulePanel({ isOpen, onClose, initialRule }: Props) {
   const [keywordInput, setKeywordInput] = useState("");
   const [activeFrom, setActiveFrom] = useState<string>(todayISO());
   const [activeUntil, setActiveUntil] = useState<string>("");
+  const [wspReference, setWspReference] = useState<string>("");
 
   // Scope state — driven from describe state, surfaces in review state.
   const [scopeType, setScopeType] = useState<ScopeType>("all");
@@ -136,6 +138,7 @@ export function AddRulePanel({ isOpen, onClose, initialRule }: Props) {
       setScopeRole("");
       setScopePerson("");
       setActiveUntil("");
+      setWspReference("");
       setShowConfirmation(false);
       return;
     }
@@ -171,6 +174,7 @@ export function AddRulePanel({ isOpen, onClose, initialRule }: Props) {
       setKeywords(kws);
       setActiveFrom(fromISO);
       setActiveUntil(untilISO);
+      setWspReference(initialRule.wsp_reference ?? "");
       setScopeType(sp.scopeType);
       setScopeRole(sp.scopeRole);
       setScopePerson(sp.scopePerson);
@@ -243,6 +247,7 @@ export function AddRulePanel({ isOpen, onClose, initialRule }: Props) {
         ? new Date(activeUntil).toISOString()
         : null;
 
+      const trimmedWsp = wspReference.trim();
       if (initialRule) {
         const result = await updateRuleAction({
           ruleId: initialRule.id,
@@ -253,6 +258,7 @@ export function AddRulePanel({ isOpen, onClose, initialRule }: Props) {
           scope: getScopeValue(),
           effective_from: effectiveFromISO,
           effective_until: effectiveUntilISO,
+          wsp_reference: trimmedWsp,
         });
         if ("error" in result) {
           setError(result.error);
@@ -270,6 +276,7 @@ export function AddRulePanel({ isOpen, onClose, initialRule }: Props) {
           effective_until: effectiveUntilISO,
           regulatory_basis: drafted.regulatory_basis,
           authorized_by: "Sarah Chen, GC",
+          ...(trimmedWsp ? { wsp_reference: trimmedWsp } : {}),
         });
         if (!result.ok) {
           setError(result.error);
@@ -677,6 +684,27 @@ Examples:
                   </div>
                 </div>
               )}
+
+              {/* WSP reference — links rule to firm's Written Supervisory
+                  Procedures section for FINRA examination purposes. */}
+              <div className="mb-4">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-1">
+                  WSP REFERENCE
+                </div>
+                <div className="font-mono text-[10px] text-[#9E9E96] mb-2">
+                  Optional · Written Supervisory Procedures section
+                </div>
+                <input
+                  type="text"
+                  value={wspReference}
+                  onChange={(e) => setWspReference(e.target.value)}
+                  placeholder="e.g. Section 4.2 — Social Media Communications"
+                  className="w-full border border-[#E2E1DC] rounded-sm px-3 py-2 text-sm text-[#1C1C1A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+                />
+                <div className="font-mono text-[10px] text-[#9E9E96] mt-1">
+                  Links this rule to your firm&apos;s Written Supervisory Procedures for FINRA examination purposes.
+                </div>
+              </div>
 
               {/* Preview */}
               <div className="border border-[#E2E1DC] rounded-sm p-4 bg-[#F7F6F3] mt-4">

@@ -13,6 +13,11 @@ type SubmitInput = {
   // FINRA agentic AI flag — agent overrides sourceOrigin to "agent_submitted"
   submissionType: "human" | "agent";
   campaignName: string | null;
+  // FINRA 2026 GenAI prompt-logging — only stored when AI involvement is
+  // declared and the user actually pasted a prompt. Empty / missing → field
+  // is omitted from the insert (so older schemas without the column don't
+  // 500 on this code path).
+  promptUsed?: string;
 };
 
 export type SubmitSuccess = {
@@ -63,6 +68,9 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
 
   // 1. Insert draft. The form no longer collects FINRA Rule 2210 classification
   //    fields, so we default to retail/static/public — the strictest standard.
+  //    `prompt_used` is conditionally spread so the insert remains compatible
+  //    with schemas that haven't yet had the FINRA-2026 column added.
+  const trimmedPrompt = input.promptUsed?.trim();
   const { data: draft, error: draftErr } = await sb.from("drafts").insert({
     org_id: DEMO_ORG_ID,
     speaker_id: speakerId,
@@ -76,6 +84,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     communication_category: "retail",
     content_type: "static",
     intended_audience: "public",
+    ...(trimmedPrompt ? { prompt_used: trimmedPrompt } : {}),
   }).select("id, submitted_at").single();
 
   if (draftErr || !draft) return { error: "Failed to save draft: " + (draftErr?.message || "unknown") };

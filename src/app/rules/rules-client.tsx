@@ -17,6 +17,7 @@ export type RuleRow = {
   rule_status: string | null;
   deactivated_at: string | null;
   deactivated_reason: string | null;
+  wsp_reference: string | null;
   trigger_count?: number;
   last_triggered?: string | null;
 };
@@ -276,6 +277,11 @@ export function RulesClient({ rules }: Props) {
                         <div className="font-mono text-[10px] text-[#6E6E68]">
                           {buildFooterText(r, classification)}
                         </div>
+                        {r.wsp_reference && (
+                          <div className="font-mono text-[10px] text-[#4338CA] mt-0.5">
+                            WSP: {r.wsp_reference}
+                          </div>
+                        )}
                         {triggers > 0 && r.last_triggered && (
                           <div className="font-mono text-[10px] text-[#C2410C] mt-0.5">
                             Last triggered: {fmtRelative(r.last_triggered)}

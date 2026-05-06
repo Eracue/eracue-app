@@ -57,6 +57,7 @@ export function SubmitForm() {
   const [channel, setChannel]               = useState("linkedin");
   const [submissionType, setSubmissionType] = useState<"human" | "agent">("human");
   const [aiDeclaration, setAiDeclaration]   = useState(true);
+  const [promptUsed, setPromptUsed]         = useState("");
   const [campaign, setCampaign]             = useState("Series B Announce");
   const [charCount, setCharCount]           = useState(DEMO_DRAFT.length);
   const [submitting, setSubmitting]         = useState(false);
@@ -86,6 +87,8 @@ export function SubmitForm() {
         sourceOrigin: aiDeclaration ? "ai_assisted" : "human",
         submissionType,
         campaignName: campaign || null,
+        // Only meaningful when AI is declared; the action ignores empty values.
+        promptUsed: aiDeclaration ? promptUsed : undefined,
       });
 
       if ("error" in result && result.error) {
@@ -434,6 +437,29 @@ export function SubmitForm() {
               </div>
             )}
           </div>
+
+          {/* Card 4b — AI prompt logging (FINRA 2026). Only meaningful when
+              AI involvement is declared, so the card hides itself otherwise. */}
+          {aiDeclaration && (
+            <div className="bg-white border border-[#E2E1DC] rounded-sm p-4">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-1">
+                AI PROMPT USED
+              </div>
+              <div className="font-mono text-[10px] text-[#9E9E96] mb-3">
+                Optional · FINRA 2026 prompt logging requirement
+              </div>
+              <textarea
+                value={promptUsed}
+                onChange={(e) => setPromptUsed(e.target.value)}
+                rows={3}
+                placeholder="Paste the prompt used to generate this draft, if known. e.g. 'Write a LinkedIn post about our Series B growth plans for the CEO to post.'"
+                className="w-full border border-[#E2E1DC] rounded-sm p-3 text-xs text-[#1C1C1A] bg-[#F7F6F3] resize-none focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono leading-relaxed placeholder:text-[#9E9E96]"
+              />
+              <div className="font-mono text-[10px] text-[#9E9E96] mt-2">
+                Stored in the governance record per FINRA 2026 GenAI oversight guidance.
+              </div>
+            </div>
+          )}
 
           {/* Card 5 — Campaign */}
           <div className="bg-white border border-[#E2E1DC] rounded-sm p-4">
