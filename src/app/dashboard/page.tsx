@@ -147,38 +147,38 @@ export default async function DashboardPage() {
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-neutral-50">
+      <main className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <Link href="/" className="text-sm text-neutral-500 hover:text-neutral-900">← Home</Link>
-          <h1 className="text-3xl font-light tracking-tight text-neutral-900 mt-2">
+          <Link href="/" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100">← Home</Link>
+          <h1 className="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100 mt-2">
             Principal dashboard
           </h1>
-          <p className="text-sm text-neutral-500 mt-1">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
             Sarah Chen · General Counsel
           </p>
-          <p className="text-sm text-neutral-600 mt-3 max-w-2xl">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-3 max-w-2xl">
             Every speaker&apos;s drafts, coordinated by campaign. Spot conflicting narratives across speakers before any of them ship.
           </p>
         </div>
 
         {/* Top stats */}
         <div className="grid grid-cols-4 gap-4 mb-8">
-          <div className="bg-white border border-neutral-200 rounded-lg p-5">
-            <div className="text-xs text-neutral-500 uppercase tracking-wide">Total drafts</div>
-            <div className="text-3xl font-light text-neutral-900 mt-1">{totals.drafts}</div>
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5">
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Total drafts</div>
+            <div className="text-3xl font-light text-neutral-900 dark:text-neutral-100 mt-1">{totals.drafts}</div>
           </div>
-          <div className="bg-white border border-neutral-200 rounded-lg p-5">
-            <div className="text-xs text-neutral-500 uppercase tracking-wide">Blocked</div>
-            <div className="text-3xl font-light text-red-700 mt-1">{totals.blocked}</div>
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5">
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Blocked</div>
+            <div className="text-3xl font-light text-red-700 dark:text-red-400 mt-1">{totals.blocked}</div>
           </div>
-          <div className="bg-white border border-neutral-200 rounded-lg p-5">
-            <div className="text-xs text-neutral-500 uppercase tracking-wide">Escalated</div>
-            <div className="text-3xl font-light text-amber-700 mt-1">{totals.escalated}</div>
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5">
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Escalated</div>
+            <div className="text-3xl font-light text-amber-700 dark:text-amber-400 mt-1">{totals.escalated}</div>
           </div>
-          <div className="bg-white border border-neutral-200 rounded-lg p-5">
-            <div className="text-xs text-neutral-500 uppercase tracking-wide">Overridden</div>
-            <div className="text-3xl font-light text-purple-700 mt-1">{totals.overridden}</div>
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5">
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Overridden</div>
+            <div className="text-3xl font-light text-purple-700 dark:text-purple-400 mt-1">{totals.overridden}</div>
           </div>
         </div>
 

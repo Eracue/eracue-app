@@ -53,10 +53,10 @@ async function getRules(filter: "active" | "all") {
 
 function ruleTypeBadge(type: string) {
   const styles: Record<string, { bg: string; text: string; border: string; label: string; verb: string }> = {
-    block: { bg: "bg-red-50", text: "text-red-900", border: "border-red-300", label: "BLOCK", verb: "Hard-stop" },
-    escalate: { bg: "bg-amber-50", text: "text-amber-900", border: "border-amber-300", label: "ESCALATE", verb: "Route to reviewer" },
-    review: { bg: "bg-blue-50", text: "text-blue-900", border: "border-blue-300", label: "REVIEW", verb: "Queue for review" },
-    guide: { bg: "bg-purple-50", text: "text-purple-900", border: "border-purple-300", label: "GUIDE", verb: "Advisory" },
+    block: { bg: "bg-red-50 dark:bg-red-950/30", text: "text-red-900 dark:text-red-300", border: "border-red-300 dark:border-red-900", label: "BLOCK", verb: "Hard-stop" },
+    escalate: { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-900 dark:text-amber-300", border: "border-amber-300 dark:border-amber-900", label: "ESCALATE", verb: "Route to reviewer" },
+    review: { bg: "bg-blue-50 dark:bg-blue-950/30", text: "text-blue-900 dark:text-blue-300", border: "border-blue-300 dark:border-blue-900", label: "REVIEW", verb: "Queue for review" },
+    guide: { bg: "bg-purple-50 dark:bg-purple-950/30", text: "text-purple-900 dark:text-purple-300", border: "border-purple-300 dark:border-purple-900", label: "GUIDE", verb: "Advisory" },
   };
   return styles[type] || styles.guide;
 }
@@ -107,62 +107,62 @@ export default async function RulesPage({ searchParams }: PageProps) {
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-neutral-50">
+      <main className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <Link href="/" className="text-sm text-neutral-500 hover:text-neutral-900">← Home</Link>
-          <h1 className="text-3xl font-light tracking-tight text-neutral-900 mt-2">
+          <Link href="/" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100">← Home</Link>
+          <h1 className="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100 mt-2">
             Governance rules
           </h1>
-          <p className="text-sm text-neutral-500 mt-1">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
             {principal ? `Authorized by ${principal.name}${principal.title ? `, ${principal.title}` : ""}` : "Authorized by org principal"}
           </p>
-          <p className="text-sm text-neutral-600 mt-3 max-w-2xl">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-3 max-w-2xl">
             Every draft is checked against these policies before publication. The principal is responsible for keeping them current.
           </p>
         </div>
 
         {/* Counts hero */}
         <div className="grid grid-cols-5 gap-3 mb-6">
-          <div className="bg-white border border-neutral-200 rounded-lg p-4">
-            <div className="text-xs text-neutral-500 uppercase tracking-wide">Total</div>
-            <div className="text-2xl font-light text-neutral-900 mt-1">{counts.total}</div>
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Total</div>
+            <div className="text-2xl font-light text-neutral-900 dark:text-neutral-100 mt-1">{counts.total}</div>
           </div>
-          <div className="bg-white border border-neutral-200 rounded-lg p-4">
-            <div className="text-xs text-red-700 uppercase tracking-wide">Block</div>
-            <div className="text-2xl font-light text-neutral-900 mt-1">{counts.block}</div>
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+            <div className="text-xs text-red-700 dark:text-red-400 uppercase tracking-wide">Block</div>
+            <div className="text-2xl font-light text-neutral-900 dark:text-neutral-100 mt-1">{counts.block}</div>
           </div>
-          <div className="bg-white border border-neutral-200 rounded-lg p-4">
-            <div className="text-xs text-amber-700 uppercase tracking-wide">Escalate</div>
-            <div className="text-2xl font-light text-neutral-900 mt-1">{counts.escalate}</div>
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+            <div className="text-xs text-amber-700 dark:text-amber-400 uppercase tracking-wide">Escalate</div>
+            <div className="text-2xl font-light text-neutral-900 dark:text-neutral-100 mt-1">{counts.escalate}</div>
           </div>
-          <div className="bg-white border border-neutral-200 rounded-lg p-4">
-            <div className="text-xs text-blue-700 uppercase tracking-wide">Review</div>
-            <div className="text-2xl font-light text-neutral-900 mt-1">{counts.review}</div>
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+            <div className="text-xs text-blue-700 dark:text-blue-400 uppercase tracking-wide">Review</div>
+            <div className="text-2xl font-light text-neutral-900 dark:text-neutral-100 mt-1">{counts.review}</div>
           </div>
-          <div className="bg-white border border-neutral-200 rounded-lg p-4">
-            <div className="text-xs text-purple-700 uppercase tracking-wide">Guide</div>
-            <div className="text-2xl font-light text-neutral-900 mt-1">{counts.guide}</div>
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-4">
+            <div className="text-xs text-purple-700 dark:text-purple-400 uppercase tracking-wide">Guide</div>
+            <div className="text-2xl font-light text-neutral-900 dark:text-neutral-100 mt-1">{counts.guide}</div>
           </div>
         </div>
 
         {/* Engine coverage explainer */}
-        <div className="bg-white border border-neutral-200 rounded-lg p-5 mb-6">
-          <div className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Engine coverage</div>
-          <p className="text-sm text-neutral-700 mb-3">
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 mb-6">
+          <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-2">Engine coverage</div>
+          <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-3">
             Of <span className="font-medium">5 governance checks</span>, <span className="font-medium">2 are evaluating these rules today</span>.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-xs text-neutral-600">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-xs text-neutral-600 dark:text-neutral-400">
             <div>
-              <div className="font-medium text-green-800 mb-1">Active</div>
+              <div className="font-medium text-green-800 dark:text-green-300 mb-1">Active</div>
               <ul className="space-y-1">
                 <li>✓ Keyword Check — matches rule keywords against draft text</li>
                 <li>✓ Timing Check — verifies rule is effective at submission</li>
               </ul>
             </div>
             <div>
-              <div className="font-medium text-neutral-700 mb-1">Available with customer data</div>
-              <ul className="space-y-1 text-neutral-500">
+              <div className="font-medium text-neutral-700 dark:text-neutral-300 mb-1">Available with customer data</div>
+              <ul className="space-y-1 text-neutral-500 dark:text-neutral-400">
                 <li>○ Consistency Check — requires prior statement corpus</li>
                 <li>○ Audience Check — requires audience profile</li>
                 <li>○ Alignment Check — requires narrative profile</li>
@@ -183,19 +183,19 @@ export default async function RulesPage({ searchParams }: PageProps) {
               <section key={type}>
                 <div className="flex items-baseline justify-between mb-3">
                   <h2 className={`text-xs font-bold uppercase tracking-widest ${style.text}`}>
-                    {style.label} <span className="text-neutral-400 font-normal">— {style.verb}</span>
+                    {style.label} <span className="text-neutral-400 dark:text-neutral-500 font-normal">— {style.verb}</span>
                   </h2>
-                  <span className="text-xs text-neutral-500">{rulesOfType.length}</span>
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400">{rulesOfType.length}</span>
                 </div>
                 <div className="space-y-3">
                   {rulesOfType.map((r) => {
                     const status = ruleStatus(r);
                     return (
-                      <div key={r.id} className="bg-white border border-neutral-200 rounded-lg p-5">
+                      <div key={r.id} className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5">
                         <div className="flex items-start justify-between gap-4 mb-2">
                           <div>
-                            <h3 className="text-sm font-medium text-neutral-900">{r.name}</h3>
-                            <p className="text-sm text-neutral-600 mt-1">{r.description}</p>
+                            <h3 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{r.name}</h3>
+                            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">{r.description}</p>
                           </div>
                           <span className={`shrink-0 inline-flex items-center px-2 py-1 rounded text-xs font-bold tracking-wide ${style.bg} ${style.text} border ${style.border}`}>
                             {style.label}
@@ -204,10 +204,10 @@ export default async function RulesPage({ searchParams }: PageProps) {
 
                         {r.keywords && r.keywords.length > 0 && (
                           <div className="mt-3">
-                            <div className="text-xs text-neutral-500 mb-1">Keywords</div>
+                            <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">Keywords</div>
                             <div className="flex flex-wrap gap-1.5">
                               {r.keywords.map((kw, i) => (
-                                <span key={i} className="font-mono text-xs bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded">
+                                <span key={i} className="font-mono text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2 py-0.5 rounded">
                                   {kw}
                                 </span>
                               ))}
@@ -215,9 +215,9 @@ export default async function RulesPage({ searchParams }: PageProps) {
                           </div>
                         )}
 
-                        <div className="mt-3 pt-3 border-t border-neutral-100">
-                          <div className="flex items-center justify-between text-xs text-neutral-500 mb-2">
-                            <span className={status.tone === "expired" ? "text-neutral-400" : status.tone === "future" ? "text-neutral-500" : "text-green-700"}>
+                        <div className="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+                          <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 mb-2">
+                            <span className={status.tone === "expired" ? "text-neutral-400 dark:text-neutral-500" : status.tone === "future" ? "text-neutral-500 dark:text-neutral-400" : "text-green-700 dark:text-green-400"}>
                               {status.label}
                             </span>
                             {r.users && (
@@ -226,14 +226,14 @@ export default async function RulesPage({ searchParams }: PageProps) {
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-neutral-500">
-                            <span className="text-neutral-400">Evaluated by:</span>{" "}
+                          <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                            <span className="text-neutral-400 dark:text-neutral-500">Evaluated by:</span>{" "}
                             {r.keywords && r.keywords.length > 0 ? (
                               <span>Keyword Check + Timing Check</span>
                             ) : (
                               <span>
-                                <span className="text-neutral-400">Alignment Check</span>
-                                <span className="text-neutral-400 italic"> (available)</span>
+                                <span className="text-neutral-400 dark:text-neutral-500">Alignment Check</span>
+                                <span className="text-neutral-400 dark:text-neutral-500 italic"> (available)</span>
                                 <span> + Timing Check</span>
                               </span>
                             )}
@@ -249,7 +249,7 @@ export default async function RulesPage({ searchParams }: PageProps) {
         </div>
 
         {rules.length === 0 && (
-          <div className="bg-white border border-neutral-200 rounded-lg p-12 text-center text-neutral-500">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-12 text-center text-neutral-500 dark:text-neutral-400">
             {filter === "active" ? "No rules are active right now." : "No rules in this org."}
           </div>
         )}

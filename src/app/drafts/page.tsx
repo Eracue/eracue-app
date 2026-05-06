@@ -24,19 +24,19 @@ async function getDrafts() {
 
 function statusBadge(status: string) {
   const colors: Record<string, string> = {
-    pending: "bg-neutral-100 text-neutral-700",
-    approved: "bg-green-100 text-green-800",
-    escalated: "bg-amber-100 text-amber-800",
-    blocked: "bg-red-100 text-red-800",
-    overridden: "bg-purple-100 text-purple-800",
+    pending: "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300",
+    approved: "bg-green-100 dark:bg-green-950/30 text-green-800 dark:text-green-300",
+    escalated: "bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300",
+    blocked: "bg-red-100 text-red-800 dark:text-red-300",
+    overridden: "bg-purple-100 dark:bg-purple-950/30 text-purple-800 dark:text-purple-300",
   };
-  return colors[status] || "bg-neutral-100 text-neutral-700";
+  return colors[status] || "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300";
 }
 
 function sourceBadge(source: string) {
   if (source === "human") return null;
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200">
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900">
       {source === "ai_generated" ? "AI generated" : "AI assisted"}
     </span>
   );
@@ -48,50 +48,50 @@ export default async function DraftsPage() {
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-neutral-50">
+      <main className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
       <div className="max-w-5xl mx-auto px-6 py-12">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <Link href="/" className="text-sm text-neutral-500 hover:text-neutral-900">
+            <Link href="/" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100">
               ← Home
             </Link>
-            <h1 className="text-3xl font-light tracking-tight text-neutral-900 mt-2">
+            <h1 className="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100 mt-2">
               Drafts
             </h1>
-            <p className="text-sm text-neutral-500 mt-1">
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
               {drafts.length} drafts in the demo organization
             </p>
-            <p className="text-sm text-neutral-600 mt-3 max-w-2xl">
+            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-3 max-w-2xl">
               Every draft your speakers submit, with the system&apos;s verdict and the principal&apos;s decision. Click a speaker name to see the full audit record.
             </p>
           </div>
         </div>
 
-        <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-neutral-50 border-b border-neutral-200">
+            <thead className="bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-neutral-600">Speaker</th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-600">Channel</th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-600">Draft</th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-600">Campaign</th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-600">Source</th>
-                <th className="text-left px-4 py-3 font-medium text-neutral-600">Status</th>
+                <th className="text-left px-4 py-3 font-medium text-neutral-600 dark:text-neutral-400">Speaker</th>
+                <th className="text-left px-4 py-3 font-medium text-neutral-600 dark:text-neutral-400">Channel</th>
+                <th className="text-left px-4 py-3 font-medium text-neutral-600 dark:text-neutral-400">Draft</th>
+                <th className="text-left px-4 py-3 font-medium text-neutral-600 dark:text-neutral-400">Campaign</th>
+                <th className="text-left px-4 py-3 font-medium text-neutral-600 dark:text-neutral-400">Source</th>
+                <th className="text-left px-4 py-3 font-medium text-neutral-600 dark:text-neutral-400">Status</th>
               </tr>
             </thead>
             <tbody>
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {drafts.map((d: any) => (
-                <tr key={d.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
+                <tr key={d.id} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0 hover:bg-neutral-50 dark:hover:hover:bg-neutral-900">
                   <td className="px-4 py-3">
                     <Link href={`/drafts/${d.id}`} className="block group">
-                      <div className="font-medium text-neutral-900 group-hover:underline">{d.users?.name || "—"}</div>
-                      <div className="text-xs text-neutral-500">{d.users?.title || ""}</div>
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100 group-hover:underline">{d.users?.name || "—"}</div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">{d.users?.title || ""}</div>
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-neutral-600">{d.channel}</td>
-                  <td className="px-4 py-3 text-neutral-700 max-w-md truncate">{d.draft_text}</td>
-                  <td className="px-4 py-3 text-neutral-600">{d.campaigns?.name || "—"}</td>
+                  <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">{d.channel}</td>
+                  <td className="px-4 py-3 text-neutral-700 dark:text-neutral-300 max-w-md truncate">{d.draft_text}</td>
+                  <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">{d.campaigns?.name || "—"}</td>
                   <td className="px-4 py-3">{sourceBadge(d.source_origin)}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${statusBadge(d.status)}`}>

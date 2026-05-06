@@ -30,17 +30,17 @@ export default async function SubmitPage() {
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-neutral-50">
+      <main className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
       <div className="max-w-2xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <Link href="/" className="text-sm text-neutral-500 hover:text-neutral-900">← Home</Link>
-          <h1 className="text-3xl font-light tracking-tight text-neutral-900 mt-2">Submit a draft</h1>
-          <p className="text-sm text-neutral-500 mt-1">Drafts are checked against active rules before publication.</p>
-          <p className="text-sm text-neutral-600 mt-3 max-w-xl">
+          <Link href="/" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100">← Home</Link>
+          <h1 className="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100 mt-2">Submit a draft</h1>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">Drafts are checked against active rules before publication.</p>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-3 max-w-xl">
             Five checks fire on submission. The system returns a verdict — clear, review, escalate, or block — within one second. You see the result immediately.
           </p>
         </div>
-        <div className="bg-white border border-neutral-200 rounded-lg p-8">
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-8">
           <SubmitForm speakers={speakers} campaigns={campaigns} />
         </div>
       </div>

@@ -95,11 +95,11 @@ const CHECK_DEFINITIONS = [
 
 function VerdictBadge({ verdict }: { verdict: string }) {
   const styles: Record<string, { bg: string; text: string; label: string; border: string }> = {
-    block: { bg: "bg-red-50", text: "text-red-900", border: "border-red-300", label: "BLOCK" },
-    escalate: { bg: "bg-amber-50", text: "text-amber-900", border: "border-amber-300", label: "ESCALATE" },
-    review: { bg: "bg-blue-50", text: "text-blue-900", border: "border-blue-300", label: "REVIEW" },
-    guide: { bg: "bg-purple-50", text: "text-purple-900", border: "border-purple-300", label: "GUIDE" },
-    clear: { bg: "bg-green-50", text: "text-green-900", border: "border-green-300", label: "CLEAR" },
+    block: { bg: "bg-red-50 dark:bg-red-950/30", text: "text-red-900 dark:text-red-300", border: "border-red-300 dark:border-red-900", label: "BLOCK" },
+    escalate: { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-900 dark:text-amber-300", border: "border-amber-300 dark:border-amber-900", label: "ESCALATE" },
+    review: { bg: "bg-blue-50 dark:bg-blue-950/30", text: "text-blue-900 dark:text-blue-300", border: "border-blue-300 dark:border-blue-900", label: "REVIEW" },
+    guide: { bg: "bg-purple-50 dark:bg-purple-950/30", text: "text-purple-900 dark:text-purple-300", border: "border-purple-300 dark:border-purple-900", label: "GUIDE" },
+    clear: { bg: "bg-green-50 dark:bg-green-950/30", text: "text-green-900 dark:text-green-300", border: "border-green-300 dark:border-green-900", label: "CLEAR" },
   };
   const s = styles[verdict] || styles.clear;
   return (
@@ -121,11 +121,11 @@ function ChecksPerformedPanel({ actions }: { actions: ActionRow[] }) {
   const totalCount = CHECK_DEFINITIONS.length;
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-lg p-6 mb-6">
+    <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-6 mb-6">
       <div className="flex items-center justify-between mb-4">
-        <div className="text-xs text-neutral-500 uppercase tracking-wide">Checks performed</div>
-        <div className="text-xs text-neutral-500">
-          <span className="font-medium text-neutral-900">{activeCount} of {totalCount}</span> active
+        <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Checks performed</div>
+        <div className="text-xs text-neutral-500 dark:text-neutral-400">
+          <span className="font-medium text-neutral-900 dark:text-neutral-100">{activeCount} of {totalCount}</span> active
         </div>
       </div>
       <ul className="space-y-3">
@@ -154,20 +154,20 @@ function ChecksPerformedPanel({ actions }: { actions: ActionRow[] }) {
             <li key={check.id} className="flex items-start gap-3">
               <div className={`shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                 isActive
-                  ? "bg-green-100 text-green-800 border border-green-300"
-                  : "bg-neutral-100 text-neutral-400 border border-neutral-200"
+                  ? "bg-green-100 dark:bg-green-950/30 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-900"
+                  : "bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 border border-neutral-200 dark:border-neutral-800"
               }`}>
                 {isActive ? "✓" : "○"}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between gap-3">
-                  <div className="text-sm font-medium text-neutral-900">{check.displayName}</div>
-                  <div className="text-xs text-neutral-400">
+                  <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{check.displayName}</div>
+                  <div className="text-xs text-neutral-400 dark:text-neutral-500">
                     {check.engineType === "deterministic" ? "deterministic" : "AI"}
                     {!isActive && " · available"}
                   </div>
                 </div>
-                <div className="text-xs text-neutral-600 mt-0.5">{resultLine}</div>
+                <div className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">{resultLine}</div>
               </div>
             </li>
           );
@@ -188,7 +188,7 @@ function highlightMatch(text: string, keyword: string | undefined) {
   return (
     <>
       {before}
-      <mark className="bg-yellow-200 px-0.5 rounded">{match}</mark>
+      <mark className="bg-yellow-200 dark:bg-yellow-800/40 dark:text-yellow-100 px-0.5 rounded">{match}</mark>
       {after}
     </>
   );
@@ -215,19 +215,19 @@ export default async function DraftDetailPage({ params }: PageProps) {
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-neutral-50">
+      <main className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
       <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <Link href="/drafts" className="text-sm text-neutral-500 hover:text-neutral-900">← All drafts</Link>
-          <h1 className="text-3xl font-light tracking-tight text-neutral-900 mt-2">Draft</h1>
-          <p className="text-sm text-neutral-500 mt-1">
+          <Link href="/drafts" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100">← All drafts</Link>
+          <h1 className="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100 mt-2">Draft</h1>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
             Submitted by {draft.users?.name || "—"}{draft.users?.title ? ` (${draft.users.title})` : ""}
             {draft.campaigns?.name ? ` · Campaign: ${draft.campaigns.name}` : ""}
           </p>
           <div className="flex gap-2 mt-4">
             <Link
               href={`/drafts/${draft.id}/examiner`}
-              className="px-4 py-2 bg-white border border-neutral-300 text-neutral-900 text-sm font-medium rounded-md hover:bg-neutral-50 transition"
+              className="px-4 py-2 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-sm font-medium rounded-md hover:bg-neutral-50 dark:hover:hover:bg-neutral-900 transition"
             >
               Export examiner record →
             </Link>
@@ -236,35 +236,35 @@ export default async function DraftDetailPage({ params }: PageProps) {
 
         {/* Verdict Card */}
         {verdict && (
-          <div className="bg-white border border-neutral-200 rounded-lg p-6 mb-6">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-6 mb-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <div className="text-xs text-neutral-500 uppercase tracking-wide mb-2">Verdict</div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-2">Verdict</div>
                 <VerdictBadge verdict={verdict} />
               </div>
-              <div className="text-right text-xs text-neutral-500">
+              <div className="text-right text-xs text-neutral-500 dark:text-neutral-400">
                 {actions.filter((a) => a.action_type === "check_ran").length} checks run
               </div>
             </div>
             {primaryMatch && (
-              <div className="mt-4 pt-4 border-t border-neutral-100">
-                <div className="text-sm font-medium text-neutral-900">{primaryMatch.rule_name}</div>
-                <div className="text-sm text-neutral-600 mt-1">{primaryMatch.rule_description}</div>
-                <div className="text-xs text-neutral-500 mt-2">
-                  Matched keyword: <span className="font-mono bg-neutral-100 px-1.5 py-0.5 rounded">{matchedKeyword}</span>
+              <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{primaryMatch.rule_name}</div>
+                <div className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">{primaryMatch.rule_description}</div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+                  Matched keyword: <span className="font-mono bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded">{matchedKeyword}</span>
                 </div>
               </div>
             )}
             {!primaryMatch && verdict === "clear" && (
-              <p className="text-sm text-neutral-600 mt-2">No active rules matched this draft.</p>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-2">No active rules matched this draft.</p>
             )}
           </div>
         )}
 
         {/* Send to reviewer prompt */}
         {(draft.status === "blocked" || draft.status === "escalated") && (
-          <div className="bg-neutral-100 border border-neutral-300 rounded-lg p-4 mb-6 flex items-center justify-between gap-4">
-            <div className="text-sm text-neutral-700">
+          <div className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-4 mb-6 flex items-center justify-between gap-4">
+            <div className="text-sm text-neutral-700 dark:text-neutral-300">
               This draft needs reviewer attention.
             </div>
             <Link
@@ -280,31 +280,31 @@ export default async function DraftDetailPage({ params }: PageProps) {
         <ChecksPerformedPanel actions={actions} />
 
         {/* Draft Text */}
-        <div className="bg-white border border-neutral-200 rounded-lg p-8 mb-6">
-          <div className="flex items-center gap-2 mb-4 text-xs text-neutral-500 uppercase tracking-wide">
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-8 mb-6">
+          <div className="flex items-center gap-2 mb-4 text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
             <span>{draft.channel}</span>
             <span>·</span>
             <span>{draft.source_origin.replace("_", " ")}</span>
             <span>·</span>
             <span>Status: {draft.status}</span>
           </div>
-          <p className="text-neutral-900 whitespace-pre-wrap leading-relaxed">
+          <p className="text-neutral-900 dark:text-neutral-100 whitespace-pre-wrap leading-relaxed">
             {highlightMatch(draft.draft_text, matchedKeyword)}
           </p>
         </div>
 
         {/* Other matches if more than one */}
         {allMatches.length > 1 && (
-          <div className="bg-white border border-neutral-200 rounded-lg p-6 mb-6">
-            <div className="text-xs text-neutral-500 uppercase tracking-wide mb-3">All rule matches ({allMatches.length})</div>
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-6 mb-6">
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-3">All rule matches ({allMatches.length})</div>
             <ul className="space-y-2 text-sm">
               {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {allMatches.map((m: any, i: number) => (
                 <li key={i} className="flex items-start gap-3">
                   <VerdictBadge verdict={m.rule_type} />
                   <div className="flex-1">
-                    <div className="font-medium text-neutral-900">{m.rule_name}</div>
-                    <div className="text-xs text-neutral-500 mt-0.5">
+                    <div className="font-medium text-neutral-900 dark:text-neutral-100">{m.rule_name}</div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                       Keyword: <span className="font-mono">{m.matched_keyword}</span>
                     </div>
                   </div>
@@ -315,14 +315,14 @@ export default async function DraftDetailPage({ params }: PageProps) {
         )}
 
         {/* Action timeline */}
-        <div className="bg-white border border-neutral-200 rounded-lg p-6">
-          <div className="text-xs text-neutral-500 uppercase tracking-wide mb-3">Audit timeline</div>
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-6">
+          <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-3">Audit timeline</div>
           <ul className="space-y-2 text-sm">
             {actions.map((a) => (
               <li key={a.id} className="flex items-baseline gap-3">
-                <span className="text-xs text-neutral-400 font-mono w-20 shrink-0">{new Date(a.occurred_at).toLocaleTimeString()}</span>
-                <span className="text-neutral-700">{a.action_type.replace("_", " ")}</span>
-                <span className="text-xs text-neutral-500">({a.actor_kind})</span>
+                <span className="text-xs text-neutral-400 dark:text-neutral-500 font-mono w-20 shrink-0">{new Date(a.occurred_at).toLocaleTimeString()}</span>
+                <span className="text-neutral-700 dark:text-neutral-300">{a.action_type.replace("_", " ")}</span>
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">({a.actor_kind})</span>
               </li>
             ))}
           </ul>

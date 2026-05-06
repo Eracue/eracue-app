@@ -47,12 +47,12 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
   }
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-lg p-6">
-      <div className="text-xs text-neutral-500 uppercase tracking-wide mb-3">Your decision</div>
+    <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-6">
+      <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-3">Your decision</div>
 
       <div className="mb-4">
-        <label htmlFor="reason" className="block text-sm font-medium text-neutral-700 mb-2">
-          Reason {(isBlocked || isEscalated) && <span className="text-neutral-400 font-normal">(required for override / reject)</span>}
+        <label htmlFor="reason" className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+          Reason {(isBlocked || isEscalated) && <span className="text-neutral-400 dark:text-neutral-500 font-normal">(required for override / reject)</span>}
         </label>
         <textarea
           id="reason"
@@ -60,12 +60,12 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
           onChange={(e) => setReason(e.target.value)}
           rows={3}
           placeholder="Explain your reasoning..."
-          className="w-full px-3 py-2 border border-neutral-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-neutral-900 resize-y"
+          className="w-full px-3 py-2 border border-neutral-300 dark:border-neutral-700 rounded-md text-sm bg-white dark:bg-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900 resize-y"
         />
       </div>
 
       {error && (
-        <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800 mb-4">
+        <div className="px-4 py-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-md text-sm text-red-800 dark:text-red-300 mb-4">
           {error}
         </div>
       )}
@@ -85,7 +85,7 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
               type="button"
               onClick={() => decide("confirm_block")}
               disabled={submitting}
-              className="px-4 py-2 bg-white border border-red-300 text-red-700 text-sm font-medium rounded-md hover:bg-red-50 transition disabled:opacity-50"
+              className="px-4 py-2 bg-white dark:bg-neutral-900 border border-red-300 dark:border-red-900 text-red-700 dark:text-red-400 text-sm font-medium rounded-md hover:bg-red-50 dark:hover:hover:bg-red-950/30 transition disabled:opacity-50"
             >
               Confirm block
             </button>
@@ -105,7 +105,7 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
               type="button"
               onClick={() => decide("reject")}
               disabled={submitting}
-              className="px-4 py-2 bg-white border border-red-300 text-red-700 text-sm font-medium rounded-md hover:bg-red-50 transition disabled:opacity-50"
+              className="px-4 py-2 bg-white dark:bg-neutral-900 border border-red-300 dark:border-red-900 text-red-700 dark:text-red-400 text-sm font-medium rounded-md hover:bg-red-50 dark:hover:hover:bg-red-950/30 transition disabled:opacity-50"
             >
               Reject
             </button>

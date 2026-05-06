@@ -50,11 +50,11 @@ async function getDraft(id: string) {
 
 function VerdictBadge({ verdict }: { verdict: string }) {
   const styles: Record<string, { bg: string; text: string; label: string; border: string }> = {
-    block: { bg: "bg-red-50", text: "text-red-900", border: "border-red-300", label: "BLOCK" },
-    escalate: { bg: "bg-amber-50", text: "text-amber-900", border: "border-amber-300", label: "ESCALATE" },
-    review: { bg: "bg-blue-50", text: "text-blue-900", border: "border-blue-300", label: "REVIEW" },
-    guide: { bg: "bg-purple-50", text: "text-purple-900", border: "border-purple-300", label: "GUIDE" },
-    clear: { bg: "bg-green-50", text: "text-green-900", border: "border-green-300", label: "CLEAR" },
+    block: { bg: "bg-red-50 dark:bg-red-950/30", text: "text-red-900 dark:text-red-300", border: "border-red-300 dark:border-red-900", label: "BLOCK" },
+    escalate: { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-900 dark:text-amber-300", border: "border-amber-300 dark:border-amber-900", label: "ESCALATE" },
+    review: { bg: "bg-blue-50 dark:bg-blue-950/30", text: "text-blue-900 dark:text-blue-300", border: "border-blue-300 dark:border-blue-900", label: "REVIEW" },
+    guide: { bg: "bg-purple-50 dark:bg-purple-950/30", text: "text-purple-900 dark:text-purple-300", border: "border-purple-300 dark:border-purple-900", label: "GUIDE" },
+    clear: { bg: "bg-green-50 dark:bg-green-950/30", text: "text-green-900 dark:text-green-300", border: "border-green-300 dark:border-green-900", label: "CLEAR" },
   };
   const s = styles[verdict] || styles.clear;
   return (
@@ -75,7 +75,7 @@ function highlightMatch(text: string, keyword: string | undefined) {
   return (
     <>
       {before}
-      <mark className="bg-yellow-200 px-0.5 rounded">{match}</mark>
+      <mark className="bg-yellow-200 dark:bg-yellow-800/40 dark:text-yellow-100 px-0.5 rounded">{match}</mark>
       {after}
     </>
   );
@@ -100,12 +100,12 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-neutral-50">
+      <main className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
       <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <Link href="/reviewer/queue" className="text-sm text-neutral-500 hover:text-neutral-900">← Queue</Link>
-          <h1 className="text-3xl font-light tracking-tight text-neutral-900 mt-2">Review draft</h1>
-          <p className="text-sm text-neutral-500 mt-1">
+          <Link href="/reviewer/queue" className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100">← Queue</Link>
+          <h1 className="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100 mt-2">Review draft</h1>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
             From {draft.users?.name || "—"}{draft.users?.title ? ` (${draft.users.title})` : ""}
             {draft.campaigns?.name ? ` · Campaign: ${draft.campaigns.name}` : ""}
           </p>
@@ -113,22 +113,22 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
 
         {/* Verdict */}
         {verdict && (
-          <div className="bg-white border border-neutral-200 rounded-lg p-6 mb-6">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-6 mb-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <div className="text-xs text-neutral-500 uppercase tracking-wide mb-2">System verdict</div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-2">System verdict</div>
                 <VerdictBadge verdict={verdict} />
               </div>
-              <div className="text-right text-xs text-neutral-500">
-                Status: <span className="font-medium text-neutral-700">{draft.status}</span>
+              <div className="text-right text-xs text-neutral-500 dark:text-neutral-400">
+                Status: <span className="font-medium text-neutral-700 dark:text-neutral-300">{draft.status}</span>
               </div>
             </div>
             {primaryMatch && (
-              <div className="mt-4 pt-4 border-t border-neutral-100">
-                <div className="text-sm font-medium text-neutral-900">{primaryMatch.rule_name}</div>
-                <div className="text-sm text-neutral-600 mt-1">{primaryMatch.rule_description}</div>
-                <div className="text-xs text-neutral-500 mt-2">
-                  Matched keyword: <span className="font-mono bg-neutral-100 px-1.5 py-0.5 rounded">{matchedKeyword}</span>
+              <div className="mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{primaryMatch.rule_name}</div>
+                <div className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">{primaryMatch.rule_description}</div>
+                <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+                  Matched keyword: <span className="font-mono bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded">{matchedKeyword}</span>
                 </div>
               </div>
             )}
@@ -136,20 +136,20 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
         )}
 
         {/* Draft */}
-        <div className="bg-white border border-neutral-200 rounded-lg p-8 mb-6">
-          <div className="flex items-center gap-2 mb-4 text-xs text-neutral-500 uppercase tracking-wide">
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-8 mb-6">
+          <div className="flex items-center gap-2 mb-4 text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
             <span>{draft.channel}</span>
             <span>·</span>
             <span>{draft.source_origin.replace("_", " ")}</span>
           </div>
-          <p className="text-neutral-900 whitespace-pre-wrap leading-relaxed">
+          <p className="text-neutral-900 dark:text-neutral-100 whitespace-pre-wrap leading-relaxed">
             {highlightMatch(draft.draft_text, matchedKeyword)}
           </p>
         </div>
 
         {/* Decision form OR already-decided notice */}
         {alreadyDecided ? (
-          <div className="bg-neutral-100 border border-neutral-200 rounded-lg p-6 text-sm text-neutral-700">
+          <div className="bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-lg p-6 text-sm text-neutral-700 dark:text-neutral-300">
             <div className="font-medium mb-1">Already decided</div>
             <div>
               Decision: {(reviewerDecision!.payload.decision as string) || "—"}
@@ -170,14 +170,14 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
         )}
 
         {/* Audit timeline */}
-        <div className="bg-white border border-neutral-200 rounded-lg p-6 mt-6">
-          <div className="text-xs text-neutral-500 uppercase tracking-wide mb-3">Audit timeline</div>
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-6 mt-6">
+          <div className="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-3">Audit timeline</div>
           <ul className="space-y-2 text-sm">
             {actions.map((a) => (
               <li key={a.id} className="flex items-baseline gap-3">
-                <span className="text-xs text-neutral-400 font-mono w-20 shrink-0">{new Date(a.occurred_at).toLocaleTimeString()}</span>
-                <span className="text-neutral-700">{a.action_type.replace(/_/g, " ")}</span>
-                <span className="text-xs text-neutral-500">({a.actor_kind})</span>
+                <span className="text-xs text-neutral-400 dark:text-neutral-500 font-mono w-20 shrink-0">{new Date(a.occurred_at).toLocaleTimeString()}</span>
+                <span className="text-neutral-700 dark:text-neutral-300">{a.action_type.replace(/_/g, " ")}</span>
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">({a.actor_kind})</span>
               </li>
             ))}
           </ul>
