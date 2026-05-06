@@ -6,7 +6,8 @@ import { draftRuleAction, createRuleAction, type DraftedRule } from "./actions";
 
 type Props = { isOpen: boolean; onClose: () => void };
 
-type PanelState = "describe" | "review";
+type PanelState = "describe" | "review" | "confirmed";
+type ScopeType = "all" | "role" | "person";
 
 const VERDICT_STYLES: Record<DraftedRule["verdict"], { bg: string; text: string; border: string; label: string }> = {
   block:    { bg: "bg-[#FEF2F2]", text: "text-[#B91C1C]", border: "border-[#FECACA]", label: "BLOCK" },
@@ -28,13 +29,15 @@ const EXAMPLE_CHIPS = [
   "Block forward guidance before earnings",
 ];
 
-const PLACEHOLDER = `Describe what you want to govern in plain English.
+const ROLES = ["CEO", "VP Comms", "VP Sales", "CMO", "General Counsel"];
+const SPEAKERS = ["Marcus Rivera", "Lena Brooks", "James Kim", "Priya Patel", "Sarah Chen"];
+
+const PLACEHOLDER_ALL = `Describe what you want to govern in plain English.
 
 Examples:
 · No one should mention our Series B timeline before we announce
-· Sales team needs legal review before claiming Fortune 500 wins
-· CEO cannot discuss acquisition talks without legal sign-off
-· No forward guidance language during earnings quiet period`;
+· Block any forward guidance language before earnings
+· Escalate competitor comparisons to reviewer`;
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -57,7 +60,29 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
   const [activeFrom, setActiveFrom] = useState<string>(todayISO());
   const [activeUntil, setActiveUntil] = useState<string>("");
 
-  // Reset all state when the panel closes so a fresh open starts at "describe".
+  // Scope state — driven from describe state, surfaces in review state.
+  const [scopeType, setScopeType] = useState<ScopeType>("all");
+  const [scopeRole, setScopeRole] = useState<string>("");
+  const [scopePerson, setScopePerson] = useState<string>("");
+  // Tracked for parity with spec; only the setter is read so eslint stays
+  // happy without an explicit suppression.
+  const [, setShowConfirmation] = useState(false);
+
+  function getScopeLabel(): string {
+    if (scopeType === "role" && scopeRole) return `${scopeRole} role`;
+    if (scopeType === "person" && scopePerson) return scopePerson;
+    return "All speakers";
+  }
+
+  function getScopeValue(): string {
+    if (scopeType === "role" && scopeRole)
+      return `role:${scopeRole.toLowerCase().replace(/\s+/g, "_")}`;
+    if (scopeType === "person" && scopePerson)
+      return `speaker:${scopePerson.toLowerCase().replace(/\s+/g, "_")}`;
+    return "all_speakers";
+  }
+
+  // Reset all state when the panel closes.
   useEffect(() => {
     if (!isOpen) {
       setState("describe");
@@ -65,6 +90,11 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
       setDrafted(null);
       setError(null);
       setLoading(false);
+      setScopeType("all");
+      setScopeRole("");
+      setScopePerson("");
+      setActiveUntil("");
+      setShowConfirmation(false);
     }
   }, [isOpen]);
 
@@ -75,22 +105,43 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
     setReviewDescription(d.description);
     setKeywords(Array.isArray(d.keywords) ? d.keywords : []);
     setActiveFrom(todayISO());
-    setActiveUntil(d.suggested_end_date || "");
+    // Preserve user-entered activeUntil over the suggested date.
+    setActiveUntil((prev) => prev || d.suggested_end_date || "");
     setState("review");
   }
 
   async function handleDraft() {
-    if (!description.trim()) return;
+    // Validate scope first so the user sees the error before the LLM call.
+    if (scopeType === "role" && !scopeRole) {
+      setError("Please select a role first.");
+      return;
+    }
+    if (scopeType === "person" && !scopePerson) {
+      setError("Please select a person first.");
+      return;
+    }
+    if (!description.trim()) {
+      setError("Please describe the rule first.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const result = await draftRuleAction(description);
+      const result = await draftRuleAction(description, {
+        type: scopeType,
+        label: getScopeLabel(),
+      });
       if (!result.ok) {
         setError(result.error);
         setLoading(false);
         return;
       }
-      applyDrafted(result.drafted);
+      // If the user pre-set an end date in describe state, override the
+      // suggested one before flipping to review state.
+      const parsed: DraftedRule = activeUntil
+        ? { ...result.drafted, suggested_end_date: activeUntil }
+        : result.drafted;
+      applyDrafted(parsed);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not draft rule.");
     } finally {
@@ -108,7 +159,7 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
         description: reviewDescription,
         verdict,
         keywords,
-        scope: "all_speakers",
+        scope: getScopeValue(),
         effective_from: activeFrom
           ? new Date(activeFrom).toISOString()
           : new Date().toISOString(),
@@ -121,8 +172,12 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
         setLoading(false);
         return;
       }
-      onClose();
-      router.refresh();
+      setState("confirmed");
+      setShowConfirmation(true);
+      setTimeout(() => {
+        onClose();
+        router.refresh();
+      }, 2500);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not authorize rule.");
       setLoading(false);
@@ -142,8 +197,18 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
     setKeywords(keywords.filter((x) => x !== k));
   }
 
-  // Don't render the heavy panel content while closed — but keep mount stable
-  // so transition fires smoothly when reopened. We toggle visibility via class.
+  // Scope-aware textarea placeholder.
+  const placeholder =
+    scopeType === "all"
+      ? PLACEHOLDER_ALL
+      : `Describe what this ${
+          scopeType === "role" ? scopeRole || "role" : scopePerson || "person"
+        } should or shouldn't say.
+
+Examples:
+· This ${scopeType === "role" ? "role" : "person"} needs legal review before claiming enterprise customer wins
+· Block this ${scopeType === "role" ? "role" : "person"} from discussing acquisition talks without legal sign-off`;
+
   return (
     <div
       className={`fixed inset-0 z-50 ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}
@@ -162,39 +227,150 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-[#E2E1DC] flex justify-between items-center">
-          <div>
-            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
-              ADD GOVERNANCE RULE
+        {/* Header — hidden on confirmation screen */}
+        {state !== "confirmed" && (
+          <div className="px-6 py-5 border-b border-[#E2E1DC] flex justify-between items-center">
+            <div>
+              <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+                ADD GOVERNANCE RULE
+              </div>
+              <div
+                style={{ fontFamily: "var(--font-newsreader)" }}
+                className="font-light text-xl text-[#1C1C1A] mt-1"
+              >
+                {state === "describe" ? "Describe what you want to govern" : "Review and authorize"}
+              </div>
             </div>
-            <div
-              style={{ fontFamily: "var(--font-newsreader)" }}
-              className="font-light text-xl text-[#1C1C1A] mt-1"
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="text-[#6E6E68] hover:text-[#1C1C1A] text-xl cursor-pointer leading-none"
             >
-              {state === "describe" ? "Describe what you want to govern" : "Review and authorize"}
-            </div>
+              ×
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="text-[#6E6E68] hover:text-[#1C1C1A] text-xl cursor-pointer leading-none"
-          >
-            ×
-          </button>
-        </div>
+        )}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-6">
-          {state === "describe" ? (
+          {state === "describe" && (
             <>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={PLACEHOLDER}
-                className="w-full min-h-[140px] border border-[#E2E1DC] rounded-sm p-4 text-sm text-[#1C1C1A] bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
-              />
+              {/* Section A — scope */}
+              <div className="mb-6">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-3">
+                  Who does this apply to?
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { value: "all" as const,    label: "Everyone on my team" },
+                    { value: "role" as const,   label: "A specific role" },
+                    { value: "person" as const, label: "One person" },
+                  ]).map((opt) => {
+                    const selected = scopeType === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setScopeType(opt.value);
+                          if (opt.value === "all") {
+                            setScopeRole("");
+                            setScopePerson("");
+                          }
+                        }}
+                        className={`text-xs font-medium px-4 py-2 rounded-sm border transition-colors cursor-pointer ${
+                          selected
+                            ? "bg-[#EEF2FF] border-[#C7D2FE] text-[#3730A3]"
+                            : "bg-[#F7F6F3] border-[#E2E1DC] text-[#6E6E68] hover:bg-[#F0EFE9]"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {scopeType === "role" && (
+                  <>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {ROLES.map((role) => (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() => setScopeRole(role)}
+                          className={`text-xs px-3 py-1.5 rounded-sm border transition-colors cursor-pointer font-mono ${
+                            scopeRole === role
+                              ? "bg-[#4F46E5] text-white border-[#4F46E5]"
+                              : "bg-white border-[#E2E1DC] text-[#1C1C1A] hover:bg-[#F7F6F3]"
+                          }`}
+                        >
+                          {role}
+                        </button>
+                      ))}
+                    </div>
+                    {!scopeRole && (
+                      <div className="font-mono text-[10px] text-[#6E6E68] mt-2">Select a role above</div>
+                    )}
+                  </>
+                )}
+
+                {scopeType === "person" && (
+                  <>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {SPEAKERS.map((speaker) => (
+                        <button
+                          key={speaker}
+                          type="button"
+                          onClick={() => setScopePerson(speaker)}
+                          className={`text-xs px-3 py-1.5 rounded-sm border transition-colors cursor-pointer font-mono ${
+                            scopePerson === speaker
+                              ? "bg-[#4F46E5] text-white border-[#4F46E5]"
+                              : "bg-white border-[#E2E1DC] text-[#1C1C1A] hover:bg-[#F7F6F3]"
+                          }`}
+                        >
+                          {speaker}
+                        </button>
+                      ))}
+                    </div>
+                    {!scopePerson && (
+                      <div className="font-mono text-[10px] text-[#6E6E68] mt-2">Select a person above</div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Section B — describe */}
+              <div className="mb-4">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+                  Describe the rule
+                </div>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={placeholder}
+                  className="w-full min-h-[120px] border border-[#E2E1DC] rounded-sm p-4 text-sm text-[#1C1C1A] bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+                />
+              </div>
+
+              {/* Section C — active until (optional) */}
+              <div className="mb-5">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+                  Active until
+                  <span className="ml-2 normal-case not-italic text-[#9E9E96]">(optional)</span>
+                </div>
+                <input
+                  type="date"
+                  value={activeUntil}
+                  onChange={(e) => setActiveUntil(e.target.value)}
+                  className="border border-[#E2E1DC] rounded-sm px-3 py-2 text-sm text-[#1C1C1A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono"
+                />
+                <span className="font-mono text-[10px] text-[#9E9E96] ml-3">
+                  Leave blank for no end date
+                </span>
+              </div>
+
+              {/* Section D — example chips */}
               <p className="text-xs font-mono text-[#6E6E68] mt-2 leading-relaxed">
                 ERA CUE will draft the rule structure for your review. You can edit anything before authorizing.
               </p>
@@ -210,10 +386,12 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
                   </button>
                 ))}
               </div>
+
+              {/* Section E — draft button */}
               <button
                 type="button"
                 onClick={handleDraft}
-                disabled={loading || !description.trim()}
+                disabled={loading}
                 className="bg-[#4F46E5] text-white text-sm font-medium w-full py-3 rounded-sm mt-6 hover:bg-[#4338CA] disabled:opacity-50 transition"
               >
                 {loading ? "Drafting rule..." : "Draft this rule →"}
@@ -222,7 +400,9 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
                 <div className="text-xs text-[#B91C1C] mt-2 font-mono">{error}</div>
               )}
             </>
-          ) : (
+          )}
+
+          {state === "review" && (
             <>
               <button
                 type="button"
@@ -334,33 +514,28 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
                 />
               </div>
 
-              {/* Applies to */}
+              {/* Applies to — read-only with "Change" link */}
               <div className="mb-4">
-                <label className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] block mb-2">
-                  APPLIES TO
-                </label>
-                <div className="flex gap-2 mt-2">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+                  Applies to
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-[#EEF2FF] border border-[#C7D2FE] text-[#3730A3] font-mono text-xs px-3 py-1.5 rounded-sm">
+                    {getScopeLabel()}
+                  </span>
                   <button
                     type="button"
-                    className="text-xs font-mono px-3 py-1.5 rounded-sm cursor-pointer border bg-[#EEF2FF] border-[#C7D2FE] text-[#3730A3]"
+                    onClick={() => setState("describe")}
+                    className="font-mono text-[10px] text-[#6E6E68] hover:text-[#1C1C1A] transition-colors cursor-pointer"
                   >
-                    All speakers
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => alert("Role-based scoping available in production")}
-                    className="text-xs font-mono px-3 py-1.5 rounded-sm cursor-pointer border bg-[#F7F6F3] border-[#E2E1DC] text-[#9E9E96]"
-                  >
-                    By role
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => alert("Role-based scoping available in production")}
-                    className="text-xs font-mono px-3 py-1.5 rounded-sm cursor-pointer border bg-[#F7F6F3] border-[#E2E1DC] text-[#9E9E96]"
-                  >
-                    Specific speaker
+                    Change
                   </button>
                 </div>
+                {scopeType !== "all" && (
+                  <p className="font-mono text-[10px] text-[#C2410C] mt-2 leading-relaxed">
+                    Demo note: Scope is recorded on the rule. Org-wide enforcement applies in this demo — speaker-specific enforcement available in production.
+                  </p>
+                )}
               </div>
 
               {/* Active period */}
@@ -382,7 +557,7 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
                     <label className="font-mono text-[10px] text-[#6E6E68] block mb-1">Until</label>
                     <input
                       type="date"
-                      value={activeUntil}
+                      value={drafted?.suggested_end_date || activeUntil || ""}
                       onChange={(e) => setActiveUntil(e.target.value)}
                       className="w-full border border-[#E2E1DC] rounded-sm px-3 py-2 text-sm text-[#1C1C1A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
                     />
@@ -418,7 +593,7 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
                         {VERDICT_STYLES[verdict].label}
                       </span>
                       <span className="bg-[#EEF2FF] text-[#3730A3] border border-[#C7D2FE] font-mono text-[10px] px-2 py-0.5 rounded-sm">
-                        All speakers
+                        {getScopeLabel()}
                       </span>
                     </div>
                   </div>
@@ -430,13 +605,68 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
               )}
             </>
           )}
+
+          {state === "confirmed" && (
+            <div className="flex flex-col items-center justify-center h-full px-6 text-center">
+              {/* Green checkmark */}
+              <div className="w-12 h-12 rounded-full bg-[#F0FDF4] border-2 border-[#BBF7D0] flex items-center justify-center mb-6">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#166534"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-3">
+                Rule authorized and active
+              </div>
+
+              <div
+                style={{ fontFamily: "var(--font-newsreader)" }}
+                className="text-xl font-light text-[#1C1C1A] mb-2"
+              >
+                &ldquo;{drafted?.name}&rdquo;
+              </div>
+
+              <div className="text-sm text-[#6E6E68] mb-6 max-w-xs">
+                Now governing {getScopeLabel()}. Authorized by Sarah Chen, GC.
+              </div>
+
+              <div className="font-mono text-[10px] text-[#9E9E96]">
+                {new Date().toLocaleString("en-US", {
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </div>
+
+              <div className="font-mono text-[10px] text-[#9E9E96] mt-6">
+                Closing in a moment&hellip;
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Footer */}
+        {/* Footer — only on review state */}
         {state === "review" && (
           <div className="border-t border-[#E2E1DC] px-6 py-4 bg-white flex justify-between items-center">
-            <div className="font-mono text-xs text-[#6E6E68]">
-              Authorizing as: Sarah Chen · GC · Designated Principal
+            <div>
+              <div className="font-mono text-xs text-[#6E6E68]">
+                Authorizing as: Sarah Chen · GC · Designated Principal
+              </div>
+              <div className="font-mono text-[10px] text-[#6E6E68] mt-1">
+                Scope: {getScopeLabel()}
+              </div>
             </div>
             <div className="flex gap-3">
               <button

@@ -161,7 +161,22 @@ function stubDraft(description: string): DraftedRule {
 type AnthropicContentBlock = { type: string; text?: string };
 type AnthropicResponse = { content?: AnthropicContentBlock[] };
 
-export async function draftRuleAction(description: string): Promise<DraftResult> {
+export type ScopeContext = {
+  type: "all" | "role" | "person";
+  label: string; // e.g. "All speakers", "CEO role", "Marcus Rivera"
+};
+
+function buildScopeAddendum(scope: ScopeContext | undefined): string {
+  if (!scope || scope.type === "all") {
+    return "\n\nScope context: This rule applies to All speakers. This is an org-wide rule.";
+  }
+  return `\n\nScope context: This rule applies to ${scope.label}. Tailor the description to make clear this applies to ${scope.label} specifically. Keep keywords broad enough to catch violations regardless of who writes them.`;
+}
+
+export async function draftRuleAction(
+  description: string,
+  scope?: ScopeContext
+): Promise<DraftResult> {
   if (!description.trim()) return { ok: false, error: "Description required." };
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -172,6 +187,7 @@ export async function draftRuleAction(description: string): Promise<DraftResult>
   }
 
   try {
+    const systemWithScope = CLAUDE_SYSTEM_PROMPT + buildScopeAddendum(scope);
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -182,7 +198,7 @@ export async function draftRuleAction(description: string): Promise<DraftResult>
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 1000,
-        system: CLAUDE_SYSTEM_PROMPT,
+        system: systemWithScope,
         messages: [{ role: "user", content: description }],
       }),
     });
