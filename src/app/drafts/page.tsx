@@ -103,24 +103,9 @@ export default async function DraftsPage() {
       <SiteHeader />
       <main className="min-h-screen bg-[#F8F9FB]">
         <div className="max-w-5xl mx-auto px-6 py-12">
-          <div className="mb-8">
-            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-              SUPERVISION ARCHIVE
-            </div>
-            <h1
-              style={{ fontFamily: "var(--font-newsreader)" }}
-              className="font-light text-3xl text-[#0F172A] mt-2"
-            >
-              Archive
-            </h1>
-            <p className="text-sm text-[#374151] mt-2 max-w-2xl leading-relaxed">
-              Every communication submitted through ERA CUE — checked, recorded, and on file.
-            </p>
-            <p className="font-mono text-xs text-[#94A3B8] mt-2">
-              {drafts.length} communications in the demo organization
-            </p>
-          </div>
-
+          {/* Header is rendered inside DraftsClient so it can adapt to the
+              active filter state (campaign / speaker views get bespoke
+              titles instead of the default 'Communications' archive). */}
           <DraftsClient drafts={drafts} principalApprovedIds={principalApprovedIds} />
         </div>
       </main>

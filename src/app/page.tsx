@@ -101,9 +101,10 @@ export default function Home() {
 
           <p className="text-base md:text-lg font-normal text-[#374151] max-w-xl leading-relaxed mb-10">
             AI agents draft. Executives post. Nobody has a record that a human
-            approved it. ERA CUE is the governance layer that changes that —
-            pre-publication checks, named principal approval, immutable audit
-            trail.
+            reviewed it — or that the messaging was consistent with what was
+            said last week. ERA CUE is the governance layer that changes that
+            — pre-publication checks, named principal approval, and an
+            immutable record of every communication your team makes.
           </p>
 
           <div className="mb-8">
@@ -245,7 +246,7 @@ export default function Home() {
             <div className="bg-[#F8F9FB] p-8">
               <div className="font-mono text-xs text-[#64748B]">02</div>
               <div className="text-sm font-medium text-[#0F172A] mt-3">
-                VP Comms · PR Director · Agency
+                VP Comms · PR Agency · Brand Team
               </div>
               <p className="text-sm text-[#374151] mt-2 leading-relaxed">
                 See every draft your speakers submit. Every verdict, every

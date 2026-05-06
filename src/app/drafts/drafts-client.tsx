@@ -57,7 +57,7 @@ function statusBadge(
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border bg-[#F8F9FB] text-[#64748B] border-[#E2E8F0]">
+      <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border bg-[#F1F5F9] text-[#64748B] border-[#E2E8F0]">
         <span className="w-1.5 h-1.5 rounded-full bg-[#64748B]" aria-hidden />
         System cleared
       </span>
@@ -154,6 +154,29 @@ export function DraftsClient({
     });
   }, [drafts, verdictFilter, statusFilter, speakerFilter, campaignFilter]);
 
+  // Collapse identical (speaker × draft text) submissions to a single row;
+  // keep the most recent and carry a duplicate_count so the cell can show
+  // "×N submissions". Avoids a wall of identical rows on heavy demo days.
+  const deduplicated = useMemo(() => {
+    type DedupedRow = DraftRecord & { duplicate_count: number };
+    const seen = new Map<string, DedupedRow>();
+    for (const d of filtered) {
+      const key = `${d.users?.name ?? ""}::${d.draft_text?.trim() ?? ""}`;
+      const existing = seen.get(key);
+      if (!existing) {
+        seen.set(key, { ...d, duplicate_count: 1 });
+        continue;
+      }
+      const newCount = existing.duplicate_count + 1;
+      if (d.submitted_at > existing.submitted_at) {
+        seen.set(key, { ...d, duplicate_count: newCount });
+      } else {
+        existing.duplicate_count = newCount;
+      }
+    }
+    return Array.from(seen.values());
+  }, [filtered]);
+
   const anyActive =
     verdictFilter !== "all" ||
     statusFilter !== "all" ||
@@ -167,8 +190,45 @@ export function DraftsClient({
     setCampaignFilter("all");
   };
 
+  // Adaptive header — eyebrow / title / subtitle change to read as the
+  // CAMPAIGN RECORD or SPEAKER RECORD when those filters are active. If
+  // both are active campaign wins the framing.
+  let headerEyebrow = "SUPERVISION ARCHIVE";
+  let headerTitle = "Communications";
+  let headerSubtitle =
+    "The complete pre-publication governance record. Every draft checked, every decision recorded, every approval on file — FINRA-defensible and campaign-ready.";
+  if (campaignFilter !== "all") {
+    headerEyebrow = "CAMPAIGN RECORD";
+    headerTitle = campaignFilter;
+    headerSubtitle =
+      "All communications submitted under this campaign — with verdicts, approvals, and examiner records.";
+  } else if (speakerFilter !== "all") {
+    headerEyebrow = "SPEAKER RECORD";
+    headerTitle = speakerFilter;
+    headerSubtitle =
+      "Complete communication history for this speaker — every submission, verdict, and principal decision on file.";
+  }
+
   return (
     <>
+      {/* Adaptive page header — re-keyed off filter state so the top of the
+          page reads as the bespoke campaign or speaker record when one of
+          those filters is selected. */}
+      <div className="mb-8">
+        <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
+          {headerEyebrow}
+        </div>
+        <h1
+          style={{ fontFamily: "var(--font-newsreader)" }}
+          className="font-light text-3xl text-[#0F172A] mt-2"
+        >
+          {headerTitle}
+        </h1>
+        <p className="text-sm text-[#374151] mt-2 max-w-2xl leading-relaxed">
+          {headerSubtitle}
+        </p>
+      </div>
+
       {/* Filter bar */}
       <div className="flex gap-3 items-center mb-6 flex-wrap">
         <span className="font-mono text-xs text-[#64748B] uppercase tracking-widest shrink-0">
@@ -231,9 +291,77 @@ export function DraftsClient({
           </button>
         )}
         <span className="ml-auto font-mono text-xs text-[#64748B]">
-          {filtered.length} of {drafts.length} communications
+          {deduplicated.length} of {drafts.length} communications
+          {filtered.length !== deduplicated.length && (
+            <span className="font-mono text-[10px] text-[#94A3B8] ml-2">
+              ({filtered.length - deduplicated.length} duplicate submissions collapsed)
+            </span>
+          )}
         </span>
       </div>
+
+      {/* Active filter chips — visible when any filter is non-default.
+          Each chip carries a small × that resets just that one filter so
+          the user can peel them back without going through Clear filters. */}
+      {anyActive && (
+        <div className="flex items-center gap-2 -mt-3 mb-6 flex-wrap">
+          <span className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest">
+            Active filters:
+          </span>
+          {verdictFilter !== "all" && (
+            <span className="inline-flex items-center gap-1 bg-[#EFF8FF] border border-[#BAE6FD] text-[#1447C0] font-mono text-[10px] px-2 py-0.5 rounded-sm">
+              Verdict: {verdictFilter}
+              <button
+                type="button"
+                onClick={() => setVerdictFilter("all")}
+                className="ml-1 hover:text-[#0F172A]"
+                aria-label="Clear verdict filter"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {statusFilter !== "all" && (
+            <span className="inline-flex items-center gap-1 bg-[#EFF8FF] border border-[#BAE6FD] text-[#1447C0] font-mono text-[10px] px-2 py-0.5 rounded-sm">
+              Status: {statusFilter}
+              <button
+                type="button"
+                onClick={() => setStatusFilter("all")}
+                className="ml-1 hover:text-[#0F172A]"
+                aria-label="Clear status filter"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {speakerFilter !== "all" && (
+            <span className="inline-flex items-center gap-1 bg-[#EFF8FF] border border-[#BAE6FD] text-[#1447C0] font-mono text-[10px] px-2 py-0.5 rounded-sm">
+              Speaker: {speakerFilter}
+              <button
+                type="button"
+                onClick={() => setSpeakerFilter("all")}
+                className="ml-1 hover:text-[#0F172A]"
+                aria-label="Clear speaker filter"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {campaignFilter !== "all" && (
+            <span className="inline-flex items-center gap-1 bg-[#EFF8FF] border border-[#BAE6FD] text-[#1447C0] font-mono text-[10px] px-2 py-0.5 rounded-sm">
+              Campaign: {campaignFilter}
+              <button
+                type="button"
+                onClick={() => setCampaignFilter("all")}
+                className="ml-1 hover:text-[#0F172A]"
+                aria-label="Clear campaign filter"
+              >
+                ×
+              </button>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Supervision export — placeholder route; lives below the filter bar
           so it sits beside the table action area without competing with the
@@ -256,6 +384,7 @@ export function DraftsClient({
           <thead className="bg-[#F8F9FB] border-b border-[#E2E8F0]">
             <tr>
               <th className="w-40 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Speaker</th>
+              <th className="w-24 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Date</th>
               <th className="w-28 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Channel</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Draft</th>
               <th className="w-24 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Verdict</th>
@@ -264,7 +393,7 @@ export function DraftsClient({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((d) => (
+            {deduplicated.map((d) => (
               <tr
                 key={d.id}
                 className="border-b border-[#E2E8F0] last:border-0 hover:bg-[#F8F9FB]"
@@ -277,10 +406,23 @@ export function DraftsClient({
                     <div className="text-xs text-[#64748B] truncate">{d.users?.title || ""}</div>
                   </Link>
                 </td>
+                <td className="w-24 px-4 py-3 font-mono text-xs text-[#94A3B8] whitespace-nowrap">
+                  {new Date(d.submitted_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </td>
                 <td className="px-4 py-3 text-[#374151] truncate whitespace-nowrap">{formatChannel(d.channel)}</td>
                 <td className="px-4 py-3 max-w-xs">
-                  <div className="text-sm text-[#374151] line-clamp-2 leading-snug">
-                    {d.draft_text}
+                  <div className="flex items-start gap-2">
+                    <div className="text-sm text-[#374151] line-clamp-2 leading-snug min-w-0">
+                      {d.draft_text}
+                    </div>
+                    {d.duplicate_count > 1 && (
+                      <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#94A3B8] px-1.5 py-0.5 rounded-sm border border-[#E2E8F0] shrink-0 whitespace-nowrap">
+                        ×{d.duplicate_count} submissions
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
@@ -299,9 +441,9 @@ export function DraftsClient({
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {deduplicated.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-sm text-[#64748B]">
+                <td colSpan={7} className="px-4 py-12 text-center text-sm text-[#64748B]">
                   No communications match the current filters.{" "}
                   <button
                     type="button"
