@@ -345,7 +345,7 @@ export function SubmitForm() {
             <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
               SPEAKER
             </div>
-            <div className="flex flex-col gap-2 mt-3">
+            <div className="flex flex-col gap-2 mt-3 w-full">
               {SPEAKERS.map((s) => {
                 const selected = speaker === s.name;
                 return (
@@ -353,8 +353,7 @@ export function SubmitForm() {
                     key={s.name}
                     type="button"
                     onClick={() => setSpeaker(s.name)}
-                    style={{ minHeight: "44px" }}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-sm border text-left transition-colors cursor-pointer ${
+                    className={`w-full flex items-center justify-between px-3 py-3 rounded-sm border text-left transition-colors cursor-pointer min-h-[48px] ${
                       selected
                         ? "bg-[#EFF8FF] border-[#BAE6FD]"
                         : "bg-[#F8F9FB] border-[#E2E8F0] hover:bg-[#F1F5F9]"
@@ -375,10 +374,7 @@ export function SubmitForm() {
             <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
               CHANNEL
             </div>
-            <div
-              className="grid gap-1.5 mt-3"
-              style={{ gridTemplateColumns: "repeat(3, 1fr)" }}
-            >
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 w-full">
               {CHANNELS.map((c) => {
                 const selected = channel === c.value;
                 return (
@@ -386,8 +382,7 @@ export function SubmitForm() {
                     key={c.value}
                     type="button"
                     onClick={() => setChannel(c.value)}
-                    style={{ fontSize: "10px" }}
-                    className={`py-2 px-1 rounded-sm border text-center transition-colors cursor-pointer font-mono uppercase tracking-wide ${
+                    className={`py-3 px-2 rounded-sm border text-center transition-colors cursor-pointer font-mono text-xs uppercase tracking-wide min-h-[48px] flex items-center justify-center ${
                       selected
                         ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0]"
                         : "bg-[#F8F9FB] border-[#E2E8F0] text-[#64748B] hover:bg-[#F1F5F9]"
