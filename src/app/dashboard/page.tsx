@@ -2,6 +2,12 @@ import Link from "next/link";
 import { DEMO_ORG_ID } from "@/lib/demo-config";
 import { getSupabaseAdmin } from "@/lib/checks";
 import { SiteHeader } from "@/app/site-header";
+import { ClearedDraftsBanner } from "./cleared-drafts-banner";
+import {
+  ExaminerRecordsSection,
+  type ExaminerRecord,
+} from "./examiner-records-section";
+import { SupervisionExport } from "./supervision-export";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -225,12 +231,30 @@ async function getDashboardData() {
   );
   const pendingReview = queueDrafts.length;
 
+  // Examiner-records list — flatten reviewer-decided actions into a
+  // serializable shape the client component can filter by speaker.
+  const examinerRecords: ExaminerRecord[] = reviewerActions.map((a) => ({
+    id: a.id,
+    draftId: a.draft_id,
+    speakerName: a.drafts?.users?.name || "—",
+    draftSnippet: a.drafts?.draft_text || "—",
+    decision: a.payload?.decision,
+    occurredAt: a.occurred_at,
+  }));
+
+  // Demo flavour: every approved draft counts as "not yet formally signed off"
+  // because the `principal_approved` action type isn't in the schema yet.
+  // Once that action is wired up, this filter should narrow accordingly.
+  const clearedWithoutSignoff = drafts.filter((d) => d.status === "approved").length;
+
   return {
     health: { draftsReviewed, blockRatePct, overrideRatePct, gapExposure, pendingReview },
     rulesPerf,
     reviewerFeed: reviewerActions,
     speakerStats,
     queueGroups,
+    examinerRecords,
+    clearedWithoutSignoff,
   };
 }
 
@@ -291,7 +315,15 @@ function decisionBadge(d: string | undefined): { cls: string; label: string } {
 // ---------- Page ----------------------------------------------------------
 
 export default async function DashboardPage() {
-  const { health, rulesPerf, reviewerFeed, speakerStats, queueGroups } = await getDashboardData();
+  const {
+    health,
+    rulesPerf,
+    reviewerFeed,
+    speakerStats,
+    queueGroups,
+    examinerRecords,
+    clearedWithoutSignoff,
+  } = await getDashboardData();
   const top = speakerStats[0]?.blocked > 0 ? speakerStats[0].name : null;
 
   return (
@@ -319,8 +351,15 @@ export default async function DashboardPage() {
             </div>
           </div>
 
+          {/* CLEARED DRAFTS BANNER — directly below header, above stat cards.
+              Banner self-hides when count is zero; banner already carries its
+              own mb-6 so the stat cards stay flush either way. */}
+          <div className="pt-8">
+            <ClearedDraftsBanner count={clearedWithoutSignoff} />
+          </div>
+
           {/* SECTION 1 — Governance health */}
-          <section className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
               <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
                 DRAFTS REVIEWED
@@ -444,6 +483,12 @@ export default async function DashboardPage() {
               </div>
             )}
           </section>
+
+          {/* EXAMINER RECORDS — direct links to per-draft audit records. */}
+          <ExaminerRecordsSection records={examinerRecords} />
+
+          {/* SUPERVISION PERIOD EXPORT — date-range printable report. */}
+          <SupervisionExport />
 
           {/* SECTION 2 — Speaker exposure */}
           <section className="mt-10">
@@ -589,12 +634,20 @@ export default async function DashboardPage() {
                     <div className="shrink-0 flex flex-col items-end gap-1">
                       <span className="font-mono text-xs text-[#6E6E68]">{fmtDateTime(a.occurred_at)}</span>
                       {a.draft_id && (
-                        <Link
-                          href={`/drafts/${a.draft_id}`}
-                          className="font-mono text-xs text-[#C9A92C] hover:text-[#8A7520]"
-                        >
-                          View →
-                        </Link>
+                        <div className="flex gap-3 items-center">
+                          <Link
+                            href={`/drafts/${a.draft_id}`}
+                            className="font-mono text-xs text-[#5C6B7A] hover:text-[#0F1923] transition-colors"
+                          >
+                            View draft →
+                          </Link>
+                          <Link
+                            href={`/drafts/${a.draft_id}/examiner`}
+                            className="font-mono text-xs text-[#1D6EE8] hover:text-[#1B2B4B] font-medium transition-colors"
+                          >
+                            Examiner record →
+                          </Link>
+                        </div>
                       )}
                     </div>
                   </div>
