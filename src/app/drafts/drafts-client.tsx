@@ -37,17 +37,27 @@ function formatChannel(ch: string): string {
   return map[ch] ?? ch;
 }
 
-// "approved" / "overridden" rows split into two visual treatments based on
-// whether a reviewer_decided action was recorded against the draft —
-// 'Principal approved' (green) when one was, 'System cleared' (slate)
-// when only the engine cleared it. Other statuses keep the original
-// colour-class lookup.
+// Status badge logic:
+//   overridden → its own blue 'Overridden' pill regardless of who acted.
+//     Avoids the BLOCK / PRINCIPAL APPROVED contradiction where the same
+//     row reads as both blocked-by-system and approved-by-principal.
+//   approved   → green 'Principal approved' when a reviewer_decided
+//                action exists, slate 'System cleared' otherwise.
+//   pending / escalated / blocked → status-coloured pill.
 function statusBadge(
   status: string,
   draftId: string,
   principalApprovedIds: Set<string>,
 ) {
-  if (status === "approved" || status === "overridden") {
+  if (status === "overridden") {
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border bg-[#EFF8FF] text-[#1A56DB] border-[#BAE6FD]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB]" aria-hidden />
+        Overridden
+      </span>
+    );
+  }
+  if (status === "approved") {
     if (principalApprovedIds.has(draftId)) {
       return (
         <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]">
@@ -76,6 +86,47 @@ function statusBadge(
       {status}
     </span>
   );
+}
+
+// Plain-English label for the per-row "see the record" link. Tailors to
+// what the reader is actually clicking into — overridden drafts open an
+// override record, blocked/escalated drafts open the review-in-progress
+// view, pending drafts read as 'Pending review', etc.
+function recordLinkLabel(status: string): string {
+  if (status === "overridden") return "Override record →";
+  if (status === "approved") return "Approval record →";
+  if (status === "blocked" || status === "escalated") return "Review record →";
+  if (status === "pending") return "Pending review →";
+  return "Governance record →";
+}
+
+// Plain-English subtext that sits under the status badge so the row
+// reads as a sentence, not a state-machine token. Whether a principal
+// has acted on the draft changes the description for some statuses.
+function statusDescription(
+  status: string,
+  hasPrincipalDecision: boolean,
+): string {
+  switch (status) {
+    case "blocked":
+      return hasPrincipalDecision
+        ? "Reviewed by principal"
+        : "Stopped — awaiting review";
+    case "escalated":
+      return hasPrincipalDecision
+        ? "Escalated — decision recorded"
+        : "Escalated — awaiting review";
+    case "approved":
+      return hasPrincipalDecision
+        ? "Reviewed and approved"
+        : "Passed all checks";
+    case "overridden":
+      return "Approved despite flag";
+    case "pending":
+      return "Awaiting principal review";
+    default:
+      return "";
+  }
 }
 
 function VerdictBadge({ verdict }: { verdict: string | null }) {
@@ -192,8 +243,10 @@ export function DraftsClient({
 
   // Adaptive header — eyebrow / title / subtitle change to read as the
   // CAMPAIGN RECORD or SPEAKER RECORD when those filters are active. If
-  // both are active campaign wins the framing.
-  let headerEyebrow = "SUPERVISION ARCHIVE";
+  // both are active campaign wins the framing. Default eyebrow reads
+  // 'COMMUNICATIONS · ERA CUE' so the page doesn't open on the
+  // regulatory-only 'SUPERVISION ARCHIVE' framing.
+  let headerEyebrow = "COMMUNICATIONS · ERA CUE";
   let headerTitle = "Communications";
   let headerSubtitle =
     "The complete pre-publication governance record. Every draft checked, every decision recorded, every approval on file — FINRA-defensible and campaign-ready.";
@@ -430,13 +483,18 @@ export function DraftsClient({
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   {statusBadge(d.status, d.id, principalApprovedSet)}
+                  {statusDescription(d.status, principalApprovedSet.has(d.id)) && (
+                    <div className="font-mono text-[10px] text-[#94A3B8] mt-1 whitespace-nowrap">
+                      {statusDescription(d.status, principalApprovedSet.has(d.id))}
+                    </div>
+                  )}
                 </td>
                 <td className="w-44 px-4 py-3 text-right whitespace-nowrap">
                   <Link
                     href={`/drafts/${d.id}/examiner`}
                     className="inline-flex items-center gap-1 font-mono text-xs font-medium text-[#1A56DB] hover:text-[#1447C0] bg-[#EFF8FF] border border-[#BAE6FD] px-2 py-1 rounded-sm transition-colors whitespace-nowrap"
                   >
-                    Examiner record →
+                    {recordLinkLabel(d.status)}
                   </Link>
                 </td>
               </tr>
@@ -505,14 +563,21 @@ export function DraftsClient({
                 )}
               </div>
 
-              {/* Status badge + examiner record link */}
+              {/* Status badge + description + record link */}
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                {statusBadge(d.status, d.id, principalApprovedSet)}
+                <div className="flex flex-col gap-1">
+                  {statusBadge(d.status, d.id, principalApprovedSet)}
+                  {statusDescription(d.status, principalApprovedSet.has(d.id)) && (
+                    <div className="font-mono text-[10px] text-[#94A3B8]">
+                      {statusDescription(d.status, principalApprovedSet.has(d.id))}
+                    </div>
+                  )}
+                </div>
                 <Link
                   href={`/drafts/${d.id}/examiner`}
                   className="font-mono text-xs font-medium text-[#1A56DB] hover:text-[#1447C0] transition-colors min-h-[44px] inline-flex items-center"
                 >
-                  Examiner record →
+                  {recordLinkLabel(d.status)}
                 </Link>
               </div>
             </div>
