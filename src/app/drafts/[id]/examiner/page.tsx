@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { DEMO_ORG_ID } from "@/lib/demo-config";
 import { getSupabaseAdmin } from "@/lib/checks";
 import { PrintButton } from "./print-button";
+import { SiteHeader } from "@/app/site-header";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -108,7 +109,9 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
   const { draft, actions, rules, actors } = result;
 
   return (
-    <main className="min-h-screen bg-white text-black print:bg-white">
+    <>
+      <SiteHeader />
+      <main className="min-h-screen bg-white text-black print:bg-white">
       {/* Print-only stylesheet to ensure clean printing */}
       <style>{`
         @media print {
@@ -253,5 +256,6 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
         </footer>
       </div>
     </main>
+    </>
   );
 }

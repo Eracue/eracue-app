@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DEMO_ORG_ID } from "@/lib/demo-config";
 import { getSupabaseAdmin } from "@/lib/checks";
+import { ThemeToggle } from "./theme-toggle";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -27,105 +28,112 @@ export default async function Home() {
   const stats = await getStats();
 
   return (
-    <main className="min-h-screen bg-white">
-      <div className="max-w-5xl mx-auto px-6 py-16">
-        {/* Top brand line */}
-        <div className="mb-12">
-          <div className="text-sm text-neutral-500 tracking-widest uppercase">ERA CUE</div>
-          <h1 className="text-4xl md:text-5xl font-light tracking-tight text-neutral-900 mt-3 leading-tight max-w-3xl">
-            The record that proves someone checked.
-          </h1>
+    <div className="min-h-screen bg-[#F5F4F0] dark:bg-[#0F0F12] text-neutral-900 dark:text-neutral-100">
+      {/* Top bar */}
+      <div className="max-w-6xl mx-auto px-6 pt-6 flex items-center justify-between">
+        <div className="flex items-baseline gap-2">
+          <span className="font-serif text-2xl text-indigo-700 dark:text-indigo-400" style={{ fontFamily: "var(--font-newsreader)" }}>
+            ERA CUE
+          </span>
+          <span className="inline-block w-12 h-0.5 bg-amber-700 dark:bg-amber-400 ml-1 mb-1" />
         </div>
+        <ThemeToggle />
+      </div>
 
-        {/* Problem + product framing */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16 pb-12 border-b border-neutral-200">
-          <div>
-            <div className="text-xs uppercase tracking-widest text-neutral-500 mb-3">The problem</div>
-            <p className="text-base text-neutral-700 leading-relaxed">
-              Every draft your executives publish is a regulatory exposure. The decision to ship it almost never has a record. FINRA fined firms over $600M for off-channel communications. The EU AI Act now requires logging every AI-assisted decision affecting customers.
-            </p>
-          </div>
-          <div>
-            <div className="text-xs uppercase tracking-widest text-neutral-500 mb-3">The system</div>
-            <p className="text-base text-neutral-700 leading-relaxed">
-              ERA CUE is the governed moment between AI generation and publication. Five checks fire on every draft. Every decision is logged with a SHA-256 hash. Every record holds up to an examiner.
-            </p>
-          </div>
-        </div>
-
-        {/* Live counter */}
-        <div className="mb-12">
-          <div className="text-xs uppercase tracking-widest text-neutral-500 mb-4">In this demo organization</div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-neutral-200 border border-neutral-200 rounded-lg overflow-hidden">
-            <div className="bg-white p-4">
-              <div className="text-xs text-neutral-500">Rules active</div>
-              <div className="text-2xl font-light text-neutral-900 mt-1">{stats.rulesActive}</div>
-            </div>
-            <div className="bg-white p-4">
-              <div className="text-xs text-neutral-500">Drafts reviewed</div>
-              <div className="text-2xl font-light text-neutral-900 mt-1">{stats.draftsTotal}</div>
-            </div>
-            <div className="bg-white p-4">
-              <div className="text-xs text-red-700">Blocked</div>
-              <div className="text-2xl font-light text-neutral-900 mt-1">{stats.draftsBlocked}</div>
-            </div>
-            <div className="bg-white p-4">
-              <div className="text-xs text-amber-700">Escalated</div>
-              <div className="text-2xl font-light text-neutral-900 mt-1">{stats.draftsEscalated}</div>
-            </div>
-            <div className="bg-white p-4">
-              <div className="text-xs text-purple-700">Overridden</div>
-              <div className="text-2xl font-light text-neutral-900 mt-1">{stats.draftsOverridden}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Principal CTA — the GC's home base */}
-        <div className="mb-12">
-          <div className="text-xs uppercase tracking-widest text-neutral-500 mb-3">Start here</div>
-          <Link href="/dashboard" className="block bg-neutral-900 text-white rounded-lg p-6 hover:bg-neutral-800 transition group">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-xs uppercase tracking-wide text-neutral-400 mb-1">Principal · General Counsel</div>
-                <div className="text-xl font-medium">Open the principal dashboard →</div>
-                <div className="text-sm text-neutral-300 mt-2">See every speaker&apos;s drafts coordinated by campaign. Spot conflicts before they ship.</div>
-              </div>
-            </div>
+      {/* Hero */}
+      <div className="max-w-4xl mx-auto px-6 pt-20 pb-16 text-center">
+        <h1 className="font-serif text-5xl md:text-6xl font-light tracking-tight text-neutral-900 dark:text-neutral-50 leading-[1.1] mb-6" style={{ fontFamily: "var(--font-newsreader)" }}>
+          The record that proves<br />someone checked.
+        </h1>
+        <p className="text-lg text-neutral-700 dark:text-neutral-300 max-w-2xl mx-auto leading-relaxed mb-8">
+          ERA CUE governs the moment between AI-generated drafts and publication. Every check logged. Every decision recorded. Every record FINRA-defensible.
+        </p>
+        <div className="flex flex-wrap gap-3 justify-center">
+          <Link href="/dashboard" className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white text-sm font-medium rounded-md transition">
+            Open the principal dashboard →
+          </Link>
+          <Link href="/submit" className="px-6 py-3 bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 text-sm font-medium rounded-md hover:border-neutral-500 transition">
+            Submit a draft
           </Link>
         </div>
+      </div>
 
-        {/* Workflow */}
-        <div>
-          <div className="text-xs uppercase tracking-widest text-neutral-500 mb-3">Workflow</div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <Link href="/submit" className="block bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-400 hover:shadow-sm transition">
-              <div className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Speaker</div>
-              <div className="text-sm font-medium text-neutral-900">Submit a draft</div>
-              <div className="text-xs text-neutral-500 mt-2">Pre-publication review</div>
-            </Link>
-            <Link href="/drafts" className="block bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-400 hover:shadow-sm transition">
-              <div className="text-xs uppercase tracking-wide text-neutral-500 mb-1">System</div>
-              <div className="text-sm font-medium text-neutral-900">View drafts &amp; verdicts</div>
-              <div className="text-xs text-neutral-500 mt-2">All checks logged</div>
-            </Link>
-            <Link href="/reviewer/queue" className="block bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-400 hover:shadow-sm transition">
-              <div className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Reviewer</div>
-              <div className="text-sm font-medium text-neutral-900">Reviewer queue</div>
-              <div className="text-xs text-neutral-500 mt-2">Override or confirm</div>
-            </Link>
-            <Link href="/rules" className="block bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-400 hover:shadow-sm transition">
-              <div className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Authority</div>
-              <div className="text-sm font-medium text-neutral-900">Governance rules</div>
-              <div className="text-xs text-neutral-500 mt-2">Authorized policies</div>
-            </Link>
+      {/* Hero visual — mock verdict card */}
+      <div className="max-w-2xl mx-auto px-6 pb-16">
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+            <div className="text-xs uppercase tracking-widest text-neutral-500 dark:text-neutral-400">Verdict</div>
+            <span className="inline-flex items-center px-3 py-1 rounded text-xs font-bold tracking-wide bg-red-50 text-red-900 border border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-900">
+              BLOCK
+            </span>
+          </div>
+          <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
+            <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Series B Quiet Period</div>
+            <div className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">No hiring, growth, or fundraising language during quiet period.</div>
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+              Matched keyword: <span className="font-mono bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded">hiring</span>
+            </div>
+          </div>
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs uppercase tracking-widest text-neutral-500 dark:text-neutral-400">Checks performed</div>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400"><span className="font-medium text-neutral-900 dark:text-neutral-100">2 of 5</span> active</div>
+            </div>
+            <ul className="space-y-2">
+              {[
+                { name: "Keyword Check", status: "active", detail: "1 rule matched" },
+                { name: "Timing Check", status: "active", detail: "6 rules active at submission" },
+                { name: "Consistency Check", status: "available", detail: "AI · available" },
+                { name: "Audience Check", status: "available", detail: "AI · available" },
+                { name: "Alignment Check", status: "available", detail: "AI · available" },
+              ].map((c) => (
+                <li key={c.name} className="flex items-center gap-3 text-sm">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${c.status === "active" ? "bg-green-100 text-green-800 border border-green-300 dark:bg-green-950 dark:text-green-300 dark:border-green-800" : "bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 border border-neutral-200 dark:border-neutral-700"}`}>
+                    {c.status === "active" ? "✓" : "○"}
+                  </div>
+                  <div className="flex-1 flex items-baseline justify-between">
+                    <span className={c.status === "active" ? "text-neutral-900 dark:text-neutral-100 font-medium" : "text-neutral-500 dark:text-neutral-400"}>{c.name}</span>
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">{c.detail}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
+      </div>
 
-        {/* Footer note */}
-        <div className="mt-16 pt-8 border-t border-neutral-200 text-xs text-neutral-500">
-          Demo data. No live customer information. The append-only audit trail and SHA-256 row hashes shown here are real database constraints.
+      {/* Workflow */}
+      <div className="max-w-5xl mx-auto px-6 pb-16">
+        <div className="text-xs uppercase tracking-widest text-neutral-500 dark:text-neutral-400 mb-4 text-center">Workflow</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { role: "Speaker", action: "Submit a draft", href: "/submit", note: "Pre-publication check" },
+            { role: "System", action: "View drafts", href: "/drafts", note: "All verdicts logged" },
+            { role: "Reviewer", action: "Reviewer queue", href: "/reviewer/queue", note: "Override or confirm" },
+            { role: "Authority", action: "Governance rules", href: "/rules", note: "Authorized policies" },
+          ].map((step) => (
+            <Link key={step.role} href={step.href} className="block bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 hover:border-indigo-400 dark:hover:border-indigo-500 transition">
+              <div className="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-400 mb-1">{step.role}</div>
+              <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{step.action} →</div>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">{step.note}</div>
+            </Link>
+          ))}
         </div>
       </div>
-    </main>
+
+      {/* Stats strip — small */}
+      <div className="max-w-5xl mx-auto px-6 pb-12">
+        <div className="text-[11px] tracking-widest uppercase text-neutral-500 dark:text-neutral-400 text-center">
+          {stats.rulesActive} rules active · {stats.draftsTotal} drafts reviewed · {stats.draftsBlocked} blocked · {stats.draftsEscalated} escalated · {stats.draftsOverridden} overridden
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="max-w-5xl mx-auto px-6 py-8 border-t border-neutral-200 dark:border-neutral-800">
+        <div className="text-xs text-amber-700 dark:text-amber-400">
+          Demo data only. No live customer information. Append-only audit trail and SHA-256 row hashes are real database constraints.
+        </div>
+      </div>
+    </div>
   );
 }

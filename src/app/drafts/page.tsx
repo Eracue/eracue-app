@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { DEMO_ORG_ID } from "@/lib/demo-config";
+import { SiteHeader } from "@/app/site-header";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -45,7 +46,9 @@ export default async function DraftsPage() {
   const drafts = await getDrafts();
 
   return (
-    <main className="min-h-screen bg-neutral-50">
+    <>
+      <SiteHeader />
+      <main className="min-h-screen bg-neutral-50">
       <div className="max-w-5xl mx-auto px-6 py-12">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -102,5 +105,6 @@ export default async function DraftsPage() {
         </div>
       </div>
     </main>
+    </>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DEMO_ORG_ID } from "@/lib/demo-config";
 import { getSupabaseAdmin } from "@/lib/checks";
 import { notFound } from "next/navigation";
+import { SiteHeader } from "@/app/site-header";
 
 export const dynamic = "force-dynamic";
 
@@ -212,7 +213,9 @@ export default async function DraftDetailPage({ params }: PageProps) {
   const allMatches = (ruleCheck?.payload?.matches as any[]) || [];
 
   return (
-    <main className="min-h-screen bg-neutral-50">
+    <>
+      <SiteHeader />
+      <main className="min-h-screen bg-neutral-50">
       <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="mb-8">
           <Link href="/drafts" className="text-sm text-neutral-500 hover:text-neutral-900">← All drafts</Link>
@@ -326,5 +329,6 @@ export default async function DraftDetailPage({ params }: PageProps) {
         </div>
       </div>
     </main>
+    </>
   );
 }
