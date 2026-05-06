@@ -114,6 +114,9 @@ export default async function RulesPage({ searchParams }: PageProps) {
           <p className="text-sm text-neutral-500 mt-1">
             {principal ? `Authorized by ${principal.name}${principal.title ? `, ${principal.title}` : ""}` : "Authorized by org principal"}
           </p>
+          <p className="text-sm text-neutral-600 mt-3 max-w-2xl">
+            Every draft is checked against these policies before publication. The principal is responsible for keeping them current.
+          </p>
         </div>
 
         {/* Counts hero */}

@@ -258,6 +258,21 @@ export default async function DraftDetailPage({ params }: PageProps) {
           </div>
         )}
 
+        {/* Send to reviewer prompt */}
+        {(draft.status === "blocked" || draft.status === "escalated") && (
+          <div className="bg-neutral-100 border border-neutral-300 rounded-lg p-4 mb-6 flex items-center justify-between gap-4">
+            <div className="text-sm text-neutral-700">
+              This draft needs reviewer attention.
+            </div>
+            <Link
+              href={`/reviewer/${draft.id}`}
+              className="shrink-0 px-4 py-2 bg-neutral-900 text-white text-sm font-medium rounded-md hover:bg-neutral-800 transition"
+            >
+              Open in reviewer →
+            </Link>
+          </div>
+        )}
+
         {/* Checks Performed */}
         <ChecksPerformedPanel actions={actions} />
 

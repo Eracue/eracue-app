@@ -50,6 +50,9 @@ export default async function ReviewerQueuePage() {
           <p className="text-sm text-neutral-500 mt-1">
             {queue.length} draft{queue.length === 1 ? "" : "s"} waiting on you
           </p>
+          <p className="text-sm text-neutral-600 mt-3 max-w-2xl">
+            Drafts that hit a BLOCK or ESCALATE rule. You can override with a written reason or confirm the system&apos;s decision.
+          </p>
         </div>
 
         {queue.length === 0 ? (

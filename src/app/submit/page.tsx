@@ -33,6 +33,9 @@ export default async function SubmitPage() {
           <Link href="/" className="text-sm text-neutral-500 hover:text-neutral-900">← Home</Link>
           <h1 className="text-3xl font-light tracking-tight text-neutral-900 mt-2">Submit a draft</h1>
           <p className="text-sm text-neutral-500 mt-1">Drafts are checked against active rules before publication.</p>
+          <p className="text-sm text-neutral-600 mt-3 max-w-xl">
+            Five checks fire on submission. The system returns a verdict — clear, review, escalate, or block — within one second. You see the result immediately.
+          </p>
         </div>
         <div className="bg-white border border-neutral-200 rounded-lg p-8">
           <SubmitForm speakers={speakers} campaigns={campaigns} />

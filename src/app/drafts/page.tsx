@@ -58,6 +58,9 @@ export default async function DraftsPage() {
             <p className="text-sm text-neutral-500 mt-1">
               {drafts.length} drafts in the demo organization
             </p>
+            <p className="text-sm text-neutral-600 mt-3 max-w-2xl">
+              Every draft your speakers submit, with the system&apos;s verdict and the principal&apos;s decision. Click a speaker name to see the full audit record.
+            </p>
           </div>
         </div>
 

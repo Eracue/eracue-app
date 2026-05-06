@@ -154,6 +154,9 @@ export default async function DashboardPage() {
           <p className="text-sm text-neutral-500 mt-1">
             Sarah Chen · General Counsel
           </p>
+          <p className="text-sm text-neutral-600 mt-3 max-w-2xl">
+            Every speaker&apos;s drafts, coordinated by campaign. Spot conflicting narratives across speakers before any of them ship.
+          </p>
         </div>
 
         {/* Top stats */}
