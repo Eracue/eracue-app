@@ -248,10 +248,10 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
 
         {/* Section 1: Speaker & Submission */}
         <section className="mb-8">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-700 mb-3 border-b border-neutral-200 pb-2">1. Speaker & Submission</h2>
+          <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">1. Speaker & Submission</h2>
           <dl className="grid grid-cols-3 gap-y-2 text-sm">
             <dt className="text-neutral-500">Speaker</dt>
-            <dd className="col-span-2 text-neutral-900 font-medium">{draft.users?.name || "—"}{draft.users?.title ? ` (${draft.users.title})` : ""}</dd>
+            <dd className="col-span-2 text-base text-[#0F172A] font-medium">{draft.users?.name || "—"}{draft.users?.title ? ` (${draft.users.title})` : ""}</dd>
             <dt className="text-neutral-500">Email</dt>
             <dd className="col-span-2 text-neutral-900">{draft.users?.email || "—"}</dd>
             <dt className="text-neutral-500">Channel</dt>
@@ -289,9 +289,9 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
             </>)}
             {draft.prompt_used && (<>
               <dt className="text-neutral-500">Prompt logged</dt>
-              <dd className="col-span-2 text-neutral-900">
+              <dd className="col-span-2 text-base text-[#0F172A]">
                 <div className="whitespace-pre-wrap">{draft.prompt_used}</div>
-                <div className="font-mono text-[10px] text-[#64748B] mt-1">
+                <div className="text-xs text-[#64748B] mt-1">
                   Retained per FINRA 2026 GenAI prompt logging guidance · Append-only record
                 </div>
               </dd>
@@ -327,9 +327,9 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
 
         {/* Section 1.5: Regulatory Framework — multi-rule compliance map */}
         <section className="mb-8">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-700 mb-3 border-b border-neutral-200 pb-2">Regulatory Framework</h2>
+          <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">Regulatory Framework</h2>
           <dl>
-            <dt className="font-mono text-xs uppercase tracking-widest text-neutral-500">FINRA Rule 3110(a)</dt>
+            <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">FINRA Rule 3110(a)</dt>
             <dd className="text-sm text-neutral-900 mt-0.5">
               Supervision · Named principal review required
             </dd>
@@ -337,7 +337,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
               Principal: Sarah Chen · CCO · Designated Principal
             </dd>
 
-            <dt className="font-mono text-xs uppercase tracking-widest text-neutral-500">FINRA Rule 2210(b)</dt>
+            <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">FINRA Rule 2210(b)</dt>
             <dd className="text-sm text-neutral-900 mt-0.5 mb-4">
               {(draft.communication_category ?? "retail") === "retail"
                 ? "Pre-approval required · Satisfied by ERA CUE principal review at submission"
@@ -346,7 +346,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
                 : "Supervision required · Satisfied by ERA CUE check engine"}
             </dd>
 
-            <dt className="font-mono text-xs uppercase tracking-widest text-neutral-500">SEC Rule 17a-4 · FINRA Rule 4511</dt>
+            <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">SEC Rule 17a-4 · FINRA Rule 4511</dt>
             <dd className="text-sm text-neutral-900 mt-0.5">
               Record retention · 36 months from submission date
             </dd>
@@ -363,7 +363,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
               Format: Append-only · SHA-256 hashed · Tamper-evident per Rule 17a-4(f)
             </dd>
 
-            <dt className="font-mono text-xs uppercase tracking-widest text-neutral-500">EU AI Act Article 50</dt>
+            <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">EU AI Act Article 50</dt>
             {(() => {
               const isAi =
                 draft.source_origin === "ai_assisted" ||
@@ -382,7 +382,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
                   <>
                     <dd className="text-sm text-[#0F172A] mt-0.5">Human review exemption applies</dd>
                     <dd className="mt-2 mb-4">
-                      <span className="font-mono text-xs text-[#166534] bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm px-3 py-2 inline-block">
+                      <span className="text-sm text-[#166534] bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm px-3 py-2 inline-block">
                         Editorial responsibility assumed by Sarah Chen, GC on {ts} — EU AI Act Article 50(4) human review exemption applies. AI disclosure label not required at publication.
                       </span>
                     </dd>
@@ -422,15 +422,15 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
 
         {/* Section 2: Draft text */}
         <section className="mb-8">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-700 mb-3 border-b border-neutral-200 pb-2">2. Draft Text (verbatim)</h2>
-          <div className="p-4 border border-neutral-300 rounded text-sm text-neutral-900 whitespace-pre-wrap leading-relaxed bg-neutral-50">
+          <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">2. Draft Text (verbatim)</h2>
+          <div className="p-4 border border-neutral-300 rounded text-base text-[#0F172A] whitespace-pre-wrap leading-relaxed bg-neutral-50">
             {draft.draft_text}
           </div>
         </section>
 
         {/* Section 3: Rules active at submission */}
         <section className="mb-8">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-700 mb-3 border-b border-neutral-200 pb-2">3. Governance Rules Active at Submission</h2>
+          <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">3. Governance Rules Active at Submission</h2>
           {rules.length === 0 ? (
             <p className="text-sm text-neutral-500">No rule snapshots recorded.</p>
           ) : (
@@ -459,7 +459,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
 
         {/* Section 4: Checks Performed — the canonical 5-check chain */}
         <section className="mb-8">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-700 mb-3 border-b border-neutral-200 pb-2">4. Checks Performed</h2>
+          <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">4. Checks Performed</h2>
           <p className="text-xs text-neutral-500 mb-3">
             ERA CUE runs a fixed five-check chain. Pass / Fail / Warn results are recorded for every draft, so the absence of a check is itself auditable.
           </p>
@@ -484,7 +484,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
         {/* Section 5: Reviewer Decisions — only when a principal has acted */}
         {reviewerDecisions.length > 0 && (
           <section className="mb-8">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-700 mb-3 border-b border-neutral-200 pb-2">5. Reviewer Decisions</h2>
+            <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">5. Reviewer Decisions</h2>
 
             {/* Principal identity strip — visible on screen and in print */}
             <div className="bg-amber-50 border border-amber-200 rounded px-4 py-2 text-xs mb-4">
@@ -555,7 +555,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
 
         {/* Section 6: Audit Trail (the immutable record) */}
         <section className="mb-8">
-          <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-700 mb-3 border-b border-neutral-200 pb-2">6. Audit Trail (Append-Only)</h2>
+          <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">6. Audit Trail (Append-Only)</h2>
           <p className="text-xs text-neutral-500 mb-3">
             Each entry below was written to the database with a SHA-256 row hash computed at insert time. The actions table enforces append-only at the database level — UPDATE and DELETE are refused.
           </p>
@@ -585,7 +585,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
                       {JSON.stringify(a.payload, null, 2)}
                     </dd>
                     <dt className="text-neutral-500">Row hash (SHA-256)</dt>
-                    <dd className="col-span-2 text-neutral-400 font-mono text-[11px] break-all">{a.row_hash}</dd>
+                    <dd className="col-span-2 text-neutral-400 font-mono text-xs break-all">{a.row_hash}</dd>
                     <dt className="text-neutral-500">Action ID</dt>
                     <dd className="col-span-2 text-neutral-400 font-mono text-[11px]">{a.id}</dd>
                   </dl>
@@ -599,7 +599,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
             summary that ties the record back to the four regulatory pathways
             ERA CUE satisfies in a single submission. */}
         <section className="mb-8">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-4">
+          <div className="font-mono text-xs uppercase tracking-widest text-[#64748B] mb-4">
             REGULATORY COMPLIANCE ATTESTATION
           </div>
           {[
@@ -630,21 +630,21 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
             >
               <div
                 aria-hidden
-                className="shrink-0 w-6 h-6 rounded-full bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-center"
+                className="shrink-0 w-7 h-7 rounded-full bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-center"
               >
                 <span className="text-xs text-[#166534]">✓</span>
               </div>
               <div>
-                <div className="font-mono text-xs font-medium text-[#0F172A]">
+                <div className="text-sm font-semibold text-[#0F172A]">
                   {row.citation}
                 </div>
-                <div className="font-mono text-[10px] text-[#64748B] mt-0.5 leading-relaxed">
+                <div className="text-sm text-[#374151] mt-0.5 leading-relaxed">
                   {row.description}
                 </div>
               </div>
             </div>
           ))}
-          <div className="font-mono text-[10px] text-[#94A3B8] mt-4 leading-relaxed">
+          <div className="text-xs text-[#64748B] mt-4 leading-relaxed">
             This attestation was generated by ERA CUE on {fmtTime(new Date().toISOString())}.
             Record ID: {draft.id}. This document may be presented to regulatory
             examiners as evidence of supervisory compliance.

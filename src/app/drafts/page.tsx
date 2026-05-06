@@ -173,13 +173,13 @@ export default async function DraftsPage() {
             <table className="w-full text-sm">
               <thead className="bg-[#F8F9FB] border-b border-[#E2E8F0]">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-[#64748B]">Speaker</th>
-                  <th className="text-left px-4 py-3 font-medium text-[#64748B]">Channel</th>
-                  <th className="text-left px-4 py-3 font-medium text-[#64748B]">Draft</th>
-                  <th className="text-left px-4 py-3 font-medium text-[#64748B]">Campaign</th>
-                  <th className="text-left px-4 py-3 font-medium text-[#64748B]">Verdict</th>
-                  <th className="text-left px-4 py-3 font-medium text-[#64748B]">Category</th>
-                  <th className="text-left px-4 py-3 font-medium text-[#64748B]">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Speaker</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Channel</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Draft</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Campaign</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Verdict</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Category</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Status</th>
                   <th className="px-4 py-3" aria-label="Examiner record link" />
                 </tr>
               </thead>
@@ -191,15 +191,15 @@ export default async function DraftsPage() {
                   >
                     <td className="px-4 py-3">
                       <Link href={`/drafts/${d.id}`} className="block group">
-                        <div className="font-medium text-[#0F172A] group-hover:underline">
+                        <div className="text-sm font-semibold text-[#0F172A] group-hover:underline">
                           {d.users?.name || "—"}
                         </div>
                         <div className="text-xs text-[#64748B]">{d.users?.title || ""}</div>
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-[#64748B]">{formatChannel(d.channel)}</td>
+                    <td className="px-4 py-3 text-[#374151]">{formatChannel(d.channel)}</td>
                     <td className="px-4 py-3 text-[#0F172A] max-w-md truncate">{d.draft_text}</td>
-                    <td className="px-4 py-3 text-[#64748B]">{d.campaigns?.name || "—"}</td>
+                    <td className="px-4 py-3 text-[#374151]">{d.campaigns?.name || "—"}</td>
                     <td className="px-4 py-3">
                       <VerdictBadge verdict={latestVerdictByDraft.get(d.id) ?? null} />
                     </td>
@@ -208,7 +208,7 @@ export default async function DraftsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${statusBadge(d.status)}`}
+                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide ${statusBadge(d.status)}`}
                       >
                         {d.status}
                       </span>

@@ -41,7 +41,7 @@ function VerdictEscalateBadge() {
 function CheckRow({ name, result }: { name: string; result: "PASS" | "FAIL" }) {
   const dotColor = result === "PASS" ? "#166534" : "#B91C1C";
   return (
-    <li className="flex items-center gap-2 text-xs font-mono mt-2">
+    <li className="flex items-center gap-2 text-sm font-mono mt-2">
       <span
         aria-hidden
         className="inline-block rounded-full"
@@ -99,7 +99,7 @@ export default function Home() {
             The governed moment between AI and publish.
           </h1>
 
-          <p className="text-lg text-[#64748B] max-w-xl leading-relaxed mb-10">
+          <p className="text-xl text-[#374151] max-w-xl leading-relaxed mb-10">
             AI agents draft. Executives post. Nobody has a record that a human
             approved it. ERA CUE is the governance layer that changes that —
             pre-publication checks, named principal approval, immutable audit
@@ -137,7 +137,7 @@ export default function Home() {
             </span>
           </div>
 
-          <p className="text-xs font-mono text-[#64748B] mt-4 max-w-md leading-relaxed">
+          <p className="text-sm text-[#374151] mt-4 max-w-md leading-relaxed">
             Paste any executive communication. ERA CUE checks it against your
             governance rules, flags violations, and routes it to your designated
             principal — before it reaches the public.
@@ -185,7 +185,7 @@ export default function Home() {
                 <div className="text-sm font-medium text-[#0F172A] mt-3">
                   Series B Quiet Period
                 </div>
-                <p className="text-xs text-[#64748B] mt-1 leading-relaxed">
+                <p className="text-sm text-[#374151] mt-1 leading-relaxed">
                   No hiring, growth, or fundraising language during quiet period.
                 </p>
                 <div className="mt-3">
@@ -229,7 +229,7 @@ export default function Home() {
               <div className="text-sm font-medium text-[#0F172A] mt-3">
                 Executive · Founder · CEO
               </div>
-              <p className="text-sm text-[#64748B] mt-2 leading-relaxed">
+              <p className="text-sm text-[#374151] mt-2 leading-relaxed">
                 Draft anything. ERA CUE checks it before it leaves your hands.
                 Your record is clean before you ask.
               </p>
@@ -247,7 +247,7 @@ export default function Home() {
               <div className="text-sm font-medium text-[#0F172A] mt-3">
                 VP Comms · PR Director · Agency
               </div>
-              <p className="text-sm text-[#64748B] mt-2 leading-relaxed">
+              <p className="text-sm text-[#374151] mt-2 leading-relaxed">
                 See every draft your speakers submit. Every verdict, every
                 override, every gap. One dashboard. No Monday morning surprises.
               </p>
@@ -265,7 +265,7 @@ export default function Home() {
               <div className="text-sm font-medium text-[#0F172A] mt-3">
                 CCO · General Counsel · Compliance
               </div>
-              <p className="text-sm text-[#64748B] mt-2 leading-relaxed">
+              <p className="text-sm text-[#374151] mt-2 leading-relaxed">
                 Rule 3110 requires proof a named principal reviewed AI-assisted
                 communications. Rule 2210(b) requires principal pre-approval of
                 retail communications before use. ERA CUE satisfies both in one
@@ -470,7 +470,7 @@ export default function Home() {
 
           {/* Multi-rule framing callout */}
           <div className="bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm px-5 py-4 mb-8">
-            <div className="font-mono text-sm text-[#1447C0] font-medium">
+            <div className="font-mono text-base text-[#1447C0] font-semibold">
               One submission. Four regulatory requirements. One record.
             </div>
             <div className="font-mono text-xs text-[#64748B] mt-1">
@@ -512,7 +512,7 @@ export default function Home() {
                 </div>
                 <div>
                   <div className="text-sm font-medium text-[#0F172A]">{p.label}</div>
-                  <p className="text-xs text-[#64748B] mt-0.5 leading-relaxed">{p.desc}</p>
+                  <p className="text-sm text-[#374151] mt-0.5 leading-relaxed">{p.desc}</p>
                 </div>
               </div>
             ))}
