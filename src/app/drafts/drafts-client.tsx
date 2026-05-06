@@ -219,8 +219,12 @@ export function DraftsClient({
         </Link>
       </div>
 
-      <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden">
-        <table className="w-full table-fixed text-sm">
+      {/* overflow-x-auto allows the table to scroll on narrow viewports
+          rather than crushing the Draft column. min-w-[860px] reserves
+          enough room that columns size naturally without table-fixed
+          forcing equal widths. */}
+      <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-x-auto">
+        <table className="w-full min-w-[860px] text-sm">
           <thead className="bg-[#F8F9FB] border-b border-[#E2E8F0]">
             <tr>
               <th className="w-40 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Speaker</th>
@@ -228,7 +232,7 @@ export function DraftsClient({
               <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Draft</th>
               <th className="w-24 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Verdict</th>
               <th className="w-28 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Status</th>
-              <th className="w-36 px-4 py-3" aria-label="Examiner record link" />
+              <th className="w-44 px-4 py-3" aria-label="Examiner record link" />
             </tr>
           </thead>
           <tbody>
@@ -246,16 +250,8 @@ export function DraftsClient({
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-[#374151] truncate whitespace-nowrap">{formatChannel(d.channel)}</td>
-                <td className="px-4 py-3">
-                  <div
-                    className="text-sm text-[#374151] overflow-hidden"
-                    style={{
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
+                <td className="px-4 py-3 max-w-xs">
+                  <div className="text-sm text-[#374151] line-clamp-2 leading-snug">
                     {d.draft_text}
                   </div>
                 </td>
@@ -265,7 +261,7 @@ export function DraftsClient({
                 <td className="px-4 py-3 whitespace-nowrap">
                   {statusBadge(d.status, d.id, principalApprovedSet)}
                 </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap">
+                <td className="w-44 px-4 py-3 text-right whitespace-nowrap">
                   <Link
                     href={`/drafts/${d.id}/examiner`}
                     className="inline-flex items-center gap-1 font-mono text-xs font-medium text-[#1A56DB] hover:text-[#1447C0] bg-[#EFF8FF] border border-[#BAE6FD] px-2 py-1 rounded-sm transition-colors whitespace-nowrap"

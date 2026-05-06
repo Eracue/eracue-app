@@ -5,9 +5,9 @@ export function SiteHeader() {
     <header className="bg-white border-b border-[#E2E8F0] shadow-sm print:hidden">
       <div className="max-w-5xl mx-auto px-6 py-5 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <span style={{ fontFamily: "var(--font-newsreader)" }} className="text-xl font-light tracking-tight">
-            <span className="text-[#1A56DB]">ERA</span>
-            <span className="text-[#1A56DB] italic"> CUE</span>
+          <span style={{ fontFamily: "var(--font-newsreader)" }} className="text-xl tracking-tight">
+            <span className="text-[#1A56DB] font-bold">ERA</span>
+            <span className="text-[#1A56DB] italic font-normal"> CUE</span>
           </span>
           <span className="ml-1 text-[10px] font-mono bg-[#F1F5F9] text-[#94A3B8] px-1.5 py-0.5 rounded-sm">
             demo

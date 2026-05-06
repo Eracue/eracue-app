@@ -378,9 +378,9 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
         <header className="border-b-2 border-neutral-900 pb-6 mb-8">
           <div className="text-xs uppercase tracking-widest text-neutral-500 mb-2">Examiner Record</div>
           <h1 className="text-2xl mb-1">
-            <span style={{ fontFamily: "var(--font-newsreader)" }} className="font-light">
-              <span className="text-[#1A56DB]">ERA</span>
-              <span className="text-[#1A56DB] italic"> CUE</span>
+            <span style={{ fontFamily: "var(--font-newsreader)" }}>
+              <span className="text-[#1A56DB] font-bold">ERA</span>
+              <span className="text-[#1A56DB] italic font-normal"> CUE</span>
             </span>
             <span className="text-[#0F172A] font-light"> Audit Record</span>
           </h1>

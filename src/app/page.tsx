@@ -93,13 +93,13 @@ export default function Home() {
           </div>
 
           <h1
-            className="font-light leading-tight tracking-tight text-[#0F172A] text-5xl md:text-6xl max-w-3xl mb-6"
+            className="font-light leading-tight tracking-tight text-[#0F172A] text-4xl md:text-5xl max-w-3xl mb-6"
             style={{ fontFamily: "var(--font-newsreader)" }}
           >
             The governed moment between AI and publish.
           </h1>
 
-          <p className="text-xl text-[#374151] max-w-xl leading-relaxed mb-10">
+          <p className="text-base md:text-lg font-normal text-[#374151] max-w-xl leading-relaxed mb-10">
             AI agents draft. Executives post. Nobody has a record that a human
             approved it. ERA CUE is the governance layer that changes that —
             pre-publication checks, named principal approval, immutable audit
@@ -541,9 +541,9 @@ export default function Home() {
       <footer className="border-t border-[#E2E8F0] bg-[#F8F9FB]">
         <div className="max-w-[1100px] mx-auto px-6 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
           <div className="text-xs text-[#64748B] flex items-center gap-2">
-            <span style={{ fontFamily: "var(--font-newsreader)" }} className="text-base font-light tracking-tight">
-              <span className="text-[#1A56DB]">ERA</span>
-              <span className="text-[#1A56DB] italic"> CUE</span>
+            <span style={{ fontFamily: "var(--font-newsreader)" }} className="text-base tracking-tight">
+              <span className="text-[#1A56DB] font-bold">ERA</span>
+              <span className="text-[#1A56DB] italic font-normal"> CUE</span>
             </span>
             <span className="font-mono">· demo · May 2026</span>
           </div>
