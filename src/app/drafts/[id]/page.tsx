@@ -192,6 +192,23 @@ export default async function DraftDetailPage({ params }: PageProps) {
  // eslint-disable-next-line @typescript-eslint/no-explicit-any
  const allMatches = (ruleCheck?.payload?.matches as any[]) || [];
 
+ // Reviewer decision (if any). Drives both the status-aware banner and
+ // the principal-decision card below; computed once at the top so both
+ // branches read from the same record. findLast handles the rare case
+ // of multiple decisions (re-decisions) by keeping the most recent.
+ const reviewerAction = actions.findLast((a) => a.action_type === "reviewer_decided");
+ const reviewerPayload = (reviewerAction?.payload ?? null) as
+ | {
+ decision?: string;
+ reason?: {
+ basis?: string;
+ verdict_assessment?: string;
+ note?: string;
+ };
+ new_status?: string;
+ }
+ | null;
+
  // Canonical 5-check array from verdict_issued payload (set by buildChecksArray
  // in src/lib/checks.ts). Older records pre-dating that helper don't have it —
  // synthesize a fallback from primary_match.
@@ -262,8 +279,7 @@ export default async function DraftDetailPage({ params }: PageProps) {
  plus whether a reviewer_decided action exists; surfaces what's
  happening without leaking internal state names. */}
  {(() => {
- const hasReviewerDecision = actions.some((a) => a.action_type === "reviewer_decided");
- if ((draft.status === "blocked" || draft.status === "escalated") && !hasReviewerDecision) {
+ if ((draft.status === "blocked" || draft.status === "escalated") && !reviewerAction) {
  const isBlocked = draft.status === "blocked";
  return (
  <div className="bg-[#FFF7ED] border border-[#FED7AA] rounded-sm p-4 mb-6 flex items-center justify-between gap-4">
@@ -297,6 +313,107 @@ export default async function DraftDetailPage({ params }: PageProps) {
  }
  return null;
  })()}
+
+ {/* Principal decision card — surfaces the reviewer's structured
+ decision (basis, verdict assessment, note) on the draft itself
+ so a speaker doesn't have to bounce to the reviewer page to
+ see what landed. Renders only when a reviewer_decided action
+ exists. */}
+ {reviewerAction && reviewerPayload && (
+ <div className="bg-white border border-[#E2E8F0] rounded-sm p-5 mb-4">
+ <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+ Principal Decision
+ </div>
+
+ {/* Decision badge + reviewer + timestamp */}
+ <div className="flex items-center gap-3 flex-wrap mb-4">
+ <span
+ className={`font-mono text-xs font-bold uppercase px-2.5 py-1 rounded-sm border ${
+ reviewerPayload.decision === "override"
+ ? "bg-[#EFF8FF] text-[#1A56DB] border-[#BAE6FD]"
+ : reviewerPayload.decision === "confirm_block"
+ ? "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]"
+ : reviewerPayload.decision === "approve"
+ ? "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]"
+ : reviewerPayload.decision === "reject"
+ ? "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]"
+ : "bg-[#F1F5F9] text-[#64748B] border-[#E2E8F0]"
+ }`}
+ >
+ {reviewerPayload.decision?.replace(/_/g, " ") ?? "decided"}
+ </span>
+ <span className="text-sm font-medium text-[#0F172A]">Sarah Chen · GC</span>
+ <span className="font-mono text-xs text-[#94A3B8]">
+ {new Date(reviewerAction.occurred_at).toLocaleDateString("en-US", {
+ month: "short",
+ day: "numeric",
+ hour: "numeric",
+ minute: "2-digit",
+ })}
+ </span>
+ </div>
+
+ {reviewerPayload.reason?.basis && (
+ <div className="text-sm text-[#374151] mb-2">
+ <span className="font-medium text-[#0F172A]">Basis:</span>{" "}
+ {reviewerPayload.reason.basis}
+ </div>
+ )}
+
+ {reviewerPayload.reason?.verdict_assessment && (
+ <div className="text-sm text-[#374151] mb-2">
+ <span className="font-medium text-[#0F172A]">Assessment:</span>{" "}
+ {reviewerPayload.reason.verdict_assessment}
+ </div>
+ )}
+
+ {reviewerPayload.reason?.note && (
+ <div className="mt-3 pt-3 border-t border-[#E2E8F0]">
+ <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1.5">
+ Note from principal
+ </div>
+ <div className="text-sm text-[#374151] leading-relaxed italic">
+ &ldquo;{reviewerPayload.reason.note}&rdquo;
+ </div>
+ </div>
+ )}
+
+ {/* What this means — plain-English implication of the decision. */}
+ <div className="mt-3 pt-3 border-t border-[#E2E8F0] font-mono text-[10px] text-[#64748B]">
+ {reviewerPayload.decision === "override"
+ ? "✓ Approved for publication — cleared by designated principal"
+ : reviewerPayload.decision === "confirm_block"
+ ? "✗ Not approved — this draft cannot be published"
+ : reviewerPayload.decision === "approve"
+ ? "✓ Approved for publication"
+ : reviewerPayload.decision === "reject"
+ ? "✗ Not approved — revise and resubmit"
+ : ""}
+ </div>
+ </div>
+ )}
+
+ {/* Publication record placeholder — coming-soon panel that will
+ eventually capture where/when the approved draft was published
+ and verify the published text matches the approved version. */}
+ {(draft.status === "approved" || draft.status === "overridden") && (
+ <div className="bg-[#F8F9FB] border border-dashed border-[#E2E8F0] rounded-sm p-5 mb-4">
+ <div className="flex items-center justify-between mb-2">
+ <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+ Publication Record
+ </div>
+ <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#94A3B8] px-2 py-0.5 rounded-sm border border-[#E2E8F0]">
+ Coming soon
+ </span>
+ </div>
+ <div className="text-sm text-[#94A3B8] leading-relaxed">
+ Once published, record where and when this approved draft went live. ERA CUE will verify the published text matches the approved version.
+ </div>
+ <div className="font-mono text-[10px] text-[#94A3B8] mt-2">
+ Platform · URL · Publication timestamp · Hash verification
+ </div>
+ </div>
+ )}
 
  {/* Checks Performed */}
  <ChecksPerformedPanel checks={checks} />
