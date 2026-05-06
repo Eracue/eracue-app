@@ -538,22 +538,30 @@ export function SubmitForm() {
               </span>
             </div>
             <p className="text-xs text-[#64748B] mb-3 leading-relaxed">
-              When AI agents draft and publish on behalf of your executives, ERA CUE becomes the required human checkpoint — satisfying FINRA&apos;s 2026 agentic AI supervision requirement.
+              Connect ERA CUE to every tool in your communications stack.
+              Outlook. Salesforce. Marketo. Your CMS. Any AI-generated
+              content submits to ERA CUE before it publishes — automatically.
             </p>
             <pre className="bg-[#0F172A] text-[#7DD3FC] font-mono text-[10px] leading-relaxed p-3 rounded-sm overflow-x-auto">
 {`POST https://api.eracue.com/v1/check
-Authorization: Bearer YOUR_KEY
+Authorization: Bearer {org_api_key}
+X-ERA-CUE-WSP: "Section 4.2"
 
 {
   "speaker": "ceo",
   "draft": "...",
-  "channel": "linkedin",
-  "submission_type": "agent"
+  "channel": "earnings_call",
+  "campaign": "q2_2026",
+  "submission_type": "agent",
+  "source": "outlook_copilot"
 }`}
             </pre>
-            <p className="font-mono text-[10px] text-[#94A3B8] mt-2">
-              Agent submissions automatically route to principal review. No agent post goes live without ERA CUE clearance.
-            </p>
+            <div className="font-mono text-[10px] text-[#94A3B8] mt-3 space-y-1">
+              <div>✓ Rule inheritance by role and division</div>
+              <div>✓ Campaign-scoped consistency checking</div>
+              <div>✓ Regulator-format audit export</div>
+              <div>✓ SOC 2 Type II (in progress)</div>
+            </div>
           </div>
         </div>
       </div>

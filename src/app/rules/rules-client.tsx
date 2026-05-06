@@ -151,6 +151,45 @@ export function RulesClient({ rules, corpusCount = 0 }: Props) {
               policies before anything goes live. Add a rule and it takes
               effect immediately.
             </p>
+
+            {/* WSP framing — positions ERA CUE as the enforcement layer of
+                an existing supervisory framework rather than a replacement.
+                Lives between the subtitle and the stats strip so it reads
+                as the lens through which the page is meant to be read. */}
+            <div className="mt-4 bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm px-5 py-4 flex items-start gap-4 max-w-2xl">
+              <div className="shrink-0 mt-0.5">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#1A56DB"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-[#0F172A] mb-1">
+                  ERA CUE enforces your Written Supervisory Procedures.
+                </div>
+                <div className="text-sm text-[#374151] leading-relaxed">
+                  Each rule references the WSP section it implements. ERA CUE
+                  becomes the enforcement layer of your existing supervisory
+                  framework — not a replacement for it.
+                </div>
+                <div className="font-mono text-xs text-[#1A56DB] mt-2">
+                  Add a WSP reference when creating or editing any rule →
+                </div>
+              </div>
+            </div>
           </div>
           <div className="flex gap-2 shrink-0">
             <button
@@ -338,6 +377,49 @@ export function RulesClient({ rules, corpusCount = 0 }: Props) {
             })
           )}
         </div>
+
+        {/* Coming-soon — Message House. Sits above the AI-detection card so
+            the alignment narrative reads as the lens through which the
+            forthcoming Alignment Check will compare each draft. */}
+        {(tab === "active" || tab === "all") && (
+          <div className="mt-6 bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-6 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+                Message House
+              </div>
+              <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#94A3B8] px-2 py-0.5 rounded-sm border border-[#E2E8F0]">
+                Coming soon
+              </span>
+            </div>
+            <div className="text-sm font-medium text-[#0F172A] mb-2">
+              Define your organization&apos;s messaging pillars. Enforce them on every draft.
+            </div>
+            <div className="text-sm text-[#374151] leading-relaxed mb-4">
+              Set 3–7 positioning statements that define what your organization stands for.
+              ERA CUE&apos;s Alignment Check compares every draft against your message house
+              — flagging contradictions before they reach the public.
+            </div>
+            <div className="space-y-2">
+              {[
+                "We are the governance layer for AI communications",
+                "We prioritize human oversight over automation",
+                "Compliance is a competitive advantage",
+              ].map((pillar, i) => (
+                <div key={pillar} className="flex items-start gap-2">
+                  <span className="font-mono text-[10px] text-[#94A3B8] shrink-0 mt-0.5 w-4">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="text-sm text-[#94A3B8] italic">
+                    &ldquo;{pillar}&rdquo;
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="font-mono text-[10px] text-[#94A3B8] mt-4">
+              Alignment Check will enforce these pillars on every submission — automatically.
+            </div>
+          </div>
+        )}
 
         {/* Coming-soon — AI content detection. Shown only on tabs where active
             rules are visible (Active or All). */}

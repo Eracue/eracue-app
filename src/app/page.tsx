@@ -272,7 +272,9 @@ export default function Home() {
                 Rule 3110 requires proof a named principal reviewed AI-assisted
                 communications. Rule 2210(b) requires principal pre-approval of
                 retail communications before use. ERA CUE satisfies both in one
-                submission — automatically.
+                submission — automatically. Reg FD requires material information
+                disclosed to any investor be disclosed to all — ERA CUE enforces
+                this at the moment of drafting.
               </p>
               <Link
                 href={`/drafts/${EXAMINER_DRAFT_ID}/examiner`}
@@ -301,7 +303,8 @@ export default function Home() {
             ERA CUE governs your entire team — simultaneously.
           </h2>
           <p className="text-sm text-[#64748B] max-w-xl mb-10 leading-relaxed">
-            One VP Comms or CCO overseeing every executive&apos;s public communications.
+            One CCO or General Counsel overseeing every executive&apos;s public
+            communications — across teams, campaigns, and regulatory requirements.
             Every draft checked. Every conflict surfaced. Every decision on record —
             before anything goes live.
           </p>
@@ -323,10 +326,10 @@ export default function Home() {
 
           {/* Speaker rows */}
           {[
-            { name: "Marcus Rivera", role: "CEO",      drafts: 6, blocked: 4, escalated: 1, highest: true },
-            { name: "Lena Brooks",   role: "VP Comms", drafts: 5, blocked: 3, escalated: 0, highest: false },
-            { name: "James Kim",     role: "VP Sales", drafts: 4, blocked: 1, escalated: 2, highest: false },
-            { name: "Priya Patel",   role: "CMO",      drafts: 3, blocked: 2, escalated: 1, highest: false },
+            { name: "Marcus Rivera", role: "CEO",                            drafts: 6, blocked: 4, escalated: 1, highest: true },
+            { name: "Lena Brooks",   role: "Chief Communications Officer",   drafts: 5, blocked: 3, escalated: 0, highest: false },
+            { name: "James Kim",     role: "Head of Investor Relations",     drafts: 4, blocked: 1, escalated: 2, highest: false },
+            { name: "Priya Patel",   role: "Chief Marketing Officer",        drafts: 3, blocked: 2, escalated: 1, highest: false },
           ].map((s) => (
             <div
               key={s.name}
@@ -369,7 +372,7 @@ export default function Home() {
               38 drafts · 14 blocked · 5 escalated · 2 overridden
             </span>
             <span className="font-mono text-xs text-[#64748B]">
-              Governed by: Sarah Chen · GC · Designated Principal
+              Supervised by: Sarah Chen · General Counsel · Designated Principal · FINRA Rule 3110(a)
             </span>
           </div>
 
