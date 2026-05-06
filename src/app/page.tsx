@@ -114,6 +114,11 @@ export default function Home() {
               FINRA Rule 3110
             </span>
             <span className="text-[#E2E1DC] text-xs select-none">·</span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#4338CA]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#4F46E5] inline-block"></span>
+              FINRA Rule 2210
+            </span>
+            <span className="text-[#E2E1DC] text-xs select-none">·</span>
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#92400E]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] inline-block"></span>
               EU AI Act Article 50
@@ -248,9 +253,10 @@ export default function Home() {
                 CCO · General Counsel · Compliance
               </div>
               <p className="text-sm text-[#6E6E68] mt-2 leading-relaxed">
-                FINRA Rule 3110 requires proof a named principal reviewed
-                AI-assisted communications. ERA CUE produces that record.
-                Automatically.
+                Rule 3110 requires proof a named principal reviewed AI-assisted
+                communications. Rule 2210(b) requires principal pre-approval of
+                retail communications before use. ERA CUE satisfies both in one
+                submission — automatically.
               </p>
               <Link
                 href={`/drafts/${EXAMINER_DRAFT_ID}/examiner`}
@@ -449,6 +455,16 @@ export default function Home() {
             SHA-256 locked.
           </p>
 
+          {/* Multi-rule framing callout */}
+          <div className="bg-[#EEF2FF] border border-[#C7D2FE] rounded-sm px-5 py-4 mb-8">
+            <div className="font-mono text-sm text-[#3730A3] font-medium">
+              One submission. Four regulatory requirements. One record.
+            </div>
+            <div className="font-mono text-xs text-[#6E6E68] mt-1">
+              Rule 2210 content check · Rule 2210(b) principal pre-approval · Rule 3110 supervision record · SEC 17a-4 retention
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
               {
@@ -458,8 +474,8 @@ export default function Home() {
               },
               {
                 num: "02",
-                label: "Named principal identity",
-                desc: "FINRA Rule 3110(a) requires a designated principal. ERA CUE records who they are and what authority they hold.",
+                label: "Dual-rule compliance",
+                desc: "Rule 3110(a) supervision + Rule 2210(b) pre-approval. ERA CUE satisfies both requirements in one governed submission — the only tool that does.",
               },
               {
                 num: "03",
@@ -470,6 +486,11 @@ export default function Home() {
                 num: "04",
                 label: "SHA-256 immutability",
                 desc: "Append-only database constraints. The record cannot be altered after the fact.",
+              },
+              {
+                num: "05",
+                label: "36-month retention",
+                desc: "SEC Rule 17a-4 + FINRA Rule 4511. Every record retained 36 months, tamper-evident, accessible within 24 hours of request.",
               },
             ].map((p) => (
               <div key={p.num} className="flex gap-4 items-start">

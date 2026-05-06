@@ -17,6 +17,7 @@ type DraftRow = {
  source_origin: string;
  status: string;
  submitted_at: string;
+ communication_category: "retail" | "institutional" | "correspondence" | null;
  users: { name: string; title: string | null } | null;
  campaigns: { name: string } | null;
 };
@@ -33,7 +34,7 @@ async function getDraft(id: string) {
  const sb = getSupabaseAdmin();
  const { data: draft, error: dErr } = await sb
  .from("drafts")
- .select("id, draft_text, channel, source_origin, status, submitted_at, users(name, title), campaigns(name)")
+ .select("id, draft_text, channel, source_origin, status, submitted_at, communication_category, users(name, title), campaigns(name)")
  .eq("id", id)
  .eq("org_id", DEMO_ORG_ID)
  .single();
@@ -186,23 +187,41 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
  </div>
 
  {/* Principal identity strip — supervisory evidence, must print */}
- <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-sm px-4 py-2 text-xs mb-4">
- <div className="flex items-baseline justify-between gap-4">
- <div className="text-[#92400E]">
- <span className="text-[#A16207]">Reviewing as:</span>{" "}
- <span className="font-medium">Sarah Chen · CCO · Designated Principal</span>
- </div>
- <div className="text-[#92400E] text-right">
- <span className="text-[#A16207]">Authority:</span>{" "}
- <span className="font-medium">Final approval · FINRA Rule 3110(a)</span>
- </div>
- </div>
- <div className="mt-1 flex justify-end">
- <span className="text-[10px] text-[#A16207] italic">
- Demo identity — production would read from user record
- </span>
- </div>
- </div>
+ {(() => {
+   const category = draft.communication_category ?? "retail";
+   const authorityLabel =
+     category === "retail"
+       ? "Pre-approval · Rule 2210(b) + Rule 3110(a)"
+       : category === "institutional"
+       ? "Content review · Rule 2210(a)(2) + Rule 3110(a)"
+       : "Supervision · Rule 2210(a)(3) + Rule 3110(a)";
+   const categoryNote =
+     category === "retail"
+       ? "Retail communication · Principal pre-approval satisfies Rule 2210(b) requirement"
+       : category === "institutional"
+       ? "Institutional communication · Content standards applied per Rule 2210(d)"
+       : "Correspondence · Supervision standard applies";
+   return (
+     <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-sm px-4 py-2 text-xs mb-4">
+       <div className="flex items-baseline justify-between gap-4">
+         <div className="text-[#92400E]">
+           <span className="text-[#A16207]">Reviewing as:</span>{" "}
+           <span className="font-medium">Sarah Chen · CCO · Designated Principal</span>
+         </div>
+         <div className="text-[#92400E] text-right">
+           <span className="text-[#A16207]">Authority:</span>{" "}
+           <span className="font-medium">{authorityLabel}</span>
+         </div>
+       </div>
+       <div className="mt-1 font-mono text-[10px] text-[#6E6E68]">{categoryNote}</div>
+       <div className="mt-1 flex justify-end">
+         <span className="text-[10px] text-[#A16207] italic">
+           Demo identity — production would read from user record
+         </span>
+       </div>
+     </div>
+   );
+ })()}
 
  {/* Decision form OR already-decided notice */}
  {alreadyDecided ? (

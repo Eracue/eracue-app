@@ -106,6 +106,21 @@ export function SubmitForm({ speakers, campaigns }: Props) {
   const [source, setSource] = useState("ai_assisted");
   const [campaignId, setCampaignId] = useState(defaultCampaignId);
   const [draftText, setDraftText] = useState(DEMO_DRAFT_TEXT);
+  // FINRA Rule 2210 classification fields. Audience is the high-level driver;
+  // changing it auto-syncs communicationCategory (user can manually override
+  // the category afterward by clicking a different radio).
+  const [communicationCategory, setCommunicationCategory] =
+    useState<"retail" | "institutional" | "correspondence">("retail");
+  const [contentType, setContentType] = useState<"static" | "interactive">("static");
+  const [intendedAudience, setIntendedAudience] =
+    useState<"public" | "limited" | "institutional">("public");
+
+  function handleAudienceChange(next: "public" | "limited" | "institutional") {
+    setIntendedAudience(next);
+    if (next === "public") setCommunicationCategory("retail");
+    else if (next === "limited") setCommunicationCategory("correspondence");
+    else if (next === "institutional") setCommunicationCategory("institutional");
+  }
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,6 +142,9 @@ export function SubmitForm({ speakers, campaigns }: Props) {
         sourceOrigin: source,
         campaignId: campaignId || null,
         draftText: draftText.trim(),
+        communicationCategory,
+        contentType,
+        intendedAudience,
       });
       if ("error" in result && result.error) {
         setError(result.error);
@@ -392,6 +410,157 @@ export function SubmitForm({ speakers, campaigns }: Props) {
                 EU AI Act disclosure required at publication
               </div>
             )}
+          </div>
+
+          {/* Card 3a — Communication category (FINRA Rule 2210) */}
+          <div className="bg-white border border-[#E2E1DC] rounded-sm p-4">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+              COMMUNICATION CATEGORY
+            </div>
+            <div className="font-mono text-[10px] text-[#6E6E68] mt-0.5 mb-3">
+              Required · FINRA Rule 2210(a)
+            </div>
+            <div className="flex flex-col">
+              {[
+                {
+                  value: "retail" as const,
+                  label: "Retail Communication",
+                  desc: "Public or 25+ retail investors · Rule 2210(a)(1) · Principal pre-approval required before use",
+                },
+                {
+                  value: "correspondence" as const,
+                  label: "Correspondence",
+                  desc: "25 or fewer retail investors · Rule 2210(a)(3) · Supervision required",
+                },
+                {
+                  value: "institutional" as const,
+                  label: "Institutional Communication",
+                  desc: "Institutional investors only · Rule 2210(a)(2) · Content standards apply",
+                },
+              ].map((opt) => {
+                const selected = communicationCategory === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setCommunicationCategory(opt.value)}
+                    className={`w-full flex items-start gap-3 py-3 px-3 border rounded-sm mb-1.5 transition-colors text-left ${
+                      selected ? "bg-[#EEF2FF] border-[#C7D2FE]" : "bg-white border-[#E2E1DC]"
+                    }`}
+                  >
+                    <span
+                      className={`relative w-4 h-4 rounded-full border-2 mt-0.5 shrink-0 ${
+                        selected ? "border-[#4F46E5]" : "border-[#E2E1DC]"
+                      }`}
+                    >
+                      {selected && <span aria-hidden className="absolute inset-1 rounded-full bg-[#4F46E5]" />}
+                    </span>
+                    <span>
+                      <span className="block text-xs font-medium text-[#1C1C1A]">{opt.label}</span>
+                      <span className="block font-mono text-[10px] text-[#6E6E68] leading-relaxed">{opt.desc}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {communicationCategory === "retail" && (
+              <div className="mt-1.5 text-[10px] font-mono text-[#C2410C]">
+                Principal pre-approval required before publication per Rule 2210(b)
+              </div>
+            )}
+          </div>
+
+          {/* Card 3b — Content type */}
+          <div className="bg-white border border-[#E2E1DC] rounded-sm p-4">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+              CONTENT TYPE
+            </div>
+            <div className="font-mono text-[10px] text-[#6E6E68] mt-0.5 mb-3">
+              Required · FINRA static/interactive distinction
+            </div>
+            <div className="flex flex-col">
+              {[
+                {
+                  value: "static" as const,
+                  label: "Static content",
+                  desc: "Post, article, profile, video · Requires principal pre-approval",
+                },
+                {
+                  value: "interactive" as const,
+                  label: "Interactive content",
+                  desc: "Comment reply, real-time response · Supervision required, pre-approval not mandatory",
+                },
+              ].map((opt) => {
+                const selected = contentType === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setContentType(opt.value)}
+                    className={`w-full flex items-start gap-3 py-3 px-3 border rounded-sm mb-1.5 transition-colors text-left ${
+                      selected ? "bg-[#EEF2FF] border-[#C7D2FE]" : "bg-white border-[#E2E1DC]"
+                    }`}
+                  >
+                    <span
+                      className={`relative w-4 h-4 rounded-full border-2 mt-0.5 shrink-0 ${
+                        selected ? "border-[#4F46E5]" : "border-[#E2E1DC]"
+                      }`}
+                    >
+                      {selected && <span aria-hidden className="absolute inset-1 rounded-full bg-[#4F46E5]" />}
+                    </span>
+                    <span>
+                      <span className="block text-xs font-medium text-[#1C1C1A]">{opt.label}</span>
+                      <span className="block font-mono text-[10px] text-[#6E6E68] leading-relaxed">{opt.desc}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {contentType === "interactive" && (
+              <div className="mt-1.5 text-[10px] font-mono text-[#166534]">
+                Monitoring standard applies — pre-approval not required per FINRA guidance
+              </div>
+            )}
+          </div>
+
+          {/* Card 3c — Intended audience (drives category auto-sync) */}
+          <div className="bg-white border border-[#E2E1DC] rounded-sm p-4">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+              INTENDED AUDIENCE
+            </div>
+            <div className="font-mono text-[10px] text-[#6E6E68] mt-0.5 mb-3">
+              Determines Rule 2210 classification
+            </div>
+            <div className="flex flex-wrap gap-2 mt-3">
+              {[
+                { value: "public" as const,        label: "Public" },
+                { value: "limited" as const,       label: "Limited (under 25)" },
+                { value: "institutional" as const, label: "Institutional only" },
+              ].map((opt) => {
+                const selected = intendedAudience === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => handleAudienceChange(opt.value)}
+                    className={`text-center py-2 px-3 rounded-sm border font-mono text-[10px] uppercase tracking-wide transition-colors ${
+                      selected
+                        ? "bg-[#EEF2FF] border-[#C7D2FE] text-[#3730A3]"
+                        : "bg-[#F7F6F3] border-[#E2E1DC] text-[#6E6E68]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="text-[10px] font-mono text-[#6E6E68] mt-2">
+              {intendedAudience === "public"
+                ? "Retail communication — strictest standard"
+                : intendedAudience === "limited"
+                ? "Correspondence — lighter supervision"
+                : "Institutional — content standards only"}
+            </div>
           </div>
 
           {/* Card 4 — Campaign */}

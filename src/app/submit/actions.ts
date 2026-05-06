@@ -10,6 +10,12 @@ type SubmitInput = {
   sourceOrigin: string;
   campaignId: string | null;
   draftText: string;
+  // FINRA Rule 2210 classification — added by the migration; if the columns
+  // aren't yet present in the DB, the insert below will simply error and the
+  // action returns the error message.
+  communicationCategory: "retail" | "institutional" | "correspondence";
+  contentType: "static" | "interactive";
+  intendedAudience: "public" | "limited" | "institutional";
 };
 
 export type SubmitSuccess = {
@@ -35,6 +41,9 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     ai_model_used: input.sourceOrigin === "human" ? null : "claude-sonnet-4-6",
     prompt_hash: input.sourceOrigin === "human" ? null : "0".repeat(64),
     status: "pending",
+    communication_category: input.communicationCategory,
+    content_type: input.contentType,
+    intended_audience: input.intendedAudience,
   }).select("id, submitted_at").single();
 
   if (draftErr || !draft) return { error: "Failed to save draft: " + (draftErr?.message || "unknown") };

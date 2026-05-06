@@ -13,6 +13,7 @@ type QueueRow = {
   source_origin: string;
   status: string;
   submitted_at: string;
+  communication_category: "retail" | "institutional" | "correspondence" | null;
   users: { name: string; title: string | null } | null;
   campaigns: { name: string } | null;
 };
@@ -21,7 +22,7 @@ async function getQueue() {
   const sb = getSupabaseAdmin();
   const { data, error } = await sb
     .from("drafts")
-    .select("id, draft_text, channel, source_origin, status, submitted_at, users(name, title), campaigns(name)")
+    .select("id, draft_text, channel, source_origin, status, submitted_at, communication_category, users(name, title), campaigns(name)")
     .eq("org_id", DEMO_ORG_ID)
     .in("status", ["blocked", "escalated"])
     .order("submitted_at", { ascending: false });
@@ -35,6 +36,27 @@ function statusBadge(status: string) {
     escalated: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]",
   };
   return colors[status] || "bg-[#F0EFE9] text-[#1C1C1A] border-[#E2E1DC]";
+}
+
+function categoryBadge(category: string | null) {
+  const cat = category ?? "retail";
+  if (cat === "retail")
+    return (
+      <span className="font-mono text-[10px] bg-[#EEF2FF] text-[#3730A3] border border-[#C7D2FE] px-1.5 py-0.5 rounded-sm">
+        Retail
+      </span>
+    );
+  if (cat === "institutional")
+    return (
+      <span className="font-mono text-[10px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] px-1.5 py-0.5 rounded-sm">
+        Institutional
+      </span>
+    );
+  return (
+    <span className="font-mono text-[10px] bg-[#F9FAFB] text-[#374151] border border-[#E5E7EB] px-1.5 py-0.5 rounded-sm">
+      Correspondence
+    </span>
+  );
 }
 
 export default async function ReviewerQueuePage() {
@@ -119,6 +141,7 @@ export default async function ReviewerQueuePage() {
                           )}
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
+                          {categoryBadge(d.communication_category)}
                           <span className={`inline-flex items-center px-2 py-1 rounded-sm text-xs font-medium border ${statusBadge(d.status)}`}>
                             {d.status}
                           </span>

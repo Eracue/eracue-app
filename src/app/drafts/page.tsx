@@ -15,6 +15,7 @@ type DraftRow = {
  submitted_at: string;
  speaker_id: string;
  campaign_id: string | null;
+ communication_category: "retail" | "institutional" | "correspondence" | null;
  users: { name: string; title: string | null } | null;
  campaigns: { name: string } | null;
 };
@@ -38,7 +39,7 @@ async function getDrafts() {
  const [draftsRes, verdictsRes] = await Promise.all([
  sb
  .from("drafts")
- .select("id, draft_text, channel, source_origin, status, submitted_at, speaker_id, campaign_id, users(name, title), campaigns(name)")
+ .select("id, draft_text, channel, source_origin, status, submitted_at, speaker_id, campaign_id, communication_category, users(name, title), campaigns(name)")
  .eq("org_id", DEMO_ORG_ID)
  .order("submitted_at", { ascending: false }),
  sb
@@ -95,6 +96,27 @@ function VerdictBadge({ verdict }: { verdict: string | null }) {
  );
 }
 
+function categoryBadge(category: string | null) {
+  const cat = category ?? "retail";
+  if (cat === "retail")
+    return (
+      <span className="font-mono text-[10px] bg-[#EEF2FF] text-[#3730A3] border border-[#C7D2FE] px-1.5 py-0.5 rounded-sm">
+        Retail
+      </span>
+    );
+  if (cat === "institutional")
+    return (
+      <span className="font-mono text-[10px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] px-1.5 py-0.5 rounded-sm">
+        Institutional
+      </span>
+    );
+  return (
+    <span className="font-mono text-[10px] bg-[#F9FAFB] text-[#374151] border border-[#E5E7EB] px-1.5 py-0.5 rounded-sm">
+      Correspondence
+    </span>
+  );
+}
+
 function sourceBadge(source: string) {
  if (source === "human") return null;
  return (
@@ -138,6 +160,7 @@ export default async function DraftsPage() {
  <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Draft</th>
  <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Campaign</th>
  <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Verdict</th>
+ <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Category</th>
  <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Source</th>
  <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Status</th>
  </tr>
@@ -155,6 +178,7 @@ export default async function DraftsPage() {
  <td className="px-4 py-3 text-[#1C1C1A] max-w-md truncate">{d.draft_text}</td>
  <td className="px-4 py-3 text-[#6E6E68]">{d.campaigns?.name || "—"}</td>
  <td className="px-4 py-3"><VerdictBadge verdict={latestVerdictByDraft.get(d.id) ?? null} /></td>
+ <td className="px-4 py-3">{categoryBadge(d.communication_category)}</td>
  <td className="px-4 py-3">{sourceBadge(d.source_origin)}</td>
  <td className="px-4 py-3">
  <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${statusBadge(d.status)}`}>

@@ -20,6 +20,10 @@ type DraftRow = {
   submitted_at: string;
   speaker_id: string;
   campaign_id: string | null;
+  // FINRA Rule 2210 classification (may be null on records that pre-date the migration)
+  communication_category: "retail" | "institutional" | "correspondence" | null;
+  content_type: "static" | "interactive" | null;
+  intended_audience: "public" | "limited" | "institutional" | null;
   users: { name: string; title: string | null; email: string | null } | null;
   campaigns: { name: string } | null;
 };
@@ -50,7 +54,7 @@ async function getExaminerRecord(draftId: string) {
 
   const { data: draft, error: dErr } = await sb
     .from("drafts")
-    .select("id, draft_text, channel, source_origin, ai_model_used, prompt_hash, status, submitted_at, speaker_id, campaign_id, users(name, title, email), campaigns(name)")
+    .select("id, draft_text, channel, source_origin, ai_model_used, prompt_hash, status, submitted_at, speaker_id, campaign_id, communication_category, content_type, intended_audience, users(name, title, email), campaigns(name)")
     .eq("id", draftId)
     .eq("org_id", DEMO_ORG_ID)
     .single();
@@ -224,6 +228,77 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
             <dd className="col-span-2 text-neutral-900 font-mono">{fmtTime(draft.submitted_at)}</dd>
             <dt className="text-neutral-500">Final status</dt>
             <dd className="col-span-2 text-neutral-900 font-medium uppercase">{draft.status}</dd>
+            <dt className="text-neutral-500">Communication category</dt>
+            <dd className="col-span-2 text-neutral-900">
+              {(draft.communication_category ?? "retail") === "retail"
+                ? "Retail Communication · Rule 2210(a)(1)"
+                : (draft.communication_category ?? "retail") === "institutional"
+                ? "Institutional Communication · Rule 2210(a)(2)"
+                : "Correspondence · Rule 2210(a)(3)"}
+            </dd>
+            <dt className="text-neutral-500">Content type</dt>
+            <dd className="col-span-2 text-neutral-900">
+              {(draft.content_type ?? "static") === "static"
+                ? "Static · Principal pre-approval required"
+                : "Interactive · Supervision required"}
+            </dd>
+            <dt className="text-neutral-500">Intended audience</dt>
+            <dd className="col-span-2 text-neutral-900">
+              {(draft.intended_audience ?? "public") === "public"
+                ? "Public · Retail standard applies"
+                : (draft.intended_audience ?? "public") === "institutional"
+                ? "Institutional investors only"
+                : "Limited distribution (under 25 retail investors)"}
+            </dd>
+          </dl>
+        </section>
+
+        {/* Section 1.5: Regulatory Framework — multi-rule compliance map */}
+        <section className="mb-8">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-700 mb-3 border-b border-neutral-200 pb-2">Regulatory Framework</h2>
+          <dl>
+            <dt className="font-mono text-xs uppercase tracking-widest text-neutral-500">FINRA Rule 3110(a)</dt>
+            <dd className="text-sm text-neutral-900 mt-0.5">
+              Supervision · Named principal review required
+            </dd>
+            <dd className="font-mono text-xs text-neutral-500 mb-4">
+              Principal: Sarah Chen · CCO · Designated Principal
+            </dd>
+
+            <dt className="font-mono text-xs uppercase tracking-widest text-neutral-500">FINRA Rule 2210(b)</dt>
+            <dd className="text-sm text-neutral-900 mt-0.5 mb-4">
+              {(draft.communication_category ?? "retail") === "retail"
+                ? "Pre-approval required · Satisfied by ERA CUE principal review at submission"
+                : (draft.communication_category ?? "retail") === "institutional"
+                ? "Content standards applied · Fair and balanced per Rule 2210(d)"
+                : "Supervision required · Satisfied by ERA CUE check engine"}
+            </dd>
+
+            <dt className="font-mono text-xs uppercase tracking-widest text-neutral-500">SEC Rule 17a-4 · FINRA Rule 4511</dt>
+            <dd className="text-sm text-neutral-900 mt-0.5">
+              Record retention · 36 months from submission date
+            </dd>
+            <dd className="font-mono text-xs text-neutral-500">
+              Accessible period: First 24 months · Total: 36 months
+            </dd>
+            <dd className="font-mono text-xs text-neutral-500">
+              Retention expiry:{" "}
+              {new Date(
+                new Date(draft.submitted_at).getTime() + 36 * 30 * 24 * 60 * 60 * 1000
+              ).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+            </dd>
+            <dd className="font-mono text-xs text-neutral-500 mb-4">
+              Format: Append-only · SHA-256 hashed · Tamper-evident per Rule 17a-4(f)
+            </dd>
+
+            <dt className="font-mono text-xs uppercase tracking-widest text-neutral-500">EU AI Act Article 50</dt>
+            <dd className="text-sm text-neutral-900 mt-0.5 mb-4">
+              {draft.source_origin === "ai_generated"
+                ? "Disclosure required · Content generated without human editing"
+                : draft.source_origin === "ai_assisted"
+                ? "Human-edited AI draft · Disclosure recommended at publication"
+                : "Human-authored · Article 50 disclosure not required"}
+            </dd>
           </dl>
         </section>
 
