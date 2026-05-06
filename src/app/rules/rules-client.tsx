@@ -156,7 +156,7 @@ export function RulesClient({ rules }: Props) {
             <button
               type="button"
               onClick={() => setIsAddOpen(true)}
-              className="bg-[#1A56DB] text-white text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#1447C0] transition"
+              className="bg-[#1A56DB] text-white text-sm font-semibold px-5 py-2.5 rounded-sm hover:bg-[#1447C0] transition"
             >
               Add a rule
             </button>
@@ -185,16 +185,16 @@ export function RulesClient({ rules }: Props) {
           ].map((s) => (
             <div key={s.label}>
               <div
-                className={`font-mono text-2xl font-light ${
+                className={`font-mono text-3xl font-light ${
                   s.muted ? "text-[#94A3B8]" : "text-[#0F172A]"
                 }`}
               >
                 {s.value}
               </div>
-              <div className="font-mono text-[10px] uppercase text-[#64748B] mt-1">{s.label}</div>
+              <div className="font-mono text-xs uppercase text-[#64748B] mt-1">{s.label}</div>
             </div>
           ))}
-          <div className="ml-auto font-mono text-xs text-[#64748B]">
+          <div className="ml-auto text-sm text-[#374151]">
             2 of 5 checks active · Rule Check + Quiet Period Check evaluating these rules today
           </div>
         </div>
@@ -247,20 +247,20 @@ export function RulesClient({ rules }: Props) {
                   <div className="p-5 flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-4">
                       <div className="min-w-0">
-                        <div className="text-base font-medium text-[#0F172A]">{r.name}</div>
+                        <div className="text-lg font-medium text-[#0F172A]">{r.name}</div>
                         {r.description && (
-                          <div className="text-sm text-[#64748B] mt-1">{r.description}</div>
+                          <div className="text-sm text-[#374151] mt-1">{r.description}</div>
                         )}
                       </div>
                       <div className="flex gap-2 items-center shrink-0 ml-4">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-sm border font-mono text-xs ${badge.bg} ${badge.text} ${badge.border}`}>
+                        <span className={`inline-flex items-center px-2 py-1 rounded-sm border font-mono text-xs font-bold tracking-wide ${badge.bg} ${badge.text} ${badge.border}`}>
                           {badge.label}
                         </span>
-                        <span className="bg-[#EFF8FF] text-[#1447C0] border border-[#BAE6FD] font-mono text-[10px] px-2 py-0.5 rounded-sm">
+                        <span className="bg-[#EFF8FF] text-[#1447C0] border border-[#BAE6FD] font-mono text-xs px-2 py-0.5 rounded-sm">
                           {scopeLabel(r.scope)}
                         </span>
                         {triggers > 0 && (
-                          <span className="bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA] font-mono text-[10px] px-2 py-0.5 rounded-sm">
+                          <span className="bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA] font-mono text-xs px-2 py-0.5 rounded-sm">
                             {triggers} {triggers === 1 ? "trigger" : "triggers"}
                           </span>
                         )}
@@ -272,7 +272,7 @@ export function RulesClient({ rules }: Props) {
                         {(r.keywords ?? []).map((kw) => (
                           <span
                             key={kw}
-                            className="bg-[#F1F5F9] text-[#64748B] font-mono text-[10px] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
+                            className="bg-[#F1F5F9] text-[#64748B] font-mono text-xs px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
                           >
                             {kw}
                           </span>
@@ -282,21 +282,21 @@ export function RulesClient({ rules }: Props) {
 
                     <div className="mt-4 pt-3 border-t border-[#E2E8F0] flex justify-between items-center gap-4 flex-wrap">
                       <div className="min-w-0">
-                        <div className="font-mono text-[10px] text-[#64748B]">
+                        <div className="font-mono text-xs text-[#64748B]">
                           {buildFooterText(r, classification)}
                         </div>
                         {r.wsp_reference && (
-                          <div className="font-mono text-[10px] text-[#1447C0] mt-0.5">
+                          <div className="font-mono text-xs text-[#1447C0] mt-0.5">
                             WSP: {r.wsp_reference}
                           </div>
                         )}
                         {triggers > 0 && r.last_triggered && (
-                          <div className="font-mono text-[10px] text-[#C2410C] mt-0.5">
+                          <div className="font-mono text-xs text-[#94A3B8] mt-0.5">
                             Last triggered: {fmtRelative(r.last_triggered)}
                           </div>
                         )}
                         {classification === "deactivated" && r.deactivated_reason && (
-                          <div className="font-mono text-[10px] text-[#64748B] mt-0.5">
+                          <div className="font-mono text-xs text-[#64748B] mt-0.5">
                             Reason: {r.deactivated_reason}
                           </div>
                         )}

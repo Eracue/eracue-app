@@ -159,19 +159,19 @@ export function SubmitForm() {
                 }}
                 rows={8}
                 placeholder="Paste the exact draft text that will be published..."
-                className="w-full bg-transparent border-none resize-none text-[#0F172A] text-base leading-relaxed focus:outline-none placeholder:text-[#94A3B8]"
+                className="w-full min-h-[260px] bg-transparent border-none resize-none text-[#0F172A] text-base leading-relaxed focus:outline-none placeholder:text-[#94A3B8]"
               />
             </div>
             <div className="px-5 py-3 flex justify-between items-center">
-              <span className={`font-mono text-xs ${overLimit ? "text-[#B91C1C]" : "text-[#64748B]"}`}>
+              <span className={`font-mono text-sm ${overLimit ? "text-[#B91C1C]" : "text-[#64748B]"}`}>
                 {charCount} characters
               </span>
               {charLimit !== null ? (
-                <span className={`font-mono text-xs ${overLimit ? "text-[#B91C1C]" : "text-[#64748B]"}`}>
+                <span className={`font-mono text-sm ${overLimit ? "text-[#B91C1C]" : "text-[#64748B]"}`}>
                   / {charLimit.toLocaleString()} {currentChannel?.label}
                 </span>
               ) : (
-                <span className="font-mono text-xs text-[#94A3B8]">
+                <span className="font-mono text-sm text-[#94A3B8]">
                   No limit · {currentChannel?.label}
                 </span>
               )}
@@ -182,7 +182,7 @@ export function SubmitForm() {
             type="button"
             onClick={handleSubmit}
             disabled={submitting || overLimit}
-            className="bg-[#0F172A] text-white text-sm font-medium w-full py-3 rounded-sm mt-3 hover:bg-[#1E293B] disabled:opacity-50 transition"
+            className="bg-[#0F172A] text-white text-base font-semibold w-full py-3.5 rounded-sm mt-3 hover:bg-[#1E293B] disabled:opacity-50 transition"
           >
             {submitting ? "Checking..." : "Check this draft →"}
           </button>
@@ -314,8 +314,8 @@ export function SubmitForm() {
                         : "bg-[#F8F9FB] border-[#E2E8F0] hover:bg-[#F1F5F9]"
                     }`}
                   >
-                    <span className="text-xs font-medium text-[#0F172A]">{s.name}</span>
-                    <span className={`font-mono text-[10px] ${selected ? "text-[#1A56DB]" : "text-[#64748B]"}`}>
+                    <span className="text-sm font-medium text-[#0F172A]">{s.name}</span>
+                    <span className={`font-mono text-xs ${selected ? "text-[#1A56DB]" : "text-[#64748B]"}`}>
                       {s.role}
                     </span>
                   </button>
@@ -337,7 +337,7 @@ export function SubmitForm() {
                     key={c.value}
                     type="button"
                     onClick={() => setChannel(c.value)}
-                    className={`text-center py-2 px-1 rounded-sm border font-mono text-[10px] uppercase tracking-wide transition-colors ${
+                    className={`text-center py-2 px-1 rounded-sm border font-mono text-xs font-medium uppercase tracking-wide transition-colors ${
                       selected
                         ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0]"
                         : "bg-[#F8F9FB] border-[#E2E8F0] text-[#64748B] hover:bg-[#F1F5F9]"
@@ -393,15 +393,15 @@ export function SubmitForm() {
                       }
                     />
                     <span>
-                      <span className="block text-xs font-medium text-[#0F172A]">{opt.name}</span>
-                      <span className="block font-mono text-[10px] text-[#64748B] leading-relaxed">{opt.desc}</span>
+                      <span className="block text-sm font-medium text-[#0F172A]">{opt.name}</span>
+                      <span className="block text-xs text-[#374151] leading-relaxed">{opt.desc}</span>
                     </span>
                   </button>
                 );
               })}
             </div>
             {submissionType === "agent" && (
-              <div className="font-mono text-[10px] text-[#C2410C] mt-1.5">
+              <div className="font-mono text-xs text-[#C2410C] mt-1.5">
                 FINRA 2026: ERA CUE principal review satisfies the supervision requirement for agentic AI communications.
               </div>
             )}
@@ -423,16 +423,16 @@ export function SubmitForm() {
                 className="mt-0.5 w-4 h-4 rounded-sm accent-[#1A56DB] cursor-pointer shrink-0"
               />
               <div>
-                <div className="text-xs font-medium text-[#0F172A]">
+                <div className="text-sm font-medium text-[#0F172A]">
                   This communication contains AI-generated content
                 </div>
-                <div className="font-mono text-[10px] text-[#64748B] mt-0.5">
+                <div className="text-xs text-[#64748B] mt-0.5">
                   Disclosure required at publication under EU AI Act Article 50
                 </div>
               </div>
             </label>
             {!aiDeclaration && (
-              <div className="font-mono text-[10px] text-[#64748B] mt-2">
+              <div className="text-xs text-[#64748B] mt-2">
                 Human-authored content — no AI disclosure required
               </div>
             )}
@@ -453,7 +453,7 @@ export function SubmitForm() {
                 onChange={(e) => setPromptUsed(e.target.value)}
                 rows={3}
                 placeholder="Paste the prompt used to generate this draft, if known. e.g. 'Write a LinkedIn post about our Series B growth plans for the CEO to post.'"
-                className="w-full border border-[#E2E8F0] rounded-sm p-3 text-xs text-[#0F172A] bg-[#F8F9FB] resize-none focus:outline-none focus:ring-1 focus:ring-[#1A56DB] font-mono leading-relaxed placeholder:text-[#94A3B8]"
+                className="w-full border border-[#E2E8F0] rounded-sm p-3 text-sm text-[#0F172A] bg-[#F8F9FB] resize-none focus:outline-none focus:ring-1 focus:ring-[#1A56DB] font-mono leading-relaxed placeholder:text-[#94A3B8]"
               />
               <div className="font-mono text-[10px] text-[#94A3B8] mt-2">
                 Stored in the governance record per FINRA 2026 GenAI oversight guidance.

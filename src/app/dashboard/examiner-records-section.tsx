@@ -46,10 +46,10 @@ export function ExaminerRecordsSection({ records }: Props) {
     <section className="mt-10">
       <div className="flex justify-between items-baseline gap-4">
         <div>
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+          <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
             EXAMINER RECORDS
           </div>
-          <div className="text-sm text-[#0F172A] font-medium mt-1">
+          <div className="text-base font-semibold text-[#0F172A] mt-1">
             Direct links to FINRA-defensible audit records
           </div>
         </div>
@@ -59,13 +59,13 @@ export function ExaminerRecordsSection({ records }: Props) {
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter by speaker..."
           aria-label="Filter examiner records by speaker name"
-          className="border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-xs font-mono text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#0F172A] w-48"
+          className="border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-sm font-mono text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#0F172A] w-48"
         />
       </div>
 
       <div className="mt-4">
         {filtered.length === 0 ? (
-          <div className="font-mono text-xs text-[#64748B] py-4 text-center">
+          <div className="font-mono text-sm text-[#64748B] py-4 text-center">
             No records match your filter.
           </div>
         ) : (
@@ -78,30 +78,30 @@ export function ExaminerRecordsSection({ records }: Props) {
             return (
               <div
                 key={r.id}
-                className="bg-white border border-[#E2E8F0] rounded-sm mb-1 px-5 py-3 flex items-center justify-between hover:bg-[#F5F6F8] transition-colors"
+                className="bg-white border border-[#E2E8F0] rounded-sm mb-1 px-5 py-4 flex items-center justify-between hover:bg-[#F5F6F8] transition-colors"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-[#0F172A]">
+                  <div className="text-sm font-medium text-[#0F172A]">
                     {r.speakerName}
                   </div>
-                  <div className="font-mono text-[10px] text-[#64748B] truncate max-w-xs mt-0.5">
+                  <div className="text-xs text-[#374151] truncate max-w-xs mt-0.5">
                     {r.draftSnippet}
                   </div>
                 </div>
                 <div className="flex gap-2 items-center shrink-0 mx-4">
                   <span
-                    className={`font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border ${badge.cls}`}
+                    className={`font-mono text-xs uppercase px-2 py-0.5 rounded-sm border ${badge.cls}`}
                   >
                     {badge.label}
                   </span>
-                  <span className="font-mono text-[10px] text-[#64748B]">
+                  <span className="font-mono text-xs text-[#94A3B8]">
                     {fmtDateTime(r.occurredAt)}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <Link
                     href={`/drafts/${r.draftId}/examiner`}
-                    className="font-mono text-xs text-[#1A56DB] hover:text-[#0F172A] transition-colors font-medium"
+                    className="font-mono text-sm font-medium text-[#1A56DB] hover:text-[#0F172A] transition-colors"
                   >
                     Examiner record →
                   </Link>

@@ -405,41 +405,41 @@ export default async function DashboardPage() {
 
           {/* SECTION 1 — Governance health */}
           <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            <div className="bg-white border border-[#E2E8F0] rounded-sm p-7">
+              <div className="font-mono text-xs uppercase tracking-widest text-[#64748B] mb-2">
                 DRAFTS REVIEWED
               </div>
-              <div className="font-mono text-4xl font-light text-[#0F172A]">
+              <div className="font-mono text-5xl font-light tracking-tight text-[#0F172A]">
                 {health.draftsReviewed}
               </div>
-              <div className="text-xs text-[#64748B] mt-1">Across all speakers</div>
+              <div className="text-sm text-[#374151] mt-1">Across all speakers</div>
             </div>
-            <div className="bg-white border border-[#E2E8F0] border-t-2 border-t-[#B91C1C] rounded-sm p-6">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            <div className="bg-white border border-[#E2E8F0] border-t-2 border-t-[#B91C1C] rounded-sm p-7">
+              <div className="font-mono text-xs uppercase tracking-widest text-[#64748B] mb-2">
                 BLOCK RATE
               </div>
-              <div className="font-mono text-4xl font-light text-[#B91C1C]">
+              <div className="font-mono text-5xl font-light tracking-tight text-[#B91C1C]">
                 {health.blockRatePct}%
               </div>
-              <div className="text-xs text-[#64748B] mt-1">Drafts halted by hard rules</div>
+              <div className="text-sm text-[#374151] mt-1">Drafts halted by hard rules</div>
             </div>
-            <div className="bg-white border border-[#E2E8F0] border-t-2 border-t-[#C2410C] rounded-sm p-6">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            <div className="bg-white border border-[#E2E8F0] border-t-2 border-t-[#C2410C] rounded-sm p-7">
+              <div className="font-mono text-xs uppercase tracking-widest text-[#64748B] mb-2">
                 OVERRIDE RATE
               </div>
-              <div className="font-mono text-4xl font-light text-[#C2410C]">
+              <div className="font-mono text-5xl font-light tracking-tight text-[#C2410C]">
                 {health.overrideRatePct}%
               </div>
-              <div className="text-xs text-[#64748B] mt-1">Of blocked drafts overridden</div>
+              <div className="text-sm text-[#374151] mt-1">Of blocked drafts overridden</div>
             </div>
-            <div className="bg-white border border-[#E2E8F0] border-t-2 border-t-[#1A56DB] rounded-sm p-6">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            <div className="bg-white border border-[#E2E8F0] border-t-2 border-t-[#1A56DB] rounded-sm p-7">
+              <div className="font-mono text-xs uppercase tracking-widest text-[#64748B] mb-2">
                 PENDING REVIEW
               </div>
-              <div className="font-mono text-4xl font-light text-[#1A56DB]">
+              <div className="font-mono text-5xl font-light tracking-tight text-[#1A56DB]">
                 {health.pendingReview}
               </div>
-              <div className="text-xs text-[#64748B] mt-1">Awaiting principal decision</div>
+              <div className="text-sm text-[#374151] mt-1">Awaiting principal decision</div>
             </div>
           </section>
 
@@ -450,7 +450,7 @@ export default async function DashboardPage() {
                 <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
                   ACTION REQUIRED
                 </div>
-                <div className="text-lg font-medium text-[#0F172A] mt-1">
+                <div className="text-xl font-semibold text-[#0F172A] mt-1">
                   {queueGroups.reduce((n, g) => n + g.drafts.length, 0)} draft
                   {queueGroups.reduce((n, g) => n + g.drafts.length, 0) === 1 ? "" : "s"} need your decision
                 </div>
@@ -474,9 +474,9 @@ export default async function DashboardPage() {
                     {/* Group header */}
                     <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-t-sm px-5 py-3 mt-3 flex justify-between items-center">
                       <div className="flex items-baseline">
-                        <span className="text-sm font-medium text-[#0F172A]">{group.name}</span>
+                        <span className="text-base font-semibold text-[#0F172A]">{group.name}</span>
                         {group.title && (
-                          <span className="font-mono text-xs text-[#64748B] ml-2">{group.title}</span>
+                          <span className="text-sm text-[#374151] ml-3">{group.title}</span>
                         )}
                       </div>
                       <span className="bg-white border border-[#E2E8F0] rounded-sm font-mono text-xs text-[#64748B] px-2 py-0.5">
@@ -493,32 +493,32 @@ export default async function DashboardPage() {
                       return (
                         <div
                           key={d.id}
-                          className={`bg-white border-x border-b border-[#E2E8F0] px-5 py-3 flex items-center gap-4 hover:bg-[#F8F9FB] transition-colors ${
+                          className={`bg-white border-x border-b border-[#E2E8F0] px-5 py-4 flex items-center gap-4 hover:bg-[#F8F9FB] transition-colors ${
                             isLast ? "rounded-b-sm" : ""
                           }`}
                         >
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm text-[#0F172A] truncate">{d.draft_text}</div>
+                            <div className="text-sm font-medium text-[#0F172A] truncate">{d.draft_text}</div>
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
+                            <span className="font-mono text-xs bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
                               {formatChannel(d.channel)}
                             </span>
                             {d.campaigns?.name && (
-                              <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
+                              <span className="font-mono text-xs bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
                                 {d.campaigns.name}
                               </span>
                             )}
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
                             <span
-                              className={`inline-flex font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border ${statusCls}`}
+                              className={`inline-flex font-mono text-xs font-medium uppercase px-2 py-0.5 rounded-sm border ${statusCls}`}
                             >
                               {d.status.toUpperCase()}
                             </span>
                             <Link
                               href={`/reviewer/${d.id}`}
-                              className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+                              className="font-mono text-sm font-medium text-[#1A56DB] hover:text-[#1447C0] transition-colors"
                             >
                               Review →
                             </Link>
@@ -556,20 +556,20 @@ export default async function DashboardPage() {
                       isTop ? "border-t-2 border-t-[#B91C1C]" : ""
                     }`}
                   >
-                    <div className="text-sm font-medium text-[#0F172A]">{s.name}</div>
-                    <div className="font-mono text-xs text-[#64748B] mt-0.5">{s.title}</div>
+                    <div className="text-base font-medium text-[#0F172A]">{s.name}</div>
+                    <div className="text-sm text-[#374151] mt-0.5">{s.title}</div>
                     <div className="flex gap-6 mt-4">
                       <div>
-                        <div className="font-mono text-2xl font-light text-[#0F172A]">{s.totalDrafts}</div>
-                        <div className="font-mono text-[10px] uppercase text-[#64748B] mt-1">total</div>
+                        <div className="font-mono text-3xl font-light text-[#0F172A]">{s.totalDrafts}</div>
+                        <div className="font-mono text-xs uppercase text-[#64748B] mt-1">total</div>
                       </div>
                       <div>
-                        <div className="font-mono text-2xl font-light text-[#0F172A]">{s.blocked}</div>
-                        <div className="font-mono text-[10px] uppercase text-[#64748B] mt-1">blocked</div>
+                        <div className="font-mono text-3xl font-light text-[#0F172A]">{s.blocked}</div>
+                        <div className="font-mono text-xs uppercase text-[#64748B] mt-1">blocked</div>
                       </div>
                       <div>
-                        <div className="font-mono text-2xl font-light text-[#0F172A]">{s.escalated}</div>
-                        <div className="font-mono text-[10px] uppercase text-[#64748B] mt-1">escalated</div>
+                        <div className="font-mono text-3xl font-light text-[#0F172A]">{s.escalated}</div>
+                        <div className="font-mono text-xs uppercase text-[#64748B] mt-1">escalated</div>
                       </div>
                     </div>
                     {isTop && (
@@ -604,26 +604,26 @@ export default async function DashboardPage() {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${verdictDot(r.rule_type)}`} aria-hidden />
-                      <span className="text-sm font-medium text-[#0F172A] truncate">{r.name}</span>
+                      <span className="text-base font-medium text-[#0F172A] truncate">{r.name}</span>
                       <span
-                        className={`font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border shrink-0 inline-flex ${ruleTypeBadgeCls(r.rule_type)}`}
+                        className={`font-mono text-xs font-medium uppercase px-2 py-0.5 rounded-sm border shrink-0 inline-flex ${ruleTypeBadgeCls(r.rule_type)}`}
                       >
                         {r.rule_type.toUpperCase()}
                       </span>
                     </div>
                     <div className="flex items-center gap-8 shrink-0">
                       <div className="text-right">
-                        <div className="font-mono text-lg font-light text-[#0F172A]">{r.timesTriggered}</div>
-                        <div className="font-mono text-[10px] text-[#64748B]">triggers</div>
+                        <div className="font-mono text-xl font-light text-[#0F172A]">{r.timesTriggered}</div>
+                        <div className="font-mono text-xs text-[#64748B]">triggers</div>
                       </div>
-                      <div className="font-mono text-xs text-[#64748B] w-20 text-right">
+                      <div className="font-mono text-xs text-[#94A3B8] w-20 text-right">
                         {fmtRelative(r.lastTriggered)}
                       </div>
                       <span
                         className={
                           r.isActive
-                            ? "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0] font-mono text-[10px] px-2 py-0.5 rounded-sm border uppercase"
-                            : "bg-[#F8F9FB] text-[#64748B] border-[#E2E8F0] font-mono text-[10px] px-2 py-0.5 rounded-sm border uppercase"
+                            ? "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0] font-mono text-xs px-2 py-0.5 rounded-sm border uppercase"
+                            : "bg-[#F8F9FB] text-[#64748B] border-[#E2E8F0] font-mono text-xs px-2 py-0.5 rounded-sm border uppercase"
                         }
                       >
                         {r.isActive ? "Active" : "Inactive"}
@@ -667,33 +667,33 @@ export default async function DashboardPage() {
                   >
                     <div className="flex-1 min-w-0">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-sm border font-mono text-[10px] uppercase ${badge.cls}`}
+                        className={`inline-flex items-center px-2 py-0.5 rounded-sm border font-mono text-xs font-medium uppercase ${badge.cls}`}
                       >
                         {badge.label}
                       </span>
-                      <div className="text-sm text-[#0F172A] mt-2">
+                      <div className="text-sm text-[#374151] mt-2">
                         Sarah Chen decided on{" "}
-                        <span className="font-medium">{speakerName}</span>
+                        <span className="font-medium text-[#0F172A]">{speakerName}</span>
                         {speakerTitle && <span className="text-[#64748B]"> ({speakerTitle})</span>}
                         &apos;s draft
                       </div>
                       {basis && (
-                        <div className="font-mono text-xs text-[#64748B] mt-1">Basis: {basis}</div>
+                        <div className="text-xs text-[#374151] mt-1">Basis: {basis}</div>
                       )}
                     </div>
                     <div className="shrink-0 flex flex-col items-end gap-1">
-                      <span className="font-mono text-xs text-[#64748B]">{fmtDateTime(a.occurred_at)}</span>
+                      <span className="font-mono text-xs text-[#94A3B8]">{fmtDateTime(a.occurred_at)}</span>
                       {a.draft_id && (
                         <div className="flex gap-3 items-center">
                           <Link
                             href={`/drafts/${a.draft_id}`}
-                            className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
+                            className="font-mono text-sm text-[#64748B] hover:text-[#0F172A] transition-colors"
                           >
                             View draft →
                           </Link>
                           <Link
                             href={`/drafts/${a.draft_id}/examiner`}
-                            className="font-mono text-xs text-[#1A56DB] hover:text-[#0F172A] font-medium transition-colors"
+                            className="font-mono text-sm text-[#1A56DB] hover:text-[#0F172A] font-medium transition-colors"
                           >
                             Examiner record →
                           </Link>

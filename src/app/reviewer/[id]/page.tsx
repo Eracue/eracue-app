@@ -61,7 +61,7 @@ function VerdictBadge({ verdict }: { verdict: string }) {
   };
   const s = styles[verdict] || styles.clear;
   return (
-    <span className={`inline-flex items-center px-4 py-2 rounded-sm border font-mono text-sm font-bold uppercase tracking-widest ${s.bg} ${s.text} ${s.border}`}>
+    <span className={`inline-flex items-center px-4 py-2 rounded-sm border font-mono text-base font-bold uppercase tracking-widest ${s.bg} ${s.text} ${s.border}`}>
       {s.label}
     </span>
   );
@@ -170,11 +170,11 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
             </Link>
             <h1
               style={{ fontFamily: "var(--font-newsreader)" }}
-              className="font-light text-2xl text-[#0F172A] mt-3"
+              className="font-light text-3xl text-[#0F172A] mt-3"
             >
               Review draft
             </h1>
-            <p className="text-sm text-[#64748B] mt-1">
+            <p className="text-sm text-[#374151] mt-1">
               From {draft.users?.name || "—"}
               {draft.users?.title ? ` (${draft.users.title})` : ""}
               {draft.campaigns?.name ? ` · Campaign: ${draft.campaigns.name}` : ""}
