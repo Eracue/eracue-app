@@ -345,7 +345,7 @@ export function SubmitForm() {
             <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
               SPEAKER
             </div>
-            <div className="flex flex-col gap-1.5 mt-3">
+            <div className="flex flex-col gap-2 mt-3">
               {SPEAKERS.map((s) => {
                 const selected = speaker === s.name;
                 return (
@@ -353,7 +353,8 @@ export function SubmitForm() {
                     key={s.name}
                     type="button"
                     onClick={() => setSpeaker(s.name)}
-                    className={`flex justify-between items-center w-full px-3 py-2 rounded-sm border transition-colors ${
+                    style={{ minHeight: "44px" }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-sm border text-left transition-colors cursor-pointer ${
                       selected
                         ? "bg-[#EFF8FF] border-[#BAE6FD]"
                         : "bg-[#F8F9FB] border-[#E2E8F0] hover:bg-[#F1F5F9]"
@@ -374,7 +375,10 @@ export function SubmitForm() {
             <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
               CHANNEL
             </div>
-            <div className="grid grid-cols-3 gap-1.5 mt-3">
+            <div
+              className="grid gap-1.5 mt-3"
+              style={{ gridTemplateColumns: "repeat(3, 1fr)" }}
+            >
               {CHANNELS.map((c) => {
                 const selected = channel === c.value;
                 return (
@@ -382,7 +386,8 @@ export function SubmitForm() {
                     key={c.value}
                     type="button"
                     onClick={() => setChannel(c.value)}
-                    className={`text-center py-2 px-1 rounded-sm border font-mono text-xs font-medium uppercase tracking-wide transition-colors ${
+                    style={{ fontSize: "10px" }}
+                    className={`py-2 px-1 rounded-sm border text-center transition-colors cursor-pointer font-mono uppercase tracking-wide ${
                       selected
                         ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0]"
                         : "bg-[#F8F9FB] border-[#E2E8F0] text-[#64748B] hover:bg-[#F1F5F9]"
@@ -447,9 +452,23 @@ export function SubmitForm() {
             </div>
             {submissionType === "agent" && (
               <div className="font-mono text-xs text-[#C2410C] mt-1.5">
-                FINRA 2026: ERA CUE principal review satisfies the supervision requirement for agentic AI communications.
+                FINRA 2026: ERA CUE principal review is consistent with FINRA&apos;s 2026 GenAI oversight guidance on human-in-the-loop checkpoints for agentic AI.
               </div>
             )}
+            {/* Source citation for the FINRA 2026 framing above. Static —
+                renders regardless of submission_type so the regulatory
+                footing of this card stays visible. */}
+            <div className="font-mono text-[10px] text-[#94A3B8] mt-3 pt-3 border-t border-[#E2E8F0]">
+              FINRA 2026 Annual Regulatory Oversight Report — GenAI: Continuing and Emerging Trends.{" "}
+              <a
+                href="https://www.finra.org/rules-guidance/guidance/reports/2026-finra-annual-regulatory-oversight-report/gen-ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+              >
+                finra.org ↗
+              </a>
+            </div>
           </div>
 
           {/* Card 4 — EU AI Act declaration */}
@@ -472,15 +491,12 @@ export function SubmitForm() {
                   This communication contains AI-generated content
                 </div>
                 <div className="text-xs text-[#64748B] mt-0.5">
-                  Disclosure required at publication under EU AI Act Article 50
+                  {aiDeclaration
+                    ? "Disclosure may be required at publication under EU AI Act Article 50"
+                    : "No AI disclosure required — human-authored content declared"}
                 </div>
               </div>
             </label>
-            {!aiDeclaration && (
-              <div className="text-xs text-[#64748B] mt-2">
-                Human-authored content — no AI disclosure required
-              </div>
-            )}
           </div>
 
           {/* Card 4b — AI prompt logging (FINRA 2026). Only meaningful when
@@ -542,7 +558,25 @@ export function SubmitForm() {
               Outlook. Salesforce. Marketo. Your CMS. Any AI-generated
               content submits to ERA CUE before it publishes — automatically.
             </p>
-            <pre className="bg-[#0F172A] text-[#7DD3FC] font-mono text-[10px] leading-relaxed p-3 rounded-sm overflow-x-auto">
+            {/* Inline-styled <pre> — Tailwind v4 arbitrary-value classes
+                were occasionally getting purged in production builds for
+                this code block, leaving the API sample rendering as plain
+                text. Inline styles guarantee the dark-terminal treatment
+                renders end-to-end. */}
+            <pre
+              style={{
+                backgroundColor: "#0F172A",
+                color: "#7DD3FC",
+                fontFamily: "monospace",
+                fontSize: "11px",
+                lineHeight: "1.6",
+                padding: "12px",
+                borderRadius: "4px",
+                overflowX: "auto",
+                whiteSpace: "pre",
+                margin: "8px 0",
+              }}
+            >
 {`POST https://api.eracue.com/v1/check
 Authorization: Bearer {org_api_key}
 X-ERA-CUE-WSP: "Section 4.2"
