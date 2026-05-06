@@ -269,12 +269,25 @@ export default function Home() {
                 CCO · General Counsel · Compliance
               </div>
               <p className="text-sm text-[#374151] mt-2 leading-relaxed">
-                Rule 3110 requires proof a named principal reviewed AI-assisted
-                communications. Rule 2210(b) requires principal pre-approval of
-                retail communications before use. ERA CUE satisfies both in one
-                submission — automatically. Reg FD requires material information
-                disclosed to any investor be disclosed to all — ERA CUE enforces
-                this at the moment of drafting.
+                FINRA Rule 3110 requires evidence that a registered principal
+                reviewed communications — including the reviewer&apos;s
+                identity, the communication, and the date of review.
+                <a href="#ref-1">
+                  <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">1</sup>
+                </a>{" "}
+                Rule 2210(b) requires principal pre-approval of retail
+                communications before use.
+                <a href="#ref-2">
+                  <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">2</sup>
+                </a>{" "}
+                ERA CUE produces this supervisory evidence in one governed
+                submission. SEC Reg FD requires that material information
+                disclosed to any investor be simultaneously disclosed to all.
+                <a href="#ref-4">
+                  <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">4</sup>
+                </a>{" "}
+                ERA CUE flags potential Reg FD-sensitive language before
+                publication.
               </p>
               <Link
                 href={`/drafts/${EXAMINER_DRAFT_ID}/examiner`}
@@ -494,7 +507,7 @@ export default function Home() {
               {
                 num: "02",
                 label: "Dual-rule compliance",
-                desc: "Rule 3110(a) supervision + Rule 2210(b) pre-approval. ERA CUE satisfies both requirements in one governed submission — the only tool that does.",
+                desc: "Rule 3110(a) supervision + Rule 2210(b) pre-approval. ERA CUE produces the supervisory evidence both rules require in one governed submission — the only tool that does.",
               },
               {
                 num: "03",
@@ -563,6 +576,90 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* ============================================================
+          SECTION 7 — REGULATORY REFERENCES
+          Sits below the demo footer so the page closes on the legal
+          framing the body copy cites. Each row carries an id="ref-N"
+          so the inline superscript anchors in the CCO card jump
+          straight to the right reference.
+         ============================================================ */}
+      <section className="border-t border-[#E2E8F0] bg-[#F8F9FB] px-6 py-8 md:px-12">
+        <div className="max-w-[1100px] mx-auto">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-4">
+            Regulatory references
+          </div>
+          <div className="space-y-2">
+            {[
+              {
+                num: 1,
+                text: "FINRA Rule 3110(b)(4) — Review of Correspondence and Internal Communications. Requires evidence of review identifying the reviewer, communication reviewed, date of review, and actions taken.",
+                url: "https://www.finra.org/rules-guidance/rulebooks/finra-rules/3110",
+                label: "finra.org/rules-guidance/rulebooks/finra-rules/3110",
+              },
+              {
+                num: 2,
+                text: "FINRA Rule 2210(b) — Requires principal pre-approval of retail communications with the public before first use.",
+                url: "https://www.finra.org/rules-guidance/rulebooks/finra-rules/2210",
+                label: "finra.org/rules-guidance/rulebooks/finra-rules/2210",
+              },
+              {
+                num: 3,
+                text: "EU AI Act Article 50(4) — Transparency obligations for AI-generated content. Human review exemption applies when content has undergone genuine editorial review by a natural or legal person. Obligations enforceable August 2026.",
+                url: "https://artificialintelligenceact.eu/article/50/",
+                label: "artificialintelligenceact.eu/article/50",
+              },
+              {
+                num: 4,
+                text: "SEC Regulation FD (Fair Disclosure) — Requires simultaneous public disclosure of material information provided to any investor. 17 CFR 243.100.",
+                url: "https://www.sec.gov/rules-regulations/regulations/reg-fd",
+                label: "sec.gov — Regulation FD",
+              },
+              {
+                num: 5,
+                text: "FINRA 2026 Annual Regulatory Oversight Report — GenAI: Continuing and Emerging Trends. Recommends human-in-the-loop oversight for agentic AI, audit trails of agent actions, and explicit human checkpoints before execution.",
+                url: "https://www.finra.org/rules-guidance/guidance/reports/2026-finra-annual-regulatory-oversight-report/gen-ai",
+                label: "finra.org — 2026 Annual Regulatory Oversight Report",
+              },
+              {
+                num: 6,
+                text: "SEC Rule 17a-4(b) — Requires preservation of communications records for 3 years, with the first 2 years in an accessible location.",
+                url: "https://www.ecfr.gov/current/title-17/chapter-II/part-240/section-240.17a-4",
+                label: "ecfr.gov — SEC Rule 17a-4",
+              },
+            ].map((ref) => (
+              <div
+                key={ref.num}
+                id={`ref-${ref.num}`}
+                className="flex items-start gap-3 scroll-mt-6"
+              >
+                <span className="font-mono text-[10px] text-[#94A3B8] shrink-0 w-4 pt-0.5">
+                  {ref.num}
+                </span>
+                <div>
+                  <span className="font-mono text-[10px] text-[#64748B]">
+                    {ref.text}{" "}
+                  </span>
+                  <a
+                    href={ref.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-[10px] text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+                  >
+                    {ref.label} ↗
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="font-mono text-[10px] text-[#94A3B8] mt-6 pt-4 border-t border-[#E2E8F0]">
+            ERA CUE is governance infrastructure, not legal advice. Firms
+            should consult qualified legal counsel regarding their specific
+            regulatory obligations. ERA CUE does not guarantee regulatory
+            compliance.
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
