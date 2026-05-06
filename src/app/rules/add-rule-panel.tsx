@@ -348,14 +348,14 @@ Examples:
       >
         {/* Header — hidden on confirmation screen */}
         {state !== "confirmed" && (
-          <div className="px-6 py-5 border-b border-[#E2E1DC] flex justify-between items-center">
+          <div className="px-6 py-5 border-b border-[#E2E8F0] flex justify-between items-center">
             <div>
-              <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+              <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
                 {initialRule ? "EDIT GOVERNANCE RULE" : "ADD GOVERNANCE RULE"}
               </div>
               <div
                 style={{ fontFamily: "var(--font-newsreader)" }}
-                className="font-light text-xl text-[#1C1C1A] mt-1"
+                className="font-light text-xl text-[#0F172A] mt-1"
               >
                 {state === "describe" ? "Describe what you want to govern" : "Review and authorize"}
               </div>
@@ -364,7 +364,7 @@ Examples:
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="text-[#6E6E68] hover:text-[#1C1C1A] text-xl cursor-pointer leading-none"
+              className="text-[#64748B] hover:text-[#0F172A] text-xl cursor-pointer leading-none"
             >
               ×
             </button>
@@ -377,7 +377,7 @@ Examples:
             <>
               {/* Section A — scope */}
               <div className="mb-6">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-3">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
                   Who does this apply to?
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -400,8 +400,8 @@ Examples:
                         }}
                         className={`text-xs font-medium px-4 py-2 rounded-sm border transition-colors cursor-pointer ${
                           selected
-                            ? "bg-[#EEF2FF] border-[#C7D2FE] text-[#3730A3]"
-                            : "bg-[#F7F6F3] border-[#E2E1DC] text-[#6E6E68] hover:bg-[#F0EFE9]"
+                            ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0]"
+                            : "bg-[#F8F9FB] border-[#E2E8F0] text-[#64748B] hover:bg-[#F1F5F9]"
                         }`}
                       >
                         {opt.label}
@@ -420,8 +420,8 @@ Examples:
                           onClick={() => setScopeRole(role)}
                           className={`text-xs px-3 py-1.5 rounded-sm border transition-colors cursor-pointer font-mono ${
                             scopeRole === role
-                              ? "bg-[#4F46E5] text-white border-[#4F46E5]"
-                              : "bg-white border-[#E2E1DC] text-[#1C1C1A] hover:bg-[#F7F6F3]"
+                              ? "bg-[#1A56DB] text-white border-[#1A56DB]"
+                              : "bg-white border-[#E2E8F0] text-[#0F172A] hover:bg-[#F8F9FB]"
                           }`}
                         >
                           {role}
@@ -429,7 +429,7 @@ Examples:
                       ))}
                     </div>
                     {!scopeRole && (
-                      <div className="font-mono text-[10px] text-[#6E6E68] mt-2">Select a role above</div>
+                      <div className="font-mono text-[10px] text-[#64748B] mt-2">Select a role above</div>
                     )}
                   </>
                 )}
@@ -444,8 +444,8 @@ Examples:
                           onClick={() => setScopePerson(speaker)}
                           className={`text-xs px-3 py-1.5 rounded-sm border transition-colors cursor-pointer font-mono ${
                             scopePerson === speaker
-                              ? "bg-[#4F46E5] text-white border-[#4F46E5]"
-                              : "bg-white border-[#E2E1DC] text-[#1C1C1A] hover:bg-[#F7F6F3]"
+                              ? "bg-[#1A56DB] text-white border-[#1A56DB]"
+                              : "bg-white border-[#E2E8F0] text-[#0F172A] hover:bg-[#F8F9FB]"
                           }`}
                         >
                           {speaker}
@@ -453,7 +453,7 @@ Examples:
                       ))}
                     </div>
                     {!scopePerson && (
-                      <div className="font-mono text-[10px] text-[#6E6E68] mt-2">Select a person above</div>
+                      <div className="font-mono text-[10px] text-[#64748B] mt-2">Select a person above</div>
                     )}
                   </>
                 )}
@@ -461,36 +461,36 @@ Examples:
 
               {/* Section B — describe */}
               <div className="mb-4">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
                   Describe the rule
                 </div>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={placeholder}
-                  className="w-full min-h-[120px] border border-[#E2E1DC] rounded-sm p-4 text-sm text-[#1C1C1A] bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+                  className="w-full min-h-[120px] border border-[#E2E8F0] rounded-sm p-4 text-sm text-[#0F172A] bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
                 />
               </div>
 
               {/* Section C — active until (optional) */}
               <div className="mb-5">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
                   Active until
-                  <span className="ml-2 normal-case not-italic text-[#9E9E96]">(optional)</span>
+                  <span className="ml-2 normal-case not-italic text-[#94A3B8]">(optional)</span>
                 </div>
                 <input
                   type="date"
                   value={activeUntil}
                   onChange={(e) => setActiveUntil(e.target.value)}
-                  className="border border-[#E2E1DC] rounded-sm px-3 py-2 text-sm text-[#1C1C1A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono"
+                  className="border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB] font-mono"
                 />
-                <span className="font-mono text-[10px] text-[#9E9E96] ml-3">
+                <span className="font-mono text-[10px] text-[#94A3B8] ml-3">
                   Leave blank for no end date
                 </span>
               </div>
 
               {/* Section D — helper copy */}
-              <p className="text-xs font-mono text-[#6E6E68] mt-2 leading-relaxed">
+              <p className="text-xs font-mono text-[#64748B] mt-2 leading-relaxed">
                 ERA CUE will draft the rule structure for your review. You can edit anything before authorizing.
               </p>
 
@@ -499,7 +499,7 @@ Examples:
                 type="button"
                 onClick={handleDraft}
                 disabled={loading}
-                className="bg-[#4F46E5] text-white text-sm font-medium w-full py-3 rounded-sm mt-6 hover:bg-[#4338CA] disabled:opacity-50 transition"
+                className="bg-[#1A56DB] text-white text-sm font-medium w-full py-3 rounded-sm mt-6 hover:bg-[#1447C0] disabled:opacity-50 transition"
               >
                 {loading ? "Drafting rule..." : "Draft this rule →"}
               </button>
@@ -514,30 +514,30 @@ Examples:
               <button
                 type="button"
                 onClick={() => setState("describe")}
-                className="font-mono text-xs text-[#6E6E68] hover:text-[#1C1C1A] cursor-pointer mb-6 block"
+                className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] cursor-pointer mb-6 block"
               >
                 ← Describe again
               </button>
-              <div className="bg-[#EEF2FF] border border-[#C7D2FE] rounded-sm px-4 py-3 text-xs font-mono text-[#3730A3] mb-6 leading-relaxed">
+              <div className="bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm px-4 py-3 text-xs font-mono text-[#1447C0] mb-6 leading-relaxed">
                 ERA CUE drafted this rule — review and edit before authorizing.
               </div>
 
               {/* Rule name */}
               <div className="mb-4">
-                <label className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] block mb-2">
+                <label className="font-mono text-xs uppercase tracking-widest text-[#64748B] block mb-2">
                   RULE NAME
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full border border-[#E2E1DC] rounded-sm px-3 py-2 text-sm text-[#1C1C1A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+                  className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
                 />
               </div>
 
               {/* Verdict */}
               <div className="mb-4">
-                <label className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] block mb-2">
+                <label className="font-mono text-xs uppercase tracking-widest text-[#64748B] block mb-2">
                   VERDICT
                 </label>
                 <div className="flex gap-2 mt-2">
@@ -552,7 +552,7 @@ Examples:
                         className={`text-xs font-mono px-3 py-1.5 rounded-sm cursor-pointer border ${
                           selected
                             ? `${s.bg} ${s.text} ${s.border}`
-                            : "bg-[#F7F6F3] border-[#E2E1DC] text-[#6E6E68]"
+                            : "bg-[#F8F9FB] border-[#E2E8F0] text-[#64748B]"
                         }`}
                       >
                         {s.label}
@@ -564,33 +564,33 @@ Examples:
 
               {/* Description */}
               <div className="mb-4">
-                <label className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] block mb-2">
+                <label className="font-mono text-xs uppercase tracking-widest text-[#64748B] block mb-2">
                   DESCRIPTION
                 </label>
                 <input
                   type="text"
                   value={reviewDescription}
                   onChange={(e) => setReviewDescription(e.target.value)}
-                  className="w-full border border-[#E2E1DC] rounded-sm px-3 py-2 text-sm text-[#1C1C1A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+                  className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
                 />
               </div>
 
               {/* Keywords */}
               <div className="mb-4">
-                <label className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] block mb-2">
+                <label className="font-mono text-xs uppercase tracking-widest text-[#64748B] block mb-2">
                   KEYWORDS
                 </label>
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {keywords.map((k) => (
                     <span
                       key={k}
-                      className="bg-[#F0EFE9] text-[#6E6E68] font-mono text-xs px-2 py-1 rounded-sm border border-[#E2E1DC] flex items-center gap-1"
+                      className="bg-[#F1F5F9] text-[#64748B] font-mono text-xs px-2 py-1 rounded-sm border border-[#E2E8F0] flex items-center gap-1"
                     >
                       {k}
                       <button
                         type="button"
                         onClick={() => removeKeyword(k)}
-                        className="text-[#9E9E96] hover:text-[#B91C1C] text-xs cursor-pointer"
+                        className="text-[#94A3B8] hover:text-[#B91C1C] text-xs cursor-pointer"
                         aria-label={`Remove ${k}`}
                       >
                         ×
@@ -617,23 +617,23 @@ Examples:
                     }
                   }}
                   placeholder="Type a keyword and press Enter or comma"
-                  className="w-full border border-[#E2E1DC] rounded-sm px-3 py-2 text-sm text-[#1C1C1A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+                  className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
                 />
               </div>
 
               {/* Applies to — read-only with "Change" link */}
               <div className="mb-4">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
                   Applies to
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="bg-[#EEF2FF] border border-[#C7D2FE] text-[#3730A3] font-mono text-xs px-3 py-1.5 rounded-sm">
+                  <span className="bg-[#EFF8FF] border border-[#BAE6FD] text-[#1447C0] font-mono text-xs px-3 py-1.5 rounded-sm">
                     {getScopeLabel()}
                   </span>
                   <button
                     type="button"
                     onClick={() => setState("describe")}
-                    className="font-mono text-[10px] text-[#6E6E68] hover:text-[#1C1C1A] transition-colors cursor-pointer"
+                    className="font-mono text-[10px] text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
                   >
                     Change
                   </button>
@@ -647,26 +647,26 @@ Examples:
 
               {/* Active period */}
               <div className="mb-4">
-                <label className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] block mb-2">
+                <label className="font-mono text-xs uppercase tracking-widest text-[#64748B] block mb-2">
                   ACTIVE PERIOD
                 </label>
                 <div className="flex gap-3">
                   <div className="flex-1">
-                    <label className="font-mono text-[10px] text-[#6E6E68] block mb-1">From</label>
+                    <label className="font-mono text-[10px] text-[#64748B] block mb-1">From</label>
                     <input
                       type="date"
                       value={activeFrom}
                       onChange={(e) => setActiveFrom(e.target.value)}
-                      className="w-full border border-[#E2E1DC] rounded-sm px-3 py-2 text-sm text-[#1C1C1A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+                      className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="font-mono text-[10px] text-[#6E6E68] block mb-1">Until</label>
+                    <label className="font-mono text-[10px] text-[#64748B] block mb-1">Until</label>
                     <input
                       type="date"
                       value={drafted?.suggested_end_date || activeUntil || ""}
                       onChange={(e) => setActiveUntil(e.target.value)}
-                      className="w-full border border-[#E2E1DC] rounded-sm px-3 py-2 text-sm text-[#1C1C1A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+                      className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
                     />
                   </div>
                 </div>
@@ -675,11 +675,11 @@ Examples:
               {/* Regulatory basis (read-only) */}
               {drafted && (
                 <div className="mb-4">
-                  <label className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] block mb-2">
+                  <label className="font-mono text-xs uppercase tracking-widest text-[#64748B] block mb-2">
                     REGULATORY BASIS
                   </label>
-                  <div className="text-sm text-[#1C1C1A]">{drafted.regulatory_basis}</div>
-                  <div className="font-mono text-xs text-[#6E6E68] mt-1">
+                  <div className="text-sm text-[#0F172A]">{drafted.regulatory_basis}</div>
+                  <div className="font-mono text-xs text-[#64748B] mt-1">
                     Set by ERA CUE based on rule type
                   </div>
                 </div>
@@ -688,10 +688,10 @@ Examples:
               {/* WSP reference — links rule to firm's Written Supervisory
                   Procedures section for FINRA examination purposes. */}
               <div className="mb-4">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-1">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
                   WSP REFERENCE
                 </div>
-                <div className="font-mono text-[10px] text-[#9E9E96] mb-2">
+                <div className="font-mono text-[10px] text-[#94A3B8] mb-2">
                   Optional · Written Supervisory Procedures section
                 </div>
                 <input
@@ -699,28 +699,28 @@ Examples:
                   value={wspReference}
                   onChange={(e) => setWspReference(e.target.value)}
                   placeholder="e.g. Section 4.2 — Social Media Communications"
-                  className="w-full border border-[#E2E1DC] rounded-sm px-3 py-2 text-sm text-[#1C1C1A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+                  className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
                 />
-                <div className="font-mono text-[10px] text-[#9E9E96] mt-1">
+                <div className="font-mono text-[10px] text-[#94A3B8] mt-1">
                   Links this rule to your firm&apos;s Written Supervisory Procedures for FINRA examination purposes.
                 </div>
               </div>
 
               {/* Preview */}
-              <div className="border border-[#E2E1DC] rounded-sm p-4 bg-[#F7F6F3] mt-4">
-                <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] mb-2">
+              <div className="border border-[#E2E8F0] rounded-sm p-4 bg-[#F8F9FB] mt-4">
+                <div className="font-mono text-xs uppercase tracking-widest text-[#64748B] mb-2">
                   PREVIEW
                 </div>
-                <div className="bg-white border border-[#E2E1DC] rounded-sm flex overflow-hidden">
+                <div className="bg-white border border-[#E2E8F0] rounded-sm flex overflow-hidden">
                   <div className={`w-1 shrink-0 ${VERDICT_STRIPE[verdict]}`} />
                   <div className="p-3 flex-1">
-                    <div className="text-sm font-medium text-[#1C1C1A]">{name || "Rule name"}</div>
-                    <div className="text-xs text-[#6E6E68] mt-1">{reviewDescription || "Description"}</div>
+                    <div className="text-sm font-medium text-[#0F172A]">{name || "Rule name"}</div>
+                    <div className="text-xs text-[#64748B] mt-1">{reviewDescription || "Description"}</div>
                     <div className="flex gap-1.5 mt-2">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-sm border font-mono text-[10px] ${VERDICT_STYLES[verdict].bg} ${VERDICT_STYLES[verdict].text} ${VERDICT_STYLES[verdict].border}`}>
                         {VERDICT_STYLES[verdict].label}
                       </span>
-                      <span className="bg-[#EEF2FF] text-[#3730A3] border border-[#C7D2FE] font-mono text-[10px] px-2 py-0.5 rounded-sm">
+                      <span className="bg-[#EFF8FF] text-[#1447C0] border border-[#BAE6FD] font-mono text-[10px] px-2 py-0.5 rounded-sm">
                         {getScopeLabel()}
                       </span>
                     </div>
@@ -759,16 +759,16 @@ Examples:
 
               <div
                 style={{ fontFamily: "var(--font-newsreader)" }}
-                className="text-xl font-light text-[#1C1C1A] mb-2"
+                className="text-xl font-light text-[#0F172A] mb-2"
               >
                 &ldquo;{drafted?.name}&rdquo;
               </div>
 
-              <div className="text-sm text-[#6E6E68] mb-6 max-w-xs">
+              <div className="text-sm text-[#64748B] mb-6 max-w-xs">
                 Now governing {getScopeLabel()}. Authorized by Sarah Chen, GC.
               </div>
 
-              <div className="font-mono text-[10px] text-[#9E9E96]">
+              <div className="font-mono text-[10px] text-[#94A3B8]">
                 {new Date().toLocaleString("en-US", {
                   month: "long",
                   day: "numeric",
@@ -778,7 +778,7 @@ Examples:
                 })}
               </div>
 
-              <div className="font-mono text-[10px] text-[#9E9E96] mt-6">
+              <div className="font-mono text-[10px] text-[#94A3B8] mt-6">
                 Closing in a moment&hellip;
               </div>
             </div>
@@ -787,12 +787,12 @@ Examples:
 
         {/* Footer — only on review state */}
         {state === "review" && (
-          <div className="border-t border-[#E2E1DC] px-6 py-4 bg-white flex justify-between items-center">
+          <div className="border-t border-[#E2E8F0] px-6 py-4 bg-white flex justify-between items-center">
             <div>
-              <div className="font-mono text-xs text-[#6E6E68]">
+              <div className="font-mono text-xs text-[#64748B]">
                 Authorizing as: Sarah Chen · GC · Designated Principal
               </div>
-              <div className="font-mono text-[10px] text-[#6E6E68] mt-1">
+              <div className="font-mono text-[10px] text-[#64748B] mt-1">
                 Scope: {getScopeLabel()}
               </div>
             </div>
@@ -800,7 +800,7 @@ Examples:
               <button
                 type="button"
                 onClick={onClose}
-                className="bg-white border border-[#E2E1DC] text-[#1C1C1A] text-sm px-4 py-2 rounded-sm hover:bg-[#F7F6F3] transition"
+                className="bg-white border border-[#E2E8F0] text-[#0F172A] text-sm px-4 py-2 rounded-sm hover:bg-[#F8F9FB] transition"
               >
                 Cancel
               </button>
@@ -808,7 +808,7 @@ Examples:
                 type="button"
                 onClick={handleAuthorize}
                 disabled={loading}
-                className="bg-[#4F46E5] text-white text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition"
+                className="bg-[#1A56DB] text-white text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#1447C0] disabled:opacity-50 transition"
               >
                 {loading
                   ? initialRule

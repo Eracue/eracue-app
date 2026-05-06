@@ -237,10 +237,10 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
           <div className="text-xs uppercase tracking-widest text-neutral-500 mb-2">Examiner Record</div>
           <h1 className="text-2xl mb-1">
             <span style={{ fontFamily: "var(--font-newsreader)" }} className="font-light">
-              <span className="text-[#4F46E5]">ERA</span>
-              <span className="text-[#4F46E5] italic"> CUE</span>
+              <span className="text-[#1A56DB]">ERA</span>
+              <span className="text-[#1A56DB] italic"> CUE</span>
             </span>
-            <span className="text-[#1C1C1A] font-light"> Audit Record</span>
+            <span className="text-[#0F172A] font-light"> Audit Record</span>
           </h1>
           <p className="text-sm text-neutral-600">Draft ID: <span className="font-mono">{draft.id}</span></p>
           <p className="text-xs text-neutral-500 mt-2">Generated: {fmtTime(new Date().toISOString())}</p>
@@ -291,7 +291,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
               <dt className="text-neutral-500">Prompt logged</dt>
               <dd className="col-span-2 text-neutral-900">
                 <div className="whitespace-pre-wrap">{draft.prompt_used}</div>
-                <div className="font-mono text-[10px] text-[#6E6E68] mt-1">
+                <div className="font-mono text-[10px] text-[#64748B] mt-1">
                   Retained per FINRA 2026 GenAI prompt logging guidance · Append-only record
                 </div>
               </dd>
@@ -380,7 +380,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
                 );
                 return (
                   <>
-                    <dd className="text-sm text-[#1C1C1A] mt-0.5">Human review exemption applies</dd>
+                    <dd className="text-sm text-[#0F172A] mt-0.5">Human review exemption applies</dd>
                     <dd className="mt-2 mb-4">
                       <span className="font-mono text-xs text-[#166534] bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm px-3 py-2 inline-block">
                         Editorial responsibility assumed by Sarah Chen, GC on {ts} — EU AI Act Article 50(4) human review exemption applies. AI disclosure label not required at publication.
@@ -392,7 +392,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
               if (isAi) {
                 return (
                   <>
-                    <dd className="text-sm text-[#1C1C1A] mt-0.5">Disclosure required at publication</dd>
+                    <dd className="text-sm text-[#0F172A] mt-0.5">Disclosure required at publication</dd>
                     <dd className="font-mono text-xs text-[#C2410C] mt-1 mb-4 leading-relaxed">
                       Principal review pending. Once a designated principal approves this draft, the EU AI Act Article 50(4) human review exemption will apply and AI disclosure at publication will not be required.
                     </dd>
@@ -402,7 +402,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
               if (draft.source_origin === "agent_submitted") {
                 return (
                   <>
-                    <dd className="text-sm text-[#1C1C1A] mt-0.5">
+                    <dd className="text-sm text-[#0F172A] mt-0.5">
                       AI-generated content — disclosure required at publication
                     </dd>
                     <dd className="font-mono text-xs text-neutral-500 mt-1 mb-4 leading-relaxed">
@@ -412,7 +412,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
                 );
               }
               return (
-                <dd className="text-sm text-[#1C1C1A] mt-0.5 mb-4">
+                <dd className="text-sm text-[#0F172A] mt-0.5 mb-4">
                   No disclosure required — human-authored content
                 </dd>
               );
@@ -442,7 +442,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
                     <div className="text-xs uppercase tracking-wide text-neutral-500">{r.rule_type}</div>
                   </div>
                   {r.wsp_reference && (
-                    <div className="font-mono text-[10px] text-[#4338CA] mb-1">
+                    <div className="font-mono text-[10px] text-[#1447C0] mb-1">
                       WSP: {r.wsp_reference}
                     </div>
                   )}
@@ -599,7 +599,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
             summary that ties the record back to the four regulatory pathways
             ERA CUE satisfies in a single submission. */}
         <section className="mb-8">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-4">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-4">
             REGULATORY COMPLIANCE ATTESTATION
           </div>
           {[
@@ -626,7 +626,7 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
           ].map((row) => (
             <div
               key={row.citation}
-              className="flex items-start gap-3 py-3 border-b border-[#F0EFE9] last:border-0"
+              className="flex items-start gap-3 py-3 border-b border-[#F1F5F9] last:border-0"
             >
               <div
                 aria-hidden
@@ -635,16 +635,16 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
                 <span className="text-xs text-[#166534]">✓</span>
               </div>
               <div>
-                <div className="font-mono text-xs font-medium text-[#1C1C1A]">
+                <div className="font-mono text-xs font-medium text-[#0F172A]">
                   {row.citation}
                 </div>
-                <div className="font-mono text-[10px] text-[#6E6E68] mt-0.5 leading-relaxed">
+                <div className="font-mono text-[10px] text-[#64748B] mt-0.5 leading-relaxed">
                   {row.description}
                 </div>
               </div>
             </div>
           ))}
-          <div className="font-mono text-[10px] text-[#9E9E96] mt-4 leading-relaxed">
+          <div className="font-mono text-[10px] text-[#94A3B8] mt-4 leading-relaxed">
             This attestation was generated by ERA CUE on {fmtTime(new Date().toISOString())}.
             Record ID: {draft.id}. This document may be presented to regulatory
             examiners as evidence of supervisory compliance.

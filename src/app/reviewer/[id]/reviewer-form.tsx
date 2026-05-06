@@ -78,19 +78,19 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  const remaining = NOTE_MAX_LENGTH - note.length;
 
  return (
- <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
- <div className="text-xs text-[#6E6E68] uppercase tracking-wide mb-3">Your decision</div>
+ <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
+ <div className="text-xs text-[#64748B] uppercase tracking-wide mb-3">Your decision</div>
 
  {/* Field A — basis (required) */}
  <div className="mb-4">
- <label htmlFor="basis" className="block text-sm font-medium text-[#1C1C1A] mb-2">
- Basis for decision <span className="text-[#6E6E68] font-normal">(required)</span>
+ <label htmlFor="basis" className="block text-sm font-medium text-[#0F172A] mb-2">
+ Basis for decision <span className="text-[#64748B] font-normal">(required)</span>
  </label>
  <select
  id="basis"
  value={basis}
  onChange={(e) => setBasis(e.target.value)}
- className="w-full px-3 py-2 border border-[#E2E1DC] rounded-sm text-sm bg-white text-[#1C1C1A] focus:outline-none focus:ring-1 focus:ring-[#1C1C1A]"
+ className="w-full px-3 py-2 border border-[#E2E8F0] rounded-sm text-sm bg-white text-[#0F172A] focus:outline-none focus:ring-1 focus:ring-[#0F172A]"
  >
  <option value="">— Select a basis —</option>
  {BASIS_OPTIONS.map((opt) => (
@@ -102,14 +102,14 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  {/* Field B — verdict assessment (required when verdict is block/escalate) */}
  {showVerdictAssessment && (
  <div className="mb-4">
- <label htmlFor="verdict-assessment" className="block text-sm font-medium text-[#1C1C1A] mb-2">
- System verdict assessment <span className="text-[#6E6E68] font-normal">(required)</span>
+ <label htmlFor="verdict-assessment" className="block text-sm font-medium text-[#0F172A] mb-2">
+ System verdict assessment <span className="text-[#64748B] font-normal">(required)</span>
  </label>
  <select
  id="verdict-assessment"
  value={verdictAssessment}
  onChange={(e) => setVerdictAssessment(e.target.value)}
- className="w-full px-3 py-2 border border-[#E2E1DC] rounded-sm text-sm bg-white text-[#1C1C1A] focus:outline-none focus:ring-1 focus:ring-[#1C1C1A]"
+ className="w-full px-3 py-2 border border-[#E2E8F0] rounded-sm text-sm bg-white text-[#0F172A] focus:outline-none focus:ring-1 focus:ring-[#0F172A]"
  >
  <option value="">— Select an assessment —</option>
  {VERDICT_ASSESSMENT_OPTIONS.map((opt) => (
@@ -121,7 +121,7 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
 
  {/* Field C — supplemental note (optional, single-line input, 280 cap) */}
  <div className="mb-4">
- <label htmlFor="note" className="block text-sm font-medium text-[#1C1C1A] mb-2">
+ <label htmlFor="note" className="block text-sm font-medium text-[#0F172A] mb-2">
  Supplemental note (optional)
  </label>
  <input
@@ -131,9 +131,9 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX_LENGTH))}
  maxLength={NOTE_MAX_LENGTH}
  placeholder="Factual context only. Do not include legal conclusions."
- className="w-full px-3 py-2 border border-[#E2E1DC] rounded-sm text-sm bg-white text-[#1C1C1A] focus:outline-none focus:ring-1 focus:ring-[#1C1C1A]"
+ className="w-full px-3 py-2 border border-[#E2E8F0] rounded-sm text-sm bg-white text-[#0F172A] focus:outline-none focus:ring-1 focus:ring-[#0F172A]"
  />
- <p className="text-xs text-[#6E6E68] mt-1">
+ <p className="text-xs text-[#64748B] mt-1">
  {remaining} character{remaining === 1 ? "" : "s"} remaining
  </p>
  </div>
@@ -151,7 +151,7 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  type="button"
  onClick={() => decide("override")}
  disabled={submitting}
- className="px-4 py-2 bg-[#1C1C1A] text-white text-sm font-medium rounded-sm hover:bg-[#333331] transition disabled:opacity-50"
+ className="px-4 py-2 bg-[#0F172A] text-white text-sm font-medium rounded-sm hover:bg-[#1E293B] transition disabled:opacity-50"
  >
  Override block
  </button>
@@ -171,7 +171,7 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  type="button"
  onClick={() => decide("approve")}
  disabled={submitting}
- className="px-4 py-2 bg-[#1C1C1A] text-white text-sm font-medium rounded-sm hover:bg-[#333331] transition disabled:opacity-50"
+ className="px-4 py-2 bg-[#0F172A] text-white text-sm font-medium rounded-sm hover:bg-[#1E293B] transition disabled:opacity-50"
  >
  Approve
  </button>

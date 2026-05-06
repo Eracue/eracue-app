@@ -88,11 +88,11 @@ function ChecksPerformedPanel({ checks }: { checks: CheckEntry[] }) {
  const totalCount = CHECK_DEFINITIONS.length;
 
  return (
- <div className="bg-white border border-[#E2E1DC] rounded-sm p-6 mb-6">
+ <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 mb-6">
  <div className="flex items-center justify-between mb-4">
- <div className="text-xs text-[#6E6E68] uppercase tracking-wide">Checks performed</div>
- <div className="text-xs text-[#6E6E68]">
- <span className="font-medium text-[#1C1C1A]">{activeCount} of {totalCount}</span> active
+ <div className="text-xs text-[#64748B] uppercase tracking-wide">Checks performed</div>
+ <div className="text-xs text-[#64748B]">
+ <span className="font-medium text-[#0F172A]">{activeCount} of {totalCount}</span> active
  </div>
  </div>
  <ul className="space-y-3">
@@ -111,18 +111,18 @@ function ChecksPerformedPanel({ checks }: { checks: CheckEntry[] }) {
  <div className={`shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
  isActive
  ? "bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0]"
- : "bg-[#F0EFE9] text-[#6E6E68] border border-[#E2E1DC]"
+ : "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]"
  }`}>
  {isActive ? "✓" : "○"}
  </div>
  <div className="flex-1 min-w-0">
  <div className="flex items-baseline justify-between gap-3">
- <div className="text-sm font-medium text-[#1C1C1A]">{def.name}</div>
- <div className="text-xs text-[#6E6E68]">
+ <div className="text-sm font-medium text-[#0F172A]">{def.name}</div>
+ <div className="text-xs text-[#64748B]">
  {def.engine === "deterministic" ? "deterministic" : "AI · available"}
  </div>
  </div>
- <div className="text-xs text-[#6E6E68] mt-0.5">{resultLine}</div>
+ <div className="text-xs text-[#64748B] mt-0.5">{resultLine}</div>
  </div>
  </li>
  );
@@ -188,19 +188,19 @@ export default async function DraftDetailPage({ params }: PageProps) {
  return (
  <>
  <SiteHeader />
- <main className="min-h-screen bg-[#F7F6F3]">
+ <main className="min-h-screen bg-[#F8F9FB]">
  <div className="max-w-3xl mx-auto px-6 py-12">
  <div className="mb-8">
- <Link href="/drafts" className="text-sm text-[#6E6E68] hover:text-[#1C1C1A]">← All drafts</Link>
- <h1 className="text-3xl font-light tracking-tight text-[#1C1C1A] mt-2">Draft</h1>
- <p className="text-sm text-[#6E6E68] mt-1">
+ <Link href="/drafts" className="text-sm text-[#64748B] hover:text-[#0F172A]">← Governance log</Link>
+ <h1 className="text-3xl font-light tracking-tight text-[#0F172A] mt-2">Draft</h1>
+ <p className="text-sm text-[#64748B] mt-1">
  Submitted by {draft.users?.name || "—"}{draft.users?.title ? ` (${draft.users.title})` : ""}
  {draft.campaigns?.name ? ` · Campaign: ${draft.campaigns.name}` : ""}
  </p>
  <div className="flex gap-2 mt-4">
  <Link
  href={`/drafts/${draft.id}/examiner`}
- className="px-4 py-2 bg-white border border-[#E2E1DC] text-[#1C1C1A] text-sm font-medium rounded-sm hover:bg-[#F7F6F3] transition"
+ className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#0F172A] text-sm font-medium rounded-sm hover:bg-[#F8F9FB] transition"
  >
  Export examiner record →
  </Link>
@@ -209,27 +209,27 @@ export default async function DraftDetailPage({ params }: PageProps) {
 
  {/* Verdict Card */}
  {verdict && (
- <div className="bg-white border border-[#E2E1DC] rounded-sm p-6 mb-6">
+ <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 mb-6">
  <div className="flex items-start justify-between mb-4">
  <div>
- <div className="text-xs text-[#6E6E68] uppercase tracking-wide mb-2">Verdict</div>
+ <div className="text-xs text-[#64748B] uppercase tracking-wide mb-2">Verdict</div>
  <VerdictBadge verdict={verdict} />
  </div>
- <div className="text-right text-xs text-[#6E6E68]">
+ <div className="text-right text-xs text-[#64748B]">
  {actions.filter((a) => a.action_type === "check_ran").length} checks run
  </div>
  </div>
  {primaryMatch && (
- <div className="mt-4 pt-4 border-t border-[#E2E1DC]">
- <div className="text-sm font-medium text-[#1C1C1A]">{primaryMatch.rule_name}</div>
- <div className="text-sm text-[#6E6E68] mt-1">{primaryMatch.rule_description}</div>
- <div className="text-xs text-[#6E6E68] mt-2">
- Matched keyword: <span className="font-mono bg-[#F0EFE9] px-1.5 py-0.5 rounded">{matchedKeyword}</span>
+ <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
+ <div className="text-sm font-medium text-[#0F172A]">{primaryMatch.rule_name}</div>
+ <div className="text-sm text-[#64748B] mt-1">{primaryMatch.rule_description}</div>
+ <div className="text-xs text-[#64748B] mt-2">
+ Matched keyword: <span className="font-mono bg-[#F1F5F9] px-1.5 py-0.5 rounded">{matchedKeyword}</span>
  </div>
  </div>
  )}
  {!primaryMatch && verdict === "clear" && (
- <p className="text-sm text-[#6E6E68] mt-2">No active rules matched this draft.</p>
+ <p className="text-sm text-[#64748B] mt-2">No active rules matched this draft.</p>
  )}
  </div>
  )}
@@ -239,13 +239,13 @@ export default async function DraftDetailPage({ params }: PageProps) {
  verdict is CLEAR but status was manually set elsewhere). */}
  {(draft.status === "blocked" || draft.status === "escalated") &&
  (verdict === "block" || verdict === "escalate") && (
- <div className="bg-[#F0EFE9] border border-[#E2E1DC] rounded-sm p-4 mb-6 flex items-center justify-between gap-4">
- <div className="text-sm text-[#1C1C1A]">
+ <div className="bg-[#F1F5F9] border border-[#E2E8F0] rounded-sm p-4 mb-6 flex items-center justify-between gap-4">
+ <div className="text-sm text-[#0F172A]">
  This draft needs reviewer attention.
  </div>
  <Link
  href={`/reviewer/${draft.id}`}
- className="shrink-0 px-4 py-2 bg-[#1C1C1A] text-white text-sm font-medium rounded-sm hover:bg-[#333331] transition"
+ className="shrink-0 px-4 py-2 bg-[#0F172A] text-white text-sm font-medium rounded-sm hover:bg-[#1E293B] transition"
  >
  Open in reviewer →
  </Link>
@@ -256,31 +256,31 @@ export default async function DraftDetailPage({ params }: PageProps) {
  <ChecksPerformedPanel checks={checks} />
 
  {/* Draft Text */}
- <div className="bg-white border border-[#E2E1DC] rounded-sm p-8 mb-6">
- <div className="flex items-center gap-2 mb-4 text-xs text-[#6E6E68] uppercase tracking-wide">
+ <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 mb-6">
+ <div className="flex items-center gap-2 mb-4 text-xs text-[#64748B] uppercase tracking-wide">
  <span>{draft.channel}</span>
  <span>·</span>
  <span>{draft.source_origin.replace("_", " ")}</span>
  <span>·</span>
  <span>Status: {draft.status}</span>
  </div>
- <p className="text-[#1C1C1A] whitespace-pre-wrap leading-relaxed">
+ <p className="text-[#0F172A] whitespace-pre-wrap leading-relaxed">
  {highlightMatch(draft.draft_text, matchedKeyword)}
  </p>
  </div>
 
  {/* Other matches if more than one */}
  {allMatches.length > 1 && (
- <div className="bg-white border border-[#E2E1DC] rounded-sm p-6 mb-6">
- <div className="text-xs text-[#6E6E68] uppercase tracking-wide mb-3">All rule matches ({allMatches.length})</div>
+ <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 mb-6">
+ <div className="text-xs text-[#64748B] uppercase tracking-wide mb-3">All rule matches ({allMatches.length})</div>
  <ul className="space-y-2 text-sm">
  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
  {allMatches.map((m: any, i: number) => (
  <li key={i} className="flex items-start gap-3">
  <VerdictBadge verdict={m.rule_type} />
  <div className="flex-1">
- <div className="font-medium text-[#1C1C1A]">{m.rule_name}</div>
- <div className="text-xs text-[#6E6E68] mt-0.5">
+ <div className="font-medium text-[#0F172A]">{m.rule_name}</div>
+ <div className="text-xs text-[#64748B] mt-0.5">
  Keyword: <span className="font-mono">{m.matched_keyword}</span>
  </div>
  </div>
@@ -291,14 +291,14 @@ export default async function DraftDetailPage({ params }: PageProps) {
  )}
 
  {/* Action timeline */}
- <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
- <div className="text-xs text-[#6E6E68] uppercase tracking-wide mb-3">Audit timeline</div>
+ <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
+ <div className="text-xs text-[#64748B] uppercase tracking-wide mb-3">Audit timeline</div>
  <ul className="space-y-2 text-sm">
  {actions.map((a) => (
  <li key={a.id} className="flex items-baseline gap-3">
- <span className="text-xs text-[#6E6E68] font-mono w-20 shrink-0">{new Date(a.occurred_at).toLocaleTimeString()}</span>
- <span className="text-[#1C1C1A]">{a.action_type.replace("_", " ")}</span>
- <span className="text-xs text-[#6E6E68]">({a.actor_kind})</span>
+ <span className="text-xs text-[#64748B] font-mono w-20 shrink-0">{new Date(a.occurred_at).toLocaleTimeString()}</span>
+ <span className="text-[#0F172A]">{a.action_type.replace("_", " ")}</span>
+ <span className="text-xs text-[#64748B]">({a.actor_kind})</span>
  </li>
  ))}
  </ul>

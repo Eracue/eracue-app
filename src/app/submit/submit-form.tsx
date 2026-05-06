@@ -146,9 +146,9 @@ export function SubmitForm() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
         {/* DRAFT WORKSPACE — desktop col-span-3, mobile second */}
         <div className="lg:col-span-3 order-2 lg:order-1">
-          <div className="bg-white border border-[#E2E1DC] rounded-sm">
-            <div className="p-5 border-b border-[#E2E1DC]">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-3">
+          <div className="bg-white border border-[#E2E8F0] rounded-sm">
+            <div className="p-5 border-b border-[#E2E8F0]">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
                 DRAFT TEXT
               </div>
               <textarea
@@ -159,19 +159,19 @@ export function SubmitForm() {
                 }}
                 rows={8}
                 placeholder="Paste the exact draft text that will be published..."
-                className="w-full bg-transparent border-none resize-none text-[#1C1C1A] text-base leading-relaxed focus:outline-none placeholder:text-[#9E9E96]"
+                className="w-full bg-transparent border-none resize-none text-[#0F172A] text-base leading-relaxed focus:outline-none placeholder:text-[#94A3B8]"
               />
             </div>
             <div className="px-5 py-3 flex justify-between items-center">
-              <span className={`font-mono text-xs ${overLimit ? "text-[#B91C1C]" : "text-[#6E6E68]"}`}>
+              <span className={`font-mono text-xs ${overLimit ? "text-[#B91C1C]" : "text-[#64748B]"}`}>
                 {charCount} characters
               </span>
               {charLimit !== null ? (
-                <span className={`font-mono text-xs ${overLimit ? "text-[#B91C1C]" : "text-[#6E6E68]"}`}>
+                <span className={`font-mono text-xs ${overLimit ? "text-[#B91C1C]" : "text-[#64748B]"}`}>
                   / {charLimit.toLocaleString()} {currentChannel?.label}
                 </span>
               ) : (
-                <span className="font-mono text-xs text-[#9E9E96]">
+                <span className="font-mono text-xs text-[#94A3B8]">
                   No limit · {currentChannel?.label}
                 </span>
               )}
@@ -182,7 +182,7 @@ export function SubmitForm() {
             type="button"
             onClick={handleSubmit}
             disabled={submitting || overLimit}
-            className="bg-[#1C1C1A] text-white text-sm font-medium w-full py-3 rounded-sm mt-3 hover:bg-[#333331] disabled:opacity-50 transition"
+            className="bg-[#0F172A] text-white text-sm font-medium w-full py-3 rounded-sm mt-3 hover:bg-[#1E293B] disabled:opacity-50 transition"
           >
             {submitting ? "Checking..." : "Check this draft →"}
           </button>
@@ -193,10 +193,10 @@ export function SubmitForm() {
 
           {/* Verdict reveal */}
           {verdictLower && verdictStyle && (
-            <div className="mt-4 bg-white border border-[#E2E1DC] rounded-sm p-6 transition-all duration-300">
+            <div className="mt-4 bg-white border border-[#E2E8F0] rounded-sm p-6 transition-all duration-300">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
                     SYSTEM VERDICT
                   </div>
                   <span
@@ -213,17 +213,17 @@ export function SubmitForm() {
               {isBlockOrEscalate && verdictData && (
                 <div>
                   {verdictData.ruleName && (
-                    <div className="text-sm font-medium text-[#1C1C1A] mb-1">
+                    <div className="text-sm font-medium text-[#0F172A] mb-1">
                       {verdictData.ruleName}
                     </div>
                   )}
                   {verdictData.ruleDescription && (
-                    <div className="text-xs text-[#6E6E68] mb-2">
+                    <div className="text-xs text-[#64748B] mb-2">
                       {verdictData.ruleDescription}
                     </div>
                   )}
                   {verdictData.matchedKeyword && (
-                    <span className="font-mono text-xs bg-[#F0EFE9] text-[#C9A92C] px-2 py-0.5 rounded-sm inline-block">
+                    <span className="font-mono text-xs bg-[#F1F5F9] text-[#1A56DB] px-2 py-0.5 rounded-sm inline-block">
                       keyword: {verdictData.matchedKeyword}
                     </span>
                   )}
@@ -231,8 +231,8 @@ export function SubmitForm() {
               )}
 
               {/* Checks performed */}
-              <div className="mt-4 pt-4 border-t border-[#E2E1DC]">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-3">
+              <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
                   CHECKS PERFORMED
                 </div>
                 {checksToShow.map((c, i) => {
@@ -246,10 +246,10 @@ export function SubmitForm() {
                       className="flex items-center gap-2 py-1"
                     >
                       <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} aria-hidden />
-                      <span className="font-mono text-xs text-[#1C1C1A]">{c.check_name}</span>
-                      <span className="font-mono text-xs text-[#6E6E68]">{c.result.toUpperCase()}</span>
+                      <span className="font-mono text-xs text-[#0F172A]">{c.check_name}</span>
+                      <span className="font-mono text-xs text-[#64748B]">{c.result.toUpperCase()}</span>
                       {c.detail && (
-                        <span className="font-mono text-[10px] text-[#6E6E68]">· {c.detail}</span>
+                        <span className="font-mono text-[10px] text-[#64748B]">· {c.detail}</span>
                       )}
                     </div>
                   );
@@ -258,7 +258,7 @@ export function SubmitForm() {
 
               {/* Notification line — block or escalate only */}
               {isBlockOrEscalate && (
-                <div className="mt-4 pt-4 border-t border-[#E2E1DC] flex items-center gap-2 font-mono text-xs text-[#6E6E68]">
+                <div className="mt-4 pt-4 border-t border-[#E2E8F0] flex items-center gap-2 font-mono text-xs text-[#64748B]">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                     <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                     <polyline points="22,6 12,13 2,6" />
@@ -269,13 +269,13 @@ export function SubmitForm() {
 
               {/* Verdict-specific next step */}
               {nextStep && (
-                <div className="mt-4 pt-4 border-t border-[#E2E1DC] flex items-center">
+                <div className="mt-4 pt-4 border-t border-[#E2E8F0] flex items-center">
                   <Link
                     href={nextStep.href}
                     className={`font-mono text-xs ${
                       nextStep.tone === "green"
                         ? "text-[#166534] hover:text-[#0F4C2A]"
-                        : "text-[#4F46E5] hover:text-[#3730A3]"
+                        : "text-[#1A56DB] hover:text-[#1447C0]"
                     } transition-colors`}
                   >
                     {nextStep.label}
@@ -283,7 +283,7 @@ export function SubmitForm() {
                   <button
                     type="button"
                     onClick={checkAnother}
-                    className="font-mono text-xs text-[#6E6E68] ml-4 cursor-pointer hover:text-[#1C1C1A] transition-colors"
+                    className="font-mono text-xs text-[#64748B] ml-4 cursor-pointer hover:text-[#0F172A] transition-colors"
                   >
                     Check another draft
                   </button>
@@ -296,8 +296,8 @@ export function SubmitForm() {
         {/* CONTEXT PANEL — desktop col-span-2, mobile first */}
         <div className="lg:col-span-2 order-1 lg:order-2 flex flex-col gap-3">
           {/* Card 1 — Speaker */}
-          <div className="bg-white border border-[#E2E1DC] rounded-sm p-4">
-            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+          <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
               SPEAKER
             </div>
             <div className="flex flex-col gap-1.5 mt-3">
@@ -310,12 +310,12 @@ export function SubmitForm() {
                     onClick={() => setSpeaker(s.name)}
                     className={`flex justify-between items-center w-full px-3 py-2 rounded-sm border transition-colors ${
                       selected
-                        ? "bg-[#EEF2FF] border-[#C7D2FE]"
-                        : "bg-[#F7F6F3] border-[#E2E1DC] hover:bg-[#F0EFE9]"
+                        ? "bg-[#EFF8FF] border-[#BAE6FD]"
+                        : "bg-[#F8F9FB] border-[#E2E8F0] hover:bg-[#F1F5F9]"
                     }`}
                   >
-                    <span className="text-xs font-medium text-[#1C1C1A]">{s.name}</span>
-                    <span className={`font-mono text-[10px] ${selected ? "text-[#6366F1]" : "text-[#6E6E68]"}`}>
+                    <span className="text-xs font-medium text-[#0F172A]">{s.name}</span>
+                    <span className={`font-mono text-[10px] ${selected ? "text-[#1A56DB]" : "text-[#64748B]"}`}>
                       {s.role}
                     </span>
                   </button>
@@ -325,8 +325,8 @@ export function SubmitForm() {
           </div>
 
           {/* Card 2 — Channel */}
-          <div className="bg-white border border-[#E2E1DC] rounded-sm p-4">
-            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+          <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
               CHANNEL
             </div>
             <div className="grid grid-cols-3 gap-1.5 mt-3">
@@ -339,8 +339,8 @@ export function SubmitForm() {
                     onClick={() => setChannel(c.value)}
                     className={`text-center py-2 px-1 rounded-sm border font-mono text-[10px] uppercase tracking-wide transition-colors ${
                       selected
-                        ? "bg-[#EEF2FF] border-[#C7D2FE] text-[#3730A3]"
-                        : "bg-[#F7F6F3] border-[#E2E1DC] text-[#6E6E68] hover:bg-[#F0EFE9]"
+                        ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0]"
+                        : "bg-[#F8F9FB] border-[#E2E8F0] text-[#64748B] hover:bg-[#F1F5F9]"
                     }`}
                   >
                     {c.label}
@@ -351,11 +351,11 @@ export function SubmitForm() {
           </div>
 
           {/* Card 3 — Submission type */}
-          <div className="bg-white border border-[#E2E1DC] rounded-sm p-4">
-            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+          <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
               SUBMISSION TYPE
             </div>
-            <div className="font-mono text-[10px] text-[#6E6E68] mt-0.5 mb-3">
+            <div className="font-mono text-[10px] text-[#64748B] mt-0.5 mb-3">
               Required · FINRA agentic AI guidance 2026
             </div>
             <div className="flex flex-col">
@@ -378,7 +378,7 @@ export function SubmitForm() {
                     type="button"
                     onClick={() => setSubmissionType(opt.value)}
                     className={`flex items-start gap-3 py-3 px-3 border rounded-sm mb-1.5 text-left w-full transition-colors ${
-                      selected ? "bg-[#EEF2FF] border-[#C7D2FE]" : "bg-white border-[#E2E1DC]"
+                      selected ? "bg-[#EFF8FF] border-[#BAE6FD]" : "bg-white border-[#E2E8F0]"
                     }`}
                   >
                     {/* Inset shadow renders the inner white dot when selected — no
@@ -388,13 +388,13 @@ export function SubmitForm() {
                       className="w-4 h-4 rounded-full border-2 mt-0.5 shrink-0"
                       style={
                         selected
-                          ? { backgroundColor: "#4F46E5", borderColor: "#4F46E5", boxShadow: "inset 0 0 0 3px white" }
-                          : { borderColor: "#E2E1DC" }
+                          ? { backgroundColor: "#1A56DB", borderColor: "#1A56DB", boxShadow: "inset 0 0 0 3px white" }
+                          : { borderColor: "#E2E8F0" }
                       }
                     />
                     <span>
-                      <span className="block text-xs font-medium text-[#1C1C1A]">{opt.name}</span>
-                      <span className="block font-mono text-[10px] text-[#6E6E68] leading-relaxed">{opt.desc}</span>
+                      <span className="block text-xs font-medium text-[#0F172A]">{opt.name}</span>
+                      <span className="block font-mono text-[10px] text-[#64748B] leading-relaxed">{opt.desc}</span>
                     </span>
                   </button>
                 );
@@ -408,11 +408,11 @@ export function SubmitForm() {
           </div>
 
           {/* Card 4 — EU AI Act declaration */}
-          <div className="bg-white border border-[#E2E1DC] rounded-sm p-4">
-            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+          <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
               EU AI ACT DECLARATION
             </div>
-            <div className="font-mono text-[10px] text-[#6E6E68] mt-0.5 mb-3">
+            <div className="font-mono text-[10px] text-[#64748B] mt-0.5 mb-3">
               Article 50 · AI content disclosure
             </div>
             <label className="flex items-start gap-3 cursor-pointer">
@@ -420,19 +420,19 @@ export function SubmitForm() {
                 type="checkbox"
                 checked={aiDeclaration}
                 onChange={(e) => setAiDeclaration(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded-sm accent-[#4F46E5] cursor-pointer shrink-0"
+                className="mt-0.5 w-4 h-4 rounded-sm accent-[#1A56DB] cursor-pointer shrink-0"
               />
               <div>
-                <div className="text-xs font-medium text-[#1C1C1A]">
+                <div className="text-xs font-medium text-[#0F172A]">
                   This communication contains AI-generated content
                 </div>
-                <div className="font-mono text-[10px] text-[#6E6E68] mt-0.5">
+                <div className="font-mono text-[10px] text-[#64748B] mt-0.5">
                   Disclosure required at publication under EU AI Act Article 50
                 </div>
               </div>
             </label>
             {!aiDeclaration && (
-              <div className="font-mono text-[10px] text-[#6E6E68] mt-2">
+              <div className="font-mono text-[10px] text-[#64748B] mt-2">
                 Human-authored content — no AI disclosure required
               </div>
             )}
@@ -441,11 +441,11 @@ export function SubmitForm() {
           {/* Card 4b — AI prompt logging (FINRA 2026). Only meaningful when
               AI involvement is declared, so the card hides itself otherwise. */}
           {aiDeclaration && (
-            <div className="bg-white border border-[#E2E1DC] rounded-sm p-4">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-1">
+            <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
                 AI PROMPT USED
               </div>
-              <div className="font-mono text-[10px] text-[#9E9E96] mb-3">
+              <div className="font-mono text-[10px] text-[#94A3B8] mb-3">
                 Optional · FINRA 2026 prompt logging requirement
               </div>
               <textarea
@@ -453,26 +453,26 @@ export function SubmitForm() {
                 onChange={(e) => setPromptUsed(e.target.value)}
                 rows={3}
                 placeholder="Paste the prompt used to generate this draft, if known. e.g. 'Write a LinkedIn post about our Series B growth plans for the CEO to post.'"
-                className="w-full border border-[#E2E1DC] rounded-sm p-3 text-xs text-[#1C1C1A] bg-[#F7F6F3] resize-none focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono leading-relaxed placeholder:text-[#9E9E96]"
+                className="w-full border border-[#E2E8F0] rounded-sm p-3 text-xs text-[#0F172A] bg-[#F8F9FB] resize-none focus:outline-none focus:ring-1 focus:ring-[#1A56DB] font-mono leading-relaxed placeholder:text-[#94A3B8]"
               />
-              <div className="font-mono text-[10px] text-[#9E9E96] mt-2">
+              <div className="font-mono text-[10px] text-[#94A3B8] mt-2">
                 Stored in the governance record per FINRA 2026 GenAI oversight guidance.
               </div>
             </div>
           )}
 
           {/* Card 5 — Campaign */}
-          <div className="bg-white border border-[#E2E1DC] rounded-sm p-4">
+          <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
             <div className="flex items-baseline justify-between mb-2">
-              <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+              <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
                 CAMPAIGN
               </div>
-              <div className="font-mono text-[10px] text-[#6E6E68]">Optional</div>
+              <div className="font-mono text-[10px] text-[#64748B]">Optional</div>
             </div>
             <select
               value={campaign}
               onChange={(e) => setCampaign(e.target.value)}
-              className="w-full border border-[#E2E1DC] rounded-sm bg-[#F7F6F3] text-sm text-[#1C1C1A] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+              className="w-full border border-[#E2E8F0] rounded-sm bg-[#F8F9FB] text-sm text-[#0F172A] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
             >
               {CAMPAIGNS.map((c) => (
                 <option key={c.value} value={c.value}>
@@ -483,19 +483,19 @@ export function SubmitForm() {
           </div>
 
           {/* Card 6 — Agent submission API (coming soon) */}
-          <div className="bg-[#F7F6F3] border border-[#E2E1DC] rounded-sm p-4">
+          <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-4">
             <div className="flex justify-between items-center mb-3">
-              <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+              <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
                 ERA CUE API
               </div>
-              <span className="font-mono text-[10px] bg-[#F0EFE9] text-[#6E6E68] border border-[#E2E1DC] px-2 py-0.5 rounded-sm">
+              <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
                 Coming soon
               </span>
             </div>
-            <p className="text-xs text-[#6E6E68] mb-3 leading-relaxed">
+            <p className="text-xs text-[#64748B] mb-3 leading-relaxed">
               When AI agents draft and publish on behalf of your executives, ERA CUE becomes the required human checkpoint — satisfying FINRA&apos;s 2026 agentic AI supervision requirement.
             </p>
-            <pre className="bg-[#1C1C1A] text-[#A5B4FC] font-mono text-[10px] leading-relaxed p-3 rounded-sm overflow-x-auto">
+            <pre className="bg-[#0F172A] text-[#7DD3FC] font-mono text-[10px] leading-relaxed p-3 rounded-sm overflow-x-auto">
 {`POST https://api.eracue.com/v1/check
 Authorization: Bearer YOUR_KEY
 
@@ -506,7 +506,7 @@ Authorization: Bearer YOUR_KEY
   "submission_type": "agent"
 }`}
             </pre>
-            <p className="font-mono text-[10px] text-[#9E9E96] mt-2">
+            <p className="font-mono text-[10px] text-[#94A3B8] mt-2">
               Agent submissions automatically route to principal review. No agent post goes live without ERA CUE clearance.
             </p>
           </div>

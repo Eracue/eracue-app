@@ -223,10 +223,10 @@ export default async function SupervisionReportPage({ searchParams }: PageProps)
         <header className="border-b-2 border-neutral-900 pb-6 mb-8">
           <h1 className="text-3xl mb-2">
             <span style={{ fontFamily: "var(--font-newsreader)" }} className="font-light">
-              <span className="text-[#4F46E5]">ERA</span>
-              <span className="text-[#4F46E5] italic"> CUE</span>
+              <span className="text-[#1A56DB]">ERA</span>
+              <span className="text-[#1A56DB] italic"> CUE</span>
             </span>
-            <span className="text-[#1C1C1A] font-light"> Supervision Period Report</span>
+            <span className="text-[#0F172A] font-light"> Supervision Period Report</span>
           </h1>
           <p className="text-sm text-neutral-600">
             Period: {fmtRange(fromIso)} to {fmtRange(toIso)}
@@ -335,7 +335,7 @@ export default async function SupervisionReportPage({ searchParams }: PageProps)
                       <td className="py-2 pr-3 font-mono uppercase">{r.rule_type}</td>
                       <td className="py-2 pr-3 font-mono">{triggerCount}</td>
                       <td className="py-2 pr-3 whitespace-nowrap">Sarah Chen, GC</td>
-                      <td className="py-2 font-mono text-[10px] text-[#4338CA]">
+                      <td className="py-2 font-mono text-[10px] text-[#1447C0]">
                         {r.wsp_reference || "—"}
                       </td>
                     </tr>
@@ -354,7 +354,7 @@ export default async function SupervisionReportPage({ searchParams }: PageProps)
           {ATTESTATION_ROWS.map((row) => (
             <div
               key={row.citation}
-              className="flex items-start gap-3 py-3 border-b border-[#F0EFE9] last:border-0"
+              className="flex items-start gap-3 py-3 border-b border-[#F1F5F9] last:border-0"
             >
               <div
                 aria-hidden
@@ -363,10 +363,10 @@ export default async function SupervisionReportPage({ searchParams }: PageProps)
                 <span className="text-xs text-[#166534]">✓</span>
               </div>
               <div>
-                <div className="font-mono text-xs font-medium text-[#1C1C1A]">
+                <div className="font-mono text-xs font-medium text-[#0F172A]">
                   {row.citation}
                 </div>
-                <div className="font-mono text-[10px] text-[#6E6E68] mt-0.5 leading-relaxed">
+                <div className="font-mono text-[10px] text-[#64748B] mt-0.5 leading-relaxed">
                   {row.description}
                 </div>
               </div>

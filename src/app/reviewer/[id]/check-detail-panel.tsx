@@ -38,14 +38,14 @@ export function CheckDetailPanel({ checks }: Props) {
  const [open, setOpen] = useState(true);
 
  return (
- <div className="bg-white border border-[#E2E1DC] rounded-sm mb-6">
+ <div className="bg-white border border-[#E2E8F0] rounded-sm mb-6">
  <button
  type="button"
  onClick={() => setOpen(!open)}
  aria-expanded={open}
  className="w-full flex items-center justify-between px-6 py-4 text-left"
  >
- <span className="text-xs uppercase tracking-widest text-[#6E6E68]">
+ <span className="text-xs uppercase tracking-widest text-[#64748B]">
  Check detail ({checks.length})
  </span>
  <svg
@@ -57,23 +57,23 @@ export function CheckDetailPanel({ checks }: Props) {
  strokeWidth="2"
  strokeLinecap="round"
  strokeLinejoin="round"
- className={`text-[#6E6E68] transition-transform ${open ? "rotate-180" : ""}`}
+ className={`text-[#64748B] transition-transform ${open ? "rotate-180" : ""}`}
  >
  <polyline points="6 9 12 15 18 9" />
  </svg>
  </button>
  {open && (
- <ul className="border-t border-[#E2E1DC] divide-y divide-[#E2E1DC]">
+ <ul className="border-t border-[#E2E8F0] divide-y divide-[#E2E8F0]">
  {checks.map((c, i) => (
  <li key={`${c.check_name}-${i}`} className="px-6 py-3 flex items-start justify-between gap-4">
  <div className="flex-1 min-w-0">
- <div className="text-sm font-medium text-[#1C1C1A]">{c.check_name}</div>
+ <div className="text-sm font-medium text-[#0F172A]">{c.check_name}</div>
  {c.detail && (
- <div className="text-xs text-[#6E6E68] mt-0.5">{c.detail}</div>
+ <div className="text-xs text-[#64748B] mt-0.5">{c.detail}</div>
  )}
  {c.matched_keyword && (
- <div className="text-xs text-[#6E6E68] mt-0.5">
- Matched keyword: <span className="font-mono bg-[#F0EFE9] px-1.5 py-0.5 rounded">{c.matched_keyword}</span>
+ <div className="text-xs text-[#64748B] mt-0.5">
+ Matched keyword: <span className="font-mono bg-[#F1F5F9] px-1.5 py-0.5 rounded">{c.matched_keyword}</span>
  </div>
  )}
  </div>

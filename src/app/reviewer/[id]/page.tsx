@@ -69,14 +69,14 @@ function VerdictBadge({ verdict }: { verdict: string }) {
 
 function decisionBadge(d: string | undefined): { cls: string; label: string } {
   if (d === "override")
-    return { cls: "bg-[#EEF2FF] text-[#3730A3] border-[#C7D2FE]", label: "OVERRIDE" };
+    return { cls: "bg-[#EFF8FF] text-[#1447C0] border-[#BAE6FD]", label: "OVERRIDE" };
   if (d === "approve")
     return { cls: "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]", label: "APPROVE" };
   if (d === "confirm_block")
     return { cls: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]", label: "CONFIRM BLOCK" };
   if (d === "reject")
     return { cls: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]", label: "REJECT" };
-  return { cls: "bg-[#F7F6F3] text-[#6E6E68] border-[#E2E1DC]", label: (d || "—").toUpperCase() };
+  return { cls: "bg-[#F8F9FB] text-[#64748B] border-[#E2E8F0]", label: (d || "—").toUpperCase() };
 }
 
 function highlightMatch(text: string, keyword: string | undefined) {
@@ -158,23 +158,23 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-[#F7F6F3]">
+      <main className="min-h-screen bg-[#F8F9FB]">
         <div className="max-w-[1100px] mx-auto px-6 py-10">
           {/* Page header — full width above columns */}
           <div className="mb-8">
             <Link
               href="/dashboard"
-              className="font-mono text-xs text-[#6E6E68] hover:text-[#1C1C1A]"
+              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A]"
             >
               ← Dashboard
             </Link>
             <h1
               style={{ fontFamily: "var(--font-newsreader)" }}
-              className="font-light text-2xl text-[#1C1C1A] mt-3"
+              className="font-light text-2xl text-[#0F172A] mt-3"
             >
               Review draft
             </h1>
-            <p className="text-sm text-[#6E6E68] mt-1">
+            <p className="text-sm text-[#64748B] mt-1">
               From {draft.users?.name || "—"}
               {draft.users?.title ? ` (${draft.users.title})` : ""}
               {draft.campaigns?.name ? ` · Campaign: ${draft.campaigns.name}` : ""}
@@ -187,8 +187,8 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
             <div className="lg:col-span-3 flex flex-col gap-4">
               {/* Card 1 — System verdict */}
               {verdict && (
-                <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
-                  <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+                <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
+                  <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
                     SYSTEM VERDICT
                   </div>
                   <div className="mt-2">
@@ -196,21 +196,21 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
                   </div>
                   {primaryMatch && (
                     <>
-                      <div className="text-sm font-medium text-[#1C1C1A] mt-3">
+                      <div className="text-sm font-medium text-[#0F172A] mt-3">
                         {primaryMatch.rule_name}
                       </div>
-                      <div className="text-xs text-[#6E6E68] mt-1">
+                      <div className="text-xs text-[#64748B] mt-1">
                         {primaryMatch.rule_description}
                       </div>
                       {matchedKeyword && (
-                        <span className="font-mono text-xs bg-[#F0EFE9] text-[#C9A92C] px-2 py-0.5 rounded-sm mt-2 inline-block">
+                        <span className="font-mono text-xs bg-[#F1F5F9] text-[#1A56DB] px-2 py-0.5 rounded-sm mt-2 inline-block">
                           keyword: {matchedKeyword}
                         </span>
                       )}
                     </>
                   )}
-                  <div className="mt-4 pt-4 border-t border-[#E2E1DC] font-mono text-xs text-[#6E6E68]">
-                    Current status: <span className="text-[#1C1C1A]">{draft.status}</span>
+                  <div className="mt-4 pt-4 border-t border-[#E2E8F0] font-mono text-xs text-[#64748B]">
+                    Current status: <span className="text-[#0F172A]">{draft.status}</span>
                   </div>
                 </div>
               )}
@@ -219,20 +219,20 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
               <CheckDetailPanel checks={checks} />
 
               {/* Card 3 — Draft text */}
-              <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
-                <div className="flex items-center gap-2 mb-4 font-mono text-xs text-[#6E6E68] uppercase tracking-wide">
+              <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
+                <div className="flex items-center gap-2 mb-4 font-mono text-xs text-[#64748B] uppercase tracking-wide">
                   <span>{draft.channel}</span>
                   <span>·</span>
                   <span>{draft.source_origin.replace("_", " ")}</span>
                 </div>
-                <p className="text-[#1C1C1A] text-base whitespace-pre-wrap leading-relaxed">
+                <p className="text-[#0F172A] text-base whitespace-pre-wrap leading-relaxed">
                   {highlightMatch(draft.draft_text, matchedKeyword)}
                 </p>
-                <div className="mt-4 pt-4 border-t border-[#E2E1DC] flex items-center justify-between font-mono text-xs text-[#6E6E68]">
+                <div className="mt-4 pt-4 border-t border-[#E2E8F0] flex items-center justify-between font-mono text-xs text-[#64748B]">
                   <span>Submitted {fmtDate(draft.submitted_at)}</span>
                   <Link
                     href={`/drafts/${draft.id}/examiner`}
-                    className="text-[#C9A92C] hover:text-[#8A7520]"
+                    className="text-[#1A56DB] hover:text-[#1447C0]"
                   >
                     Export examiner record →
                   </Link>
@@ -247,25 +247,25 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
                 <div className="font-mono text-[10px] text-[#92400E] uppercase tracking-widest">
                   Reviewing as
                 </div>
-                <div className="text-sm font-medium text-[#1C1C1A] mt-1">
+                <div className="text-sm font-medium text-[#0F172A] mt-1">
                   Sarah Chen · CCO
                 </div>
                 <div className="font-mono text-xs text-[#92400E] mt-2">
                   Designated Principal · Final approval
                 </div>
-                <div className="font-mono text-[10px] text-[#6E6E68] mt-2">
+                <div className="font-mono text-[10px] text-[#64748B] mt-2">
                   FINRA Rule 3110(a) + Rule 2210(b)
                 </div>
-                <div className="font-mono text-[10px] text-[#6E6E68] mt-3 italic">
+                <div className="font-mono text-[10px] text-[#64748B] mt-3 italic">
                   Demo identity — production reads from user record
                 </div>
               </div>
 
               {/* Card 2 — Decision form OR already-decided panel */}
-              <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
+              <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
                 {alreadyDecided ? (
                   <>
-                    <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+                    <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
                       DECISION RECORDED
                     </div>
                     {(() => {
@@ -282,31 +282,31 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
                       <dl className="grid grid-cols-[7rem_1fr] gap-y-2 gap-x-3 mt-4 text-sm">
                         {structured.basis && (
                           <>
-                            <dt className="font-mono text-xs text-[#6E6E68]">Basis</dt>
-                            <dd className="text-[#1C1C1A]">{structured.basis}</dd>
+                            <dt className="font-mono text-xs text-[#64748B]">Basis</dt>
+                            <dd className="text-[#0F172A]">{structured.basis}</dd>
                           </>
                         )}
                         {structured.verdict_assessment && (
                           <>
-                            <dt className="font-mono text-xs text-[#6E6E68]">Verdict assessment</dt>
-                            <dd className="text-[#1C1C1A]">{structured.verdict_assessment}</dd>
+                            <dt className="font-mono text-xs text-[#64748B]">Verdict assessment</dt>
+                            <dd className="text-[#0F172A]">{structured.verdict_assessment}</dd>
                           </>
                         )}
                         {structured.note && (
                           <>
-                            <dt className="font-mono text-xs text-[#6E6E68]">Note</dt>
-                            <dd className="text-[#1C1C1A]">{structured.note}</dd>
+                            <dt className="font-mono text-xs text-[#64748B]">Note</dt>
+                            <dd className="text-[#0F172A]">{structured.note}</dd>
                           </>
                         )}
                       </dl>
                     ) : typeof decisionReason === "string" && decisionReason ? (
                       <div className="mt-4">
-                        <div className="font-mono text-xs text-[#6E6E68]">Reason</div>
-                        <div className="text-sm text-[#1C1C1A] mt-1">{decisionReason}</div>
+                        <div className="font-mono text-xs text-[#64748B]">Reason</div>
+                        <div className="text-sm text-[#0F172A] mt-1">{decisionReason}</div>
                       </div>
                     ) : null}
                     {reviewerDecision && (
-                      <div className="font-mono text-xs text-[#6E6E68] mt-4 pt-4 border-t border-[#E2E1DC]">
+                      <div className="font-mono text-xs text-[#64748B] mt-4 pt-4 border-t border-[#E2E8F0]">
                         {fmtDate(reviewerDecision.occurred_at)}
                       </div>
                     )}
@@ -321,8 +321,8 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
               </div>
 
               {/* Card 3 — Audit timeline */}
-              <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
-                <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] mb-3">
+              <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
+                <div className="font-mono text-xs uppercase tracking-widest text-[#64748B] mb-3">
                   AUDIT TIMELINE
                 </div>
                 <ul>
@@ -330,16 +330,16 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
                     <li
                       key={a.id}
                       className={`flex items-baseline gap-3 py-2 ${
-                        i < actions.length - 1 ? "border-b border-[#F0EFE9]" : ""
+                        i < actions.length - 1 ? "border-b border-[#F1F5F9]" : ""
                       }`}
                     >
-                      <span className="font-mono text-xs text-[#6E6E68] w-20 shrink-0">
+                      <span className="font-mono text-xs text-[#64748B] w-20 shrink-0">
                         {fmtTime(a.occurred_at)}
                       </span>
-                      <span className="text-sm text-[#1C1C1A]">
+                      <span className="text-sm text-[#0F172A]">
                         {capitalize(a.action_type.replace(/_/g, " "))}
                       </span>
-                      <span className="font-mono text-xs text-[#6E6E68]">({a.actor_kind})</span>
+                      <span className="font-mono text-xs text-[#64748B]">({a.actor_kind})</span>
                     </li>
                   ))}
                 </ul>

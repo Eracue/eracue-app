@@ -132,21 +132,21 @@ export function RulesClient({ rules }: Props) {
   }
 
   return (
-    <main className="min-h-screen bg-[#F7F6F3]">
+    <main className="min-h-screen bg-[#F8F9FB]">
       <div className="max-w-[1100px] mx-auto px-6 pt-10 pb-6">
         {/* Header row */}
         <div className="flex justify-between items-start gap-6">
           <div>
-            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
               GOVERNANCE RULES · AUTHORIZED BY SARAH CHEN, GC
             </div>
             <h1
               style={{ fontFamily: "var(--font-newsreader)" }}
-              className="font-light text-3xl text-[#1C1C1A] mt-2"
+              className="font-light text-3xl text-[#0F172A] mt-2"
             >
               Your rules govern every speaker, every draft.
             </h1>
-            <p className="text-sm text-[#6E6E68] max-w-xl mt-2 leading-relaxed">
+            <p className="text-sm text-[#64748B] max-w-xl mt-2 leading-relaxed">
               One principal. Every speaker on your team checks against these
               policies before anything goes live. Add a rule and it takes
               effect immediately.
@@ -156,17 +156,17 @@ export function RulesClient({ rules }: Props) {
             <button
               type="button"
               onClick={() => setIsAddOpen(true)}
-              className="bg-[#4F46E5] text-white text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#4338CA] transition"
+              className="bg-[#1A56DB] text-white text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#1447C0] transition"
             >
               Add a rule
             </button>
             <button
               type="button"
               disabled
-              className="bg-white border border-[#E2E1DC] text-[#6E6E68] text-sm px-4 py-2 rounded-sm relative cursor-default"
+              className="bg-white border border-[#E2E8F0] text-[#64748B] text-sm px-4 py-2 rounded-sm relative cursor-default"
             >
               Import from document
-              <span className="ml-2 font-mono text-[10px] bg-[#F0EFE9] text-[#6E6E68] px-1.5 py-0.5 rounded-sm">
+              <span className="ml-2 font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] px-1.5 py-0.5 rounded-sm">
                 Soon
               </span>
             </button>
@@ -174,7 +174,7 @@ export function RulesClient({ rules }: Props) {
         </div>
 
         {/* Stats strip */}
-        <div className="flex gap-6 mt-6 pb-6 border-b border-[#E2E1DC] items-end flex-wrap">
+        <div className="flex gap-6 mt-6 pb-6 border-b border-[#E2E8F0] items-end flex-wrap">
           {[
             { value: counts.total,  label: "Total rules" },
             { value: counts.active, label: "Active" },
@@ -182,17 +182,17 @@ export function RulesClient({ rules }: Props) {
             { value: counts.silent, label: "Silent" },
           ].map((s) => (
             <div key={s.label}>
-              <div className="font-mono text-2xl font-light text-[#1C1C1A]">{s.value}</div>
-              <div className="font-mono text-[10px] uppercase text-[#6E6E68] mt-1">{s.label}</div>
+              <div className="font-mono text-2xl font-light text-[#0F172A]">{s.value}</div>
+              <div className="font-mono text-[10px] uppercase text-[#64748B] mt-1">{s.label}</div>
             </div>
           ))}
-          <div className="ml-auto font-mono text-xs text-[#6E6E68]">
+          <div className="ml-auto font-mono text-xs text-[#64748B]">
             2 of 5 checks active · Rule Check + Quiet Period Check evaluating these rules today
           </div>
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-1 mt-6 border-b border-[#E2E1DC]">
+        <div className="flex gap-1 mt-6 border-b border-[#E2E8F0]">
           {([
             { key: "all" as const,         label: `All (${counts.total})` },
             { key: "active" as const,      label: `Active (${counts.active})` },
@@ -207,8 +207,8 @@ export function RulesClient({ rules }: Props) {
                 onClick={() => setTab(key)}
                 className={`font-mono text-sm pb-3 px-1 border-b-2 transition ${
                   selected
-                    ? "border-[#4F46E5] text-[#4F46E5]"
-                    : "border-transparent text-[#6E6E68] hover:text-[#1C1C1A]"
+                    ? "border-[#1A56DB] text-[#1A56DB]"
+                    : "border-transparent text-[#64748B] hover:text-[#0F172A]"
                 }`}
               >
                 {label}
@@ -220,35 +220,35 @@ export function RulesClient({ rules }: Props) {
         {/* Rule cards */}
         <div className="flex flex-col gap-3 mt-6">
           {filtered.length === 0 ? (
-            <div className="bg-white border border-[#E2E1DC] rounded-sm p-12 text-center text-[#6E6E68] text-sm">
+            <div className="bg-white border border-[#E2E8F0] rounded-sm p-12 text-center text-[#64748B] text-sm">
               No rules in this view.
             </div>
           ) : (
             filtered.map(({ rule: r, classification }) => {
               const v = (r.verdict || "review").toLowerCase();
-              const stripe = VERDICT_STRIPE[v] || "bg-[#6E6E68]";
+              const stripe = VERDICT_STRIPE[v] || "bg-[#64748B]";
               const badge = VERDICT_BADGE[v] || VERDICT_BADGE.review;
               const triggers = r.trigger_count ?? 0;
               const showKeywords = r.keywords && r.keywords.length > 0 && v !== "guide";
               return (
                 <div
                   key={r.id}
-                  className="bg-white border border-[#E2E1DC] rounded-sm overflow-hidden flex"
+                  className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden flex"
                 >
                   <div className={`w-1 shrink-0 ${stripe}`} aria-hidden />
                   <div className="p-5 flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-4">
                       <div className="min-w-0">
-                        <div className="text-base font-medium text-[#1C1C1A]">{r.name}</div>
+                        <div className="text-base font-medium text-[#0F172A]">{r.name}</div>
                         {r.description && (
-                          <div className="text-sm text-[#6E6E68] mt-1">{r.description}</div>
+                          <div className="text-sm text-[#64748B] mt-1">{r.description}</div>
                         )}
                       </div>
                       <div className="flex gap-2 items-center shrink-0 ml-4">
                         <span className={`inline-flex items-center px-2 py-1 rounded-sm border font-mono text-xs ${badge.bg} ${badge.text} ${badge.border}`}>
                           {badge.label}
                         </span>
-                        <span className="bg-[#EEF2FF] text-[#3730A3] border border-[#C7D2FE] font-mono text-[10px] px-2 py-0.5 rounded-sm">
+                        <span className="bg-[#EFF8FF] text-[#1447C0] border border-[#BAE6FD] font-mono text-[10px] px-2 py-0.5 rounded-sm">
                           {scopeLabel(r.scope)}
                         </span>
                         {triggers > 0 && (
@@ -264,7 +264,7 @@ export function RulesClient({ rules }: Props) {
                         {(r.keywords ?? []).map((kw) => (
                           <span
                             key={kw}
-                            className="bg-[#F0EFE9] text-[#6E6E68] font-mono text-[10px] px-2 py-0.5 rounded-sm border border-[#E2E1DC]"
+                            className="bg-[#F1F5F9] text-[#64748B] font-mono text-[10px] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
                           >
                             {kw}
                           </span>
@@ -272,13 +272,13 @@ export function RulesClient({ rules }: Props) {
                       </div>
                     )}
 
-                    <div className="mt-4 pt-3 border-t border-[#E2E1DC] flex justify-between items-center gap-4 flex-wrap">
+                    <div className="mt-4 pt-3 border-t border-[#E2E8F0] flex justify-between items-center gap-4 flex-wrap">
                       <div className="min-w-0">
-                        <div className="font-mono text-[10px] text-[#6E6E68]">
+                        <div className="font-mono text-[10px] text-[#64748B]">
                           {buildFooterText(r, classification)}
                         </div>
                         {r.wsp_reference && (
-                          <div className="font-mono text-[10px] text-[#4338CA] mt-0.5">
+                          <div className="font-mono text-[10px] text-[#1447C0] mt-0.5">
                             WSP: {r.wsp_reference}
                           </div>
                         )}
@@ -288,7 +288,7 @@ export function RulesClient({ rules }: Props) {
                           </div>
                         )}
                         {classification === "deactivated" && r.deactivated_reason && (
-                          <div className="font-mono text-[10px] text-[#6E6E68] mt-0.5">
+                          <div className="font-mono text-[10px] text-[#64748B] mt-0.5">
                             Reason: {r.deactivated_reason}
                           </div>
                         )}
@@ -299,7 +299,7 @@ export function RulesClient({ rules }: Props) {
                             <button
                               type="button"
                               onClick={() => setEditingRule(r)}
-                              className="font-mono text-xs text-[#6E6E68] hover:text-[#1C1C1A] transition cursor-pointer"
+                              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition cursor-pointer"
                             >
                               Edit
                             </button>
@@ -307,7 +307,7 @@ export function RulesClient({ rules }: Props) {
                               type="button"
                               onClick={() => handleDeactivate(r.id)}
                               disabled={pending}
-                              className="font-mono text-xs text-[#6E6E68] hover:text-[#B91C1C] transition cursor-pointer disabled:opacity-50"
+                              className="font-mono text-xs text-[#64748B] hover:text-[#B91C1C] transition cursor-pointer disabled:opacity-50"
                             >
                               {pending ? "Deactivating..." : "Deactivate"}
                             </button>
@@ -317,7 +317,7 @@ export function RulesClient({ rules }: Props) {
                           <button
                             type="button"
                             onClick={() => alert("Renew coming soon")}
-                            className="font-mono text-xs text-[#6E6E68] hover:text-[#1C1C1A] transition cursor-pointer"
+                            className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition cursor-pointer"
                           >
                             Renew
                           </button>
@@ -334,14 +334,14 @@ export function RulesClient({ rules }: Props) {
         {/* Coming-soon — AI content detection. Shown only on tabs where active
             rules are visible (Active or All). */}
         {(tab === "active" || tab === "all") && (
-          <div className="mt-6 bg-[#F7F6F3] border border-[#E2E1DC] rounded-sm p-6">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-3">
+          <div className="mt-6 bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-6">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
               COMING SOON — AI CONTENT DETECTION
             </div>
-            <div className="text-sm font-medium text-[#1C1C1A] mb-2">
+            <div className="text-sm font-medium text-[#0F172A] mb-2">
               Automatic AI-generated content detection and routing
             </div>
-            <p className="text-sm text-[#6E6E68] mb-4 leading-relaxed">
+            <p className="text-sm text-[#64748B] mb-4 leading-relaxed">
               ERA CUE will automatically detect AI-generated content and route
               it for principal review — without requiring manual declaration.
               Agent submission fingerprinting ensures every autonomous post has
@@ -354,8 +354,8 @@ export function RulesClient({ rules }: Props) {
                 "Automatic EU AI Act Article 50 disclosure flagging",
               ].map((item) => (
                 <div key={item} className="flex items-center gap-2">
-                  <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-[#C9A92C] shrink-0" />
-                  <span className="font-mono text-xs text-[#6E6E68]">{item}</span>
+                  <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] shrink-0" />
+                  <span className="font-mono text-xs text-[#64748B]">{item}</span>
                 </div>
               ))}
             </div>

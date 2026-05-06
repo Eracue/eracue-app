@@ -323,14 +323,14 @@ function verdictDot(t: string): string {
 
 function decisionBadge(d: string | undefined): { cls: string; label: string } {
   if (d === "override")
-    return { cls: "bg-[#EEF2FF] text-[#3730A3] border-[#C7D2FE]", label: "OVERRIDE" };
+    return { cls: "bg-[#EFF8FF] text-[#1447C0] border-[#BAE6FD]", label: "OVERRIDE" };
   if (d === "approve")
     return { cls: "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]", label: "APPROVE" };
   if (d === "confirm_block")
     return { cls: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]", label: "CONFIRM BLOCK" };
   if (d === "reject")
     return { cls: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]", label: "REJECT" };
-  return { cls: "bg-[#F7F6F3] text-[#6E6E68] border-[#E2E1DC]", label: (d || "—").toUpperCase() };
+  return { cls: "bg-[#F8F9FB] text-[#64748B] border-[#E2E8F0]", label: (d || "—").toUpperCase() };
 }
 
 // ---------- Page ----------------------------------------------------------
@@ -350,23 +350,23 @@ export default async function DashboardPage() {
   return (
     <>
       <SiteHeader />
-      <main className="min-h-screen bg-[#F7F6F3]">
+      <main className="min-h-screen bg-[#F8F9FB]">
         <div className="max-w-[1100px] mx-auto px-6">
           {/* HEADER */}
-          <div className="pt-10 pb-8 border-b border-[#E2E1DC]">
+          <div className="pt-10 pb-8 border-b border-[#E2E8F0]">
             <div className="flex items-start justify-between gap-6">
               <div>
-                <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+                <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
                   PRINCIPAL DASHBOARD · SARAH CHEN, GC
                 </div>
                 <h1
                   style={{ fontFamily: "var(--font-newsreader)" }}
-                  className="font-light text-3xl text-[#1C1C1A] mt-2"
+                  className="font-light text-3xl text-[#0F172A] mt-2"
                 >
                   The complete governance record.
                 </h1>
-                <p className="text-sm text-[#6E6E68] mt-1 max-w-xl">
-                  Every speaker. Every draft. Every decision. One principal. One record.
+                <p className="text-sm text-[#64748B] mt-1 max-w-xl">
+                  Every speaker. Every draft. Every decision.
                 </p>
               </div>
             </div>
@@ -381,41 +381,41 @@ export default async function DashboardPage() {
 
           {/* SECTION 1 — Governance health */}
           <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
                 DRAFTS REVIEWED
               </div>
-              <div className="font-mono text-4xl font-light text-[#1C1C1A]">
+              <div className="font-mono text-4xl font-light text-[#0F172A]">
                 {health.draftsReviewed}
               </div>
-              <div className="text-xs text-[#6E6E68] mt-1">Across all speakers</div>
+              <div className="text-xs text-[#64748B] mt-1">Across all speakers</div>
             </div>
-            <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+            <div className="bg-white border border-[#E2E8F0] border-t-2 border-t-[#B91C1C] rounded-sm p-6">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
                 BLOCK RATE
               </div>
               <div className="font-mono text-4xl font-light text-[#B91C1C]">
                 {health.blockRatePct}%
               </div>
-              <div className="text-xs text-[#6E6E68] mt-1">Drafts halted by hard rules</div>
+              <div className="text-xs text-[#64748B] mt-1">Drafts halted by hard rules</div>
             </div>
-            <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+            <div className="bg-white border border-[#E2E8F0] border-t-2 border-t-[#C2410C] rounded-sm p-6">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
                 OVERRIDE RATE
               </div>
-              <div className="font-mono text-4xl font-light text-[#1C1C1A]">
+              <div className="font-mono text-4xl font-light text-[#C2410C]">
                 {health.overrideRatePct}%
               </div>
-              <div className="text-xs text-[#6E6E68] mt-1">Of blocked drafts overridden</div>
+              <div className="text-xs text-[#64748B] mt-1">Of blocked drafts overridden</div>
             </div>
-            <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
+            <div className="bg-white border border-[#E2E8F0] border-t-2 border-t-[#1A56DB] rounded-sm p-6">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
                 PENDING REVIEW
               </div>
-              <div className="font-mono text-4xl font-light text-[#C2410C]">
+              <div className="font-mono text-4xl font-light text-[#1A56DB]">
                 {health.pendingReview}
               </div>
-              <div className="text-xs text-[#6E6E68] mt-1">Awaiting principal decision</div>
+              <div className="text-xs text-[#64748B] mt-1">Awaiting principal decision</div>
             </div>
           </section>
 
@@ -423,21 +423,21 @@ export default async function DashboardPage() {
           <section className="mt-10">
             <div className="flex justify-between items-baseline">
               <div>
-                <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+                <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
                   ACTION REQUIRED
                 </div>
-                <div className="text-lg font-medium text-[#1C1C1A] mt-1">
+                <div className="text-lg font-medium text-[#0F172A] mt-1">
                   {queueGroups.reduce((n, g) => n + g.drafts.length, 0)} draft
                   {queueGroups.reduce((n, g) => n + g.drafts.length, 0) === 1 ? "" : "s"} need your decision
                 </div>
               </div>
               {queueGroups.length > 0 && (
-                <span className="font-mono text-xs text-[#6E6E68]">Grouped by speaker</span>
+                <span className="font-mono text-xs text-[#64748B]">Grouped by speaker</span>
               )}
             </div>
 
             {queueGroups.length === 0 ? (
-              <div className="bg-white border border-[#E2E1DC] rounded-sm p-8 text-center mt-4 text-sm text-[#6E6E68]">
+              <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 text-center mt-4 text-sm text-[#64748B]">
                 No drafts awaiting review. ERA CUE is governing your team&apos;s communications.
               </div>
             ) : (
@@ -445,14 +445,14 @@ export default async function DashboardPage() {
                 {queueGroups.map((group) => (
                   <div key={group.name}>
                     {/* Group header */}
-                    <div className="bg-[#F7F6F3] border border-[#E2E1DC] rounded-t-sm px-5 py-3 mt-3 flex justify-between items-center">
+                    <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-t-sm px-5 py-3 mt-3 flex justify-between items-center">
                       <div className="flex items-baseline">
-                        <span className="text-sm font-medium text-[#1C1C1A]">{group.name}</span>
+                        <span className="text-sm font-medium text-[#0F172A]">{group.name}</span>
                         {group.title && (
-                          <span className="font-mono text-xs text-[#6E6E68] ml-2">{group.title}</span>
+                          <span className="font-mono text-xs text-[#64748B] ml-2">{group.title}</span>
                         )}
                       </div>
-                      <span className="bg-white border border-[#E2E1DC] rounded-sm font-mono text-xs text-[#6E6E68] px-2 py-0.5">
+                      <span className="bg-white border border-[#E2E8F0] rounded-sm font-mono text-xs text-[#64748B] px-2 py-0.5">
                         {group.drafts.length} draft{group.drafts.length === 1 ? "" : "s"}
                       </span>
                     </div>
@@ -466,19 +466,19 @@ export default async function DashboardPage() {
                       return (
                         <div
                           key={d.id}
-                          className={`bg-white border-x border-b border-[#E2E1DC] px-5 py-3 flex items-center gap-4 hover:bg-[#F7F6F3] transition-colors ${
+                          className={`bg-white border-x border-b border-[#E2E8F0] px-5 py-3 flex items-center gap-4 hover:bg-[#F8F9FB] transition-colors ${
                             isLast ? "rounded-b-sm" : ""
                           }`}
                         >
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm text-[#1C1C1A] truncate">{d.draft_text}</div>
+                            <div className="text-sm text-[#0F172A] truncate">{d.draft_text}</div>
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            <span className="font-mono text-[10px] bg-[#F0EFE9] text-[#6E6E68] border border-[#E2E1DC] px-2 py-0.5 rounded-sm">
+                            <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
                               {d.channel}
                             </span>
                             {d.campaigns?.name && (
-                              <span className="font-mono text-[10px] bg-[#F0EFE9] text-[#6E6E68] border border-[#E2E1DC] px-2 py-0.5 rounded-sm">
+                              <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
                                 {d.campaigns.name}
                               </span>
                             )}
@@ -491,7 +491,7 @@ export default async function DashboardPage() {
                             </span>
                             <Link
                               href={`/reviewer/${d.id}`}
-                              className="font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] transition-colors"
+                              className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors"
                             >
                               Review →
                             </Link>
@@ -513,10 +513,10 @@ export default async function DashboardPage() {
 
           {/* SECTION 2 — Speaker exposure */}
           <section className="mt-10">
-            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
               SPEAKER EXPOSURE
             </div>
-            <p className="text-sm text-[#6E6E68] mt-1 mb-4">
+            <p className="text-sm text-[#64748B] mt-1 mb-4">
               Governance activity by speaker this period.
             </p>
             <div className="grid grid-cols-2 gap-3">
@@ -525,24 +525,24 @@ export default async function DashboardPage() {
                 return (
                   <div
                     key={s.name}
-                    className={`bg-white border border-[#E2E1DC] rounded-sm p-5 ${
+                    className={`bg-white border border-[#E2E8F0] rounded-sm p-5 ${
                       isTop ? "border-t-2 border-t-[#B91C1C]" : ""
                     }`}
                   >
-                    <div className="text-sm font-medium text-[#1C1C1A]">{s.name}</div>
-                    <div className="font-mono text-xs text-[#6E6E68] mt-0.5">{s.title}</div>
+                    <div className="text-sm font-medium text-[#0F172A]">{s.name}</div>
+                    <div className="font-mono text-xs text-[#64748B] mt-0.5">{s.title}</div>
                     <div className="flex gap-6 mt-4">
                       <div>
-                        <div className="font-mono text-2xl font-light text-[#1C1C1A]">{s.totalDrafts}</div>
-                        <div className="font-mono text-[10px] uppercase text-[#6E6E68] mt-1">total</div>
+                        <div className="font-mono text-2xl font-light text-[#0F172A]">{s.totalDrafts}</div>
+                        <div className="font-mono text-[10px] uppercase text-[#64748B] mt-1">total</div>
                       </div>
                       <div>
-                        <div className="font-mono text-2xl font-light text-[#1C1C1A]">{s.blocked}</div>
-                        <div className="font-mono text-[10px] uppercase text-[#6E6E68] mt-1">blocked</div>
+                        <div className="font-mono text-2xl font-light text-[#0F172A]">{s.blocked}</div>
+                        <div className="font-mono text-[10px] uppercase text-[#64748B] mt-1">blocked</div>
                       </div>
                       <div>
-                        <div className="font-mono text-2xl font-light text-[#1C1C1A]">{s.escalated}</div>
-                        <div className="font-mono text-[10px] uppercase text-[#6E6E68] mt-1">escalated</div>
+                        <div className="font-mono text-2xl font-light text-[#0F172A]">{s.escalated}</div>
+                        <div className="font-mono text-[10px] uppercase text-[#64748B] mt-1">escalated</div>
                       </div>
                     </div>
                     {isTop && (
@@ -558,43 +558,43 @@ export default async function DashboardPage() {
 
           {/* SECTION 3 — Rules performance (rows, not a table) */}
           <section className="mt-10">
-            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
               RULES PERFORMANCE
             </div>
-            <p className="text-sm text-[#6E6E68] mt-1 mb-4">
+            <p className="text-sm text-[#64748B] mt-1 mb-4">
               Active governance policies and trigger counts.
             </p>
             <div>
               {rulesPerf.length === 0 ? (
-                <div className="bg-white border border-[#E2E1DC] rounded-sm p-8 text-center text-sm text-[#6E6E68]">
+                <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 text-center text-sm text-[#64748B]">
                   No rules configured.
                 </div>
               ) : (
                 rulesPerf.map((r) => (
                   <div
                     key={r.id}
-                    className="bg-white border border-[#E2E1DC] rounded-sm mb-1 px-5 py-4 flex items-center justify-between gap-4"
+                    className="bg-white border border-[#E2E8F0] rounded-sm mb-1 px-5 py-4 flex items-center justify-between gap-4"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${verdictDot(r.rule_type)}`} aria-hidden />
-                      <span className="text-sm font-medium text-[#1C1C1A] truncate">{r.name}</span>
-                      <span className="font-mono text-[10px] uppercase text-[#6E6E68] bg-[#F0EFE9] px-2 py-0.5 rounded-sm shrink-0">
+                      <span className="text-sm font-medium text-[#0F172A] truncate">{r.name}</span>
+                      <span className="font-mono text-[10px] uppercase text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-sm shrink-0">
                         {r.rule_type}
                       </span>
                     </div>
                     <div className="flex items-center gap-8 shrink-0">
                       <div className="text-right">
-                        <div className="font-mono text-lg font-light text-[#1C1C1A]">{r.timesTriggered}</div>
-                        <div className="font-mono text-[10px] text-[#6E6E68]">triggers</div>
+                        <div className="font-mono text-lg font-light text-[#0F172A]">{r.timesTriggered}</div>
+                        <div className="font-mono text-[10px] text-[#64748B]">triggers</div>
                       </div>
-                      <div className="font-mono text-xs text-[#6E6E68] w-20 text-right">
+                      <div className="font-mono text-xs text-[#64748B] w-20 text-right">
                         {fmtRelative(r.lastTriggered)}
                       </div>
                       <span
                         className={
                           r.isActive
                             ? "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0] font-mono text-[10px] px-2 py-0.5 rounded-sm border uppercase"
-                            : "bg-[#F7F6F3] text-[#6E6E68] border-[#E2E1DC] font-mono text-[10px] px-2 py-0.5 rounded-sm border uppercase"
+                            : "bg-[#F8F9FB] text-[#64748B] border-[#E2E8F0] font-mono text-[10px] px-2 py-0.5 rounded-sm border uppercase"
                         }
                       >
                         {r.isActive ? "Active" : "Inactive"}
@@ -606,7 +606,7 @@ export default async function DashboardPage() {
             </div>
             <Link
               href="/rules"
-              className="block font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] mt-3"
+              className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-3"
             >
               Manage rules →
             </Link>
@@ -614,14 +614,14 @@ export default async function DashboardPage() {
 
           {/* SECTION 5 — Recent decisions */}
           <section className="mt-10 pb-16">
-            <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
               RECENT DECISIONS
             </div>
-            <p className="text-sm text-[#6E6E68] mt-1 mb-4">
+            <p className="text-sm text-[#64748B] mt-1 mb-4">
               Principal decisions on blocked and escalated drafts.
             </p>
             {reviewerFeed.length === 0 ? (
-              <div className="bg-white border border-[#E2E1DC] rounded-sm p-8 text-center text-sm text-[#6E6E68]">
+              <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 text-center text-sm text-[#64748B]">
                 No reviewer decisions yet. Decisions appear here after a principal reviews a blocked or escalated draft.
               </div>
             ) : (
@@ -634,7 +634,7 @@ export default async function DashboardPage() {
                 return (
                   <div
                     key={a.id}
-                    className="bg-white border border-[#E2E1DC] rounded-sm mb-1 px-5 py-4 flex items-start justify-between gap-4"
+                    className="bg-white border border-[#E2E8F0] rounded-sm mb-1 px-5 py-4 flex items-start justify-between gap-4"
                   >
                     <div className="flex-1 min-w-0">
                       <span
@@ -642,23 +642,23 @@ export default async function DashboardPage() {
                       >
                         {badge.label}
                       </span>
-                      <div className="text-sm text-[#1C1C1A] mt-2">
+                      <div className="text-sm text-[#0F172A] mt-2">
                         Sarah Chen decided on{" "}
                         <span className="font-medium">{speakerName}</span>
-                        {speakerTitle && <span className="text-[#6E6E68]"> ({speakerTitle})</span>}
+                        {speakerTitle && <span className="text-[#64748B]"> ({speakerTitle})</span>}
                         &apos;s draft
                       </div>
                       {basis && (
-                        <div className="font-mono text-xs text-[#6E6E68] mt-1">Basis: {basis}</div>
+                        <div className="font-mono text-xs text-[#64748B] mt-1">Basis: {basis}</div>
                       )}
                     </div>
                     <div className="shrink-0 flex flex-col items-end gap-1">
-                      <span className="font-mono text-xs text-[#6E6E68]">{fmtDateTime(a.occurred_at)}</span>
+                      <span className="font-mono text-xs text-[#64748B]">{fmtDateTime(a.occurred_at)}</span>
                       {a.draft_id && (
                         <div className="flex gap-3 items-center">
                           <Link
                             href={`/drafts/${a.draft_id}`}
-                            className="font-mono text-xs text-[#5C6B7A] hover:text-[#0F1923] transition-colors"
+                            className="font-mono text-xs text-[#5C6B7A] hover:text-[#0F172A] transition-colors"
                           >
                             View draft →
                           </Link>

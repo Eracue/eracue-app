@@ -16,7 +16,7 @@ export type ExaminerRecord = {
 type Props = { records: ExaminerRecord[] };
 
 const DECISION_BADGE: Record<string, { cls: string; label: string }> = {
-  override:      { cls: "bg-[#EEF2FF] text-[#1B2B4B] border-[#C7D2FE]", label: "OVERRIDE" },
+  override:      { cls: "bg-[#EFF8FF] text-[#1B2B4B] border-[#BAE6FD]", label: "OVERRIDE" },
   confirm_block: { cls: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]", label: "CONFIRM BLOCK" },
   approve:       { cls: "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]", label: "APPROVE" },
   reject:        { cls: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]", label: "REJECT" },
@@ -46,10 +46,10 @@ export function ExaminerRecordsSection({ records }: Props) {
     <section className="mt-10">
       <div className="flex justify-between items-baseline gap-4">
         <div>
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68]">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
             EXAMINER RECORDS
           </div>
-          <div className="text-sm text-[#1C1C1A] font-medium mt-1">
+          <div className="text-sm text-[#0F172A] font-medium mt-1">
             Direct links to FINRA-defensible audit records
           </div>
         </div>
@@ -59,7 +59,7 @@ export function ExaminerRecordsSection({ records }: Props) {
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter by speaker..."
           aria-label="Filter examiner records by speaker name"
-          className="border border-[#E2E1DC] rounded-sm px-3 py-1.5 text-xs font-mono text-[#1C1C1A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1B2B4B] w-48"
+          className="border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-xs font-mono text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1B2B4B] w-48"
         />
       </div>
 
@@ -72,16 +72,16 @@ export function ExaminerRecordsSection({ records }: Props) {
           filtered.map((r) => {
             const badge =
               DECISION_BADGE[r.decision ?? ""] ?? {
-                cls: "bg-[#F7F6F3] text-[#6E6E68] border-[#E2E1DC]",
+                cls: "bg-[#F8F9FB] text-[#64748B] border-[#E2E8F0]",
                 label: (r.decision || "—").toUpperCase(),
               };
             return (
               <div
                 key={r.id}
-                className="bg-white border border-[#E2E1DC] rounded-sm mb-1 px-5 py-3 flex items-center justify-between hover:bg-[#F5F6F8] transition-colors"
+                className="bg-white border border-[#E2E8F0] rounded-sm mb-1 px-5 py-3 flex items-center justify-between hover:bg-[#F5F6F8] transition-colors"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-[#0F1923]">
+                  <div className="text-xs font-medium text-[#0F172A]">
                     {r.speakerName}
                   </div>
                   <div className="font-mono text-[10px] text-[#5C6B7A] truncate max-w-xs mt-0.5">

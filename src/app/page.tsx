@@ -10,7 +10,7 @@ const EXAMINER_DRAFT_ID = "e71b56c1-2e30-4a9c-bb78-f0db7ee1f651";
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-xs font-mono uppercase tracking-widest text-[#6E6E68]">
+    <div className="text-xs font-mono uppercase tracking-widest text-[#64748B]">
       {children}
     </div>
   );
@@ -41,15 +41,15 @@ function CheckRow({ name, result }: { name: string; result: "PASS" | "FAIL" }) {
         className="inline-block rounded-full"
         style={{ width: 6, height: 6, backgroundColor: dotColor }}
       />
-      <span className="text-[#1C1C1A]">{name}</span>
-      <span className="text-[#6E6E68]">· {result}</span>
+      <span className="text-[#0F172A]">{name}</span>
+      <span className="text-[#64748B]">· {result}</span>
     </li>
   );
 }
 
 function KeywordChip({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-xs bg-[#F0EFE9] text-[#6E6E68] px-2 py-0.5 rounded-sm">
+    <span className="font-mono text-xs bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-sm">
       {children}
     </span>
   );
@@ -59,7 +59,7 @@ function KeywordChip({ children }: { children: React.ReactNode }) {
 
 export default function Home() {
   return (
-    <div className="bg-[#F7F6F3] min-h-screen">
+    <div className="bg-[#F8F9FB] min-h-screen">
       <SiteHeader />
 
       {/* ============================================================
@@ -74,8 +74,8 @@ export default function Home() {
               Governance Infrastructure
             </span>
             {/* Badge 2 — FINRA Rule 3110 */}
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-[#EEF2FF] text-[#4338CA] border-[#C7D2FE]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#4F46E5] inline-block shrink-0"></span>
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-[#EFF8FF] text-[#1447C0] border-[#BAE6FD]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block shrink-0"></span>
               FINRA Rule 3110
             </span>
             {/* Badge 3 — EU AI Act */}
@@ -86,13 +86,13 @@ export default function Home() {
           </div>
 
           <h1
-            className="font-light leading-tight tracking-tight text-[#1C1C1A] text-5xl md:text-6xl max-w-3xl mb-6"
+            className="font-light leading-tight tracking-tight text-[#0F172A] text-5xl md:text-6xl max-w-3xl mb-6"
             style={{ fontFamily: "var(--font-newsreader)" }}
           >
             The governed moment between AI and publish.
           </h1>
 
-          <p className="text-lg text-[#6E6E68] max-w-xl leading-relaxed mb-10">
+          <p className="text-lg text-[#64748B] max-w-xl leading-relaxed mb-10">
             AI agents draft. Executives post. Nobody has a record that a human
             approved it. ERA CUE is the governance layer that changes that —
             pre-publication checks, named principal approval, immutable audit
@@ -102,35 +102,35 @@ export default function Home() {
           <div className="mb-8">
             <Link
               href="/submit"
-              className="inline-flex items-center bg-[#1C1C1A] text-white text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#333331] transition"
+              className="inline-flex items-center bg-[#0F172A] text-white text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#1E293B] transition"
             >
               Check a draft before it goes live →
             </Link>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 mt-2">
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#4338CA]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#4F46E5] inline-block"></span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#1447C0]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block"></span>
               FINRA Rule 3110
             </span>
-            <span className="text-[#E2E1DC] text-xs select-none">·</span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#4338CA]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#4F46E5] inline-block"></span>
+            <span className="text-[#E2E8F0] text-xs select-none">·</span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#1447C0]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block"></span>
               FINRA Rule 2210
             </span>
-            <span className="text-[#E2E1DC] text-xs select-none">·</span>
+            <span className="text-[#E2E8F0] text-xs select-none">·</span>
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#92400E]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] inline-block"></span>
               EU AI Act Article 50
             </span>
-            <span className="text-[#E2E1DC] text-xs select-none">·</span>
+            <span className="text-[#E2E8F0] text-xs select-none">·</span>
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#475569]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#64748B] inline-block"></span>
               SEC 17a-4
             </span>
           </div>
 
-          <p className="text-xs font-mono text-[#6E6E68] mt-4 max-w-md leading-relaxed">
+          <p className="text-xs font-mono text-[#64748B] mt-4 max-w-md leading-relaxed">
             Paste any executive communication. ERA CUE checks it against your
             governance rules, flags violations, and routes it to your designated
             principal — before it reaches the public.
@@ -141,27 +141,27 @@ export default function Home() {
       {/* ============================================================
           SECTION 2 — THE GOVERNED MOMENT
          ============================================================ */}
-      <section className="bg-white border-y border-[#E2E1DC] py-16">
+      <section className="bg-white border-y border-[#E2E8F0] py-16">
         <div className="max-w-[1100px] mx-auto px-6">
           <Eyebrow>THE GOVERNED MOMENT</Eyebrow>
           <h2
-            className="text-2xl font-light text-[#1C1C1A] mt-2 mb-1"
+            className="text-2xl font-light text-[#0F172A] mt-2 mb-1"
             style={{ fontFamily: "var(--font-newsreader)" }}
           >
             Tuesday, 8:47 AM. The CEO posted during a quiet period.
           </h2>
-          <p className="text-sm text-[#6E6E68] mb-8">
+          <p className="text-sm text-[#64748B] mb-8">
             ERA CUE caught it before it went live. Here is the complete record.
           </p>
 
           {/* Evidence artifact */}
-          <div className="bg-white border border-[#E2E1DC] rounded-sm p-8">
+          <div className="bg-white border border-[#E2E8F0] rounded-sm p-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Column 1 — Draft */}
               <div>
                 <Eyebrow>DRAFT · CEO · LINKEDIN · AI ASSISTED</Eyebrow>
                 <p
-                  className="italic text-lg text-[#1C1C1A] mt-3 leading-snug"
+                  className="italic text-lg text-[#0F172A] mt-3 leading-snug"
                   style={{ fontFamily: "var(--font-newsreader)" }}
                 >
                   &ldquo;We&apos;re aggressively hiring across engineering and
@@ -175,14 +175,14 @@ export default function Home() {
                 <div className="mt-3">
                   <VerdictBlockBadge />
                 </div>
-                <div className="text-sm font-medium text-[#1C1C1A] mt-3">
+                <div className="text-sm font-medium text-[#0F172A] mt-3">
                   Series B Quiet Period
                 </div>
-                <p className="text-xs text-[#6E6E68] mt-1 leading-relaxed">
+                <p className="text-xs text-[#64748B] mt-1 leading-relaxed">
                   No hiring, growth, or fundraising language during quiet period.
                 </p>
                 <div className="mt-3">
-                  <span className="font-mono text-xs bg-[#F0EFE9] text-[#C9A92C] px-2 py-0.5 rounded-sm inline-block">
+                  <span className="font-mono text-xs bg-[#F1F5F9] text-[#1A56DB] px-2 py-0.5 rounded-sm inline-block">
                     hiring
                   </span>
                 </div>
@@ -202,7 +202,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="text-xs font-mono text-[#6E6E68] mt-4">
+          <div className="text-xs font-mono text-[#64748B] mt-4">
             SHA-256 locked · append-only · record cannot be altered
           </div>
         </div>
@@ -215,50 +215,50 @@ export default function Home() {
         <div className="max-w-[1100px] mx-auto px-6 py-16">
           <Eyebrow>WHO ERA CUE IS FOR</Eyebrow>
 
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-px bg-[#E2E1DC] rounded-sm overflow-hidden">
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-px bg-[#E2E8F0] rounded-sm overflow-hidden">
             {/* Card 01 — Executive */}
-            <div className="bg-[#F7F6F3] p-8">
-              <div className="font-mono text-xs text-[#6E6E68]">01</div>
-              <div className="text-sm font-medium text-[#1C1C1A] mt-3">
+            <div className="bg-[#F8F9FB] p-8">
+              <div className="font-mono text-xs text-[#64748B]">01</div>
+              <div className="text-sm font-medium text-[#0F172A] mt-3">
                 Executive · Founder · CEO
               </div>
-              <p className="text-sm text-[#6E6E68] mt-2 leading-relaxed">
+              <p className="text-sm text-[#64748B] mt-2 leading-relaxed">
                 Draft anything. ERA CUE checks it before it leaves your hands.
                 Your record is clean before you ask.
               </p>
               <Link
                 href="/submit"
-                className="block font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] mt-6 transition-colors"
+                className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-6 transition-colors"
               >
                 Submit a draft →
               </Link>
             </div>
 
             {/* Card 02 — Comms / PR */}
-            <div className="bg-[#F7F6F3] p-8">
-              <div className="font-mono text-xs text-[#6E6E68]">02</div>
-              <div className="text-sm font-medium text-[#1C1C1A] mt-3">
+            <div className="bg-[#F8F9FB] p-8">
+              <div className="font-mono text-xs text-[#64748B]">02</div>
+              <div className="text-sm font-medium text-[#0F172A] mt-3">
                 VP Comms · PR Director · Agency
               </div>
-              <p className="text-sm text-[#6E6E68] mt-2 leading-relaxed">
+              <p className="text-sm text-[#64748B] mt-2 leading-relaxed">
                 See every draft your speakers submit. Every verdict, every
                 override, every gap. One dashboard. No Monday morning surprises.
               </p>
               <Link
                 href="/dashboard"
-                className="block font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] mt-6 transition-colors"
+                className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-6 transition-colors"
               >
                 View the dashboard →
               </Link>
             </div>
 
             {/* Card 03 — CCO / GC / Compliance */}
-            <div className="bg-[#F7F6F3] p-8">
-              <div className="font-mono text-xs text-[#6E6E68]">03</div>
-              <div className="text-sm font-medium text-[#1C1C1A] mt-3">
+            <div className="bg-[#F8F9FB] p-8">
+              <div className="font-mono text-xs text-[#64748B]">03</div>
+              <div className="text-sm font-medium text-[#0F172A] mt-3">
                 CCO · General Counsel · Compliance
               </div>
-              <p className="text-sm text-[#6E6E68] mt-2 leading-relaxed">
+              <p className="text-sm text-[#64748B] mt-2 leading-relaxed">
                 Rule 3110 requires proof a named principal reviewed AI-assisted
                 communications. Rule 2210(b) requires principal pre-approval of
                 retail communications before use. ERA CUE satisfies both in one
@@ -266,7 +266,7 @@ export default function Home() {
               </p>
               <Link
                 href={`/drafts/${EXAMINER_DRAFT_ID}/examiner`}
-                className="block font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] mt-6 transition-colors"
+                className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-6 transition-colors"
               >
                 See the examiner record →
               </Link>
@@ -279,34 +279,34 @@ export default function Home() {
           SECTION 3.5 — MULTI-SPEAKER CAMPAIGN SNAPSHOT
           Static demo data; no Supabase query.
          ============================================================ */}
-      <section className="bg-white border-y border-[#E2E1DC] py-16">
+      <section className="bg-white border-y border-[#E2E8F0] py-16">
         <div className="max-w-[1100px] mx-auto px-6">
-          <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] mb-4">
+          <div className="font-mono text-xs uppercase tracking-widest text-[#64748B] mb-4">
             ONE PRINCIPAL · FOUR EXECUTIVES · ONE CAMPAIGN WINDOW
           </div>
           <h2
-            className="font-light text-2xl md:text-3xl text-[#1C1C1A] mb-2"
+            className="font-light text-2xl md:text-3xl text-[#0F172A] mb-2"
             style={{ fontFamily: "var(--font-newsreader)" }}
           >
             ERA CUE governs your entire team — simultaneously.
           </h2>
-          <p className="text-sm text-[#6E6E68] max-w-xl mb-10 leading-relaxed">
+          <p className="text-sm text-[#64748B] max-w-xl mb-10 leading-relaxed">
             One VP Comms or CCO overseeing every executive&apos;s public communications.
             Every draft checked. Every conflict surfaced. Every decision on record —
             before anything goes live.
           </p>
 
           {/* Campaign header strip */}
-          <div className="bg-[#F7F6F3] border border-[#E2E1DC] rounded-sm px-5 py-3 flex justify-between items-center mb-1">
+          <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm px-5 py-3 flex justify-between items-center mb-1">
             <div className="flex items-baseline">
-              <span className="font-mono text-xs text-[#6E6E68] uppercase tracking-widest">
+              <span className="font-mono text-xs text-[#64748B] uppercase tracking-widest">
                 Campaign
               </span>
-              <span className="text-sm font-medium text-[#1C1C1A] ml-3">
+              <span className="text-sm font-medium text-[#0F172A] ml-3">
                 Series B Announce
               </span>
             </div>
-            <span className="font-mono text-xs text-[#6E6E68]">
+            <span className="font-mono text-xs text-[#64748B]">
               Active window · Jun 30, 2026
             </span>
           </div>
@@ -320,27 +320,27 @@ export default function Home() {
           ].map((s) => (
             <div
               key={s.name}
-              className="bg-white border border-[#E2E1DC] rounded-sm px-5 py-4 flex items-center justify-between mb-1"
+              className="bg-white border border-[#E2E8F0] rounded-sm px-5 py-4 flex items-center justify-between mb-1"
             >
               <div>
-                <div className="text-sm font-medium text-[#1C1C1A]">{s.name}</div>
-                <div className="font-mono text-xs text-[#6E6E68]">{s.role}</div>
+                <div className="text-sm font-medium text-[#0F172A]">{s.name}</div>
+                <div className="font-mono text-xs text-[#64748B]">{s.role}</div>
               </div>
               <div className="flex items-center gap-6">
-                <span className="font-mono text-xs text-[#6E6E68]">{s.drafts} drafts</span>
+                <span className="font-mono text-xs text-[#64748B]">{s.drafts} drafts</span>
                 {s.blocked > 0 ? (
                   <span className="font-mono text-xs px-2 py-0.5 rounded-sm border bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]">
                     {s.blocked} blocked
                   </span>
                 ) : (
-                  <span className="font-mono text-xs text-[#6E6E68]">0 blocked</span>
+                  <span className="font-mono text-xs text-[#64748B]">0 blocked</span>
                 )}
                 {s.escalated > 0 ? (
                   <span className="font-mono text-xs px-2 py-0.5 rounded-sm border bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]">
                     {s.escalated} escalated
                   </span>
                 ) : (
-                  <span className="font-mono text-xs text-[#6E6E68]">0 escalated</span>
+                  <span className="font-mono text-xs text-[#64748B]">0 escalated</span>
                 )}
               </div>
               <div className="w-32 text-right">
@@ -354,18 +354,18 @@ export default function Home() {
           ))}
 
           {/* Governance summary strip */}
-          <div className="bg-[#F7F6F3] border border-[#E2E1DC] rounded-sm px-5 py-3 mt-1 flex justify-between items-center">
-            <span className="font-mono text-xs text-[#6E6E68]">
+          <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm px-5 py-3 mt-1 flex justify-between items-center">
+            <span className="font-mono text-xs text-[#64748B]">
               18 drafts · 8 blocked · 3 escalated · 2 overridden
             </span>
-            <span className="font-mono text-xs text-[#6E6E68]">
+            <span className="font-mono text-xs text-[#64748B]">
               Governed by: Sarah Chen · GC · Designated Principal
             </span>
           </div>
 
           <Link
             href="/dashboard"
-            className="block font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] mt-6 transition-colors"
+            className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-6 transition-colors"
           >
             View live dashboard →
           </Link>
@@ -375,16 +375,16 @@ export default function Home() {
       {/* ============================================================
           SECTION 4 — RULES ENGINE
          ============================================================ */}
-      <section className="bg-white border-y border-[#E2E1DC] py-16">
+      <section className="bg-white border-y border-[#E2E8F0] py-16">
         <div className="max-w-[1100px] mx-auto px-6">
           <Eyebrow>THE RULES ENGINE</Eyebrow>
           <h2
-            className="text-2xl font-light text-[#1C1C1A] mt-2 mb-2"
+            className="text-2xl font-light text-[#0F172A] mt-2 mb-2"
             style={{ fontFamily: "var(--font-newsreader)" }}
           >
             Your rules. Your authority. Enforced at the moment of submission.
           </h2>
-          <p className="text-sm text-[#6E6E68] max-w-lg mb-10 leading-relaxed">
+          <p className="text-sm text-[#64748B] max-w-lg mb-10 leading-relaxed">
             ERA CUE checks every draft against rules your principal authorizes.
             Keywords, timing windows, quiet periods, competitor mentions. When
             a rule fires, the record shows exactly why.
@@ -392,12 +392,12 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Rule 1 — BLOCK */}
-            <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
+            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
               <VerdictBlockBadge />
-              <div className="text-sm font-medium text-[#1C1C1A] mt-3">
+              <div className="text-sm font-medium text-[#0F172A] mt-3">
                 Series B Quiet Period
               </div>
-              <p className="text-xs text-[#6E6E68] mt-1 leading-relaxed">
+              <p className="text-xs text-[#64748B] mt-1 leading-relaxed">
                 No hiring, growth, or fundraising language during quiet period.
               </p>
               <div className="flex flex-wrap gap-1 mt-3">
@@ -407,18 +407,18 @@ export default function Home() {
                 <KeywordChip>fundraising</KeywordChip>
                 <KeywordChip>raised</KeywordChip>
               </div>
-              <div className="font-mono text-xs text-[#6E6E68] mt-4 pt-4 border-t border-[#E2E1DC]">
+              <div className="font-mono text-xs text-[#64748B] mt-4 pt-4 border-t border-[#E2E8F0]">
                 Active until Jun 30, 2026 · Authorized by Sarah Chen, GC
               </div>
             </div>
 
             {/* Rule 2 — ESCALATE */}
-            <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
+            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
               <VerdictEscalateBadge />
-              <div className="text-sm font-medium text-[#1C1C1A] mt-3">
+              <div className="text-sm font-medium text-[#0F172A] mt-3">
                 Enterprise Sales Claims
               </div>
-              <p className="text-xs text-[#6E6E68] mt-1 leading-relaxed">
+              <p className="text-xs text-[#64748B] mt-1 leading-relaxed">
                 Sales claims about enterprise customers must be reviewed by GC.
               </p>
               <div className="flex flex-wrap gap-1 mt-3">
@@ -427,7 +427,7 @@ export default function Home() {
                 <KeywordChip>signed</KeywordChip>
                 <KeywordChip>closed deal</KeywordChip>
               </div>
-              <div className="font-mono text-xs text-[#6E6E68] mt-4 pt-4 border-t border-[#E2E1DC]">
+              <div className="font-mono text-xs text-[#64748B] mt-4 pt-4 border-t border-[#E2E8F0]">
                 Active — no end date · Authorized by Sarah Chen, GC
               </div>
             </div>
@@ -435,7 +435,7 @@ export default function Home() {
 
           <Link
             href="/rules"
-            className="block font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] mt-6 transition-colors"
+            className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-6 transition-colors"
           >
             View all 6 active rules →
           </Link>
@@ -449,12 +449,12 @@ export default function Home() {
         <div className="max-w-[1100px] mx-auto px-6 py-16">
           <Eyebrow>THE EXAMINER RECORD</Eyebrow>
           <h2
-            className="text-2xl font-light text-[#1C1C1A] mt-2 mb-2"
+            className="text-2xl font-light text-[#0F172A] mt-2 mb-2"
             style={{ fontFamily: "var(--font-newsreader)" }}
           >
             When the examiner asks — this is what you show them.
           </h2>
-          <p className="text-sm text-[#6E6E68] max-w-lg mb-10 leading-relaxed">
+          <p className="text-sm text-[#64748B] max-w-lg mb-10 leading-relaxed">
             Every governance decision ERA CUE makes produces a printable,
             FINRA-defensible record. The check chain. The reviewer&apos;s
             structured decision. The principal&apos;s identity and authority.
@@ -462,11 +462,11 @@ export default function Home() {
           </p>
 
           {/* Multi-rule framing callout */}
-          <div className="bg-[#EEF2FF] border border-[#C7D2FE] rounded-sm px-5 py-4 mb-8">
-            <div className="font-mono text-sm text-[#3730A3] font-medium">
+          <div className="bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm px-5 py-4 mb-8">
+            <div className="font-mono text-sm text-[#1447C0] font-medium">
               One submission. Four regulatory requirements. One record.
             </div>
-            <div className="font-mono text-xs text-[#6E6E68] mt-1">
+            <div className="font-mono text-xs text-[#64748B] mt-1">
               Rule 2210 content check · Rule 2210(b) principal pre-approval · Rule 3110 supervision record · SEC 17a-4 retention
             </div>
           </div>
@@ -500,12 +500,12 @@ export default function Home() {
               },
             ].map((p) => (
               <div key={p.num} className="flex gap-4 items-start">
-                <div className="font-mono text-xs text-[#C9A92C] w-6 shrink-0 pt-0.5">
+                <div className="font-mono text-xs text-[#1A56DB] w-6 shrink-0 pt-0.5">
                   {p.num}
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-[#1C1C1A]">{p.label}</div>
-                  <p className="text-xs text-[#6E6E68] mt-0.5 leading-relaxed">{p.desc}</p>
+                  <div className="text-sm font-medium text-[#0F172A]">{p.label}</div>
+                  <p className="text-xs text-[#64748B] mt-0.5 leading-relaxed">{p.desc}</p>
                 </div>
               </div>
             ))}
@@ -513,7 +513,7 @@ export default function Home() {
 
           <Link
             href={`/drafts/${EXAMINER_DRAFT_ID}/examiner`}
-            className="block font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] mt-8 transition-colors"
+            className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-8 transition-colors"
           >
             See a live examiner record →
           </Link>
@@ -523,23 +523,23 @@ export default function Home() {
       {/* ============================================================
           SECTION 6 — FOOTER
          ============================================================ */}
-      <footer className="border-t border-[#E2E1DC] bg-[#F7F6F3]">
+      <footer className="border-t border-[#E2E8F0] bg-[#F8F9FB]">
         <div className="max-w-[1100px] mx-auto px-6 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div className="text-xs text-[#6E6E68] flex items-center gap-2">
+          <div className="text-xs text-[#64748B] flex items-center gap-2">
             <span style={{ fontFamily: "var(--font-newsreader)" }} className="text-base font-light tracking-tight">
-              <span className="text-[#4F46E5]">ERA</span>
-              <span className="text-[#4F46E5] italic"> CUE</span>
+              <span className="text-[#1A56DB]">ERA</span>
+              <span className="text-[#1A56DB] italic"> CUE</span>
             </span>
             <span className="font-mono">· demo · May 2026</span>
           </div>
-          <div className="text-xs text-[#6E6E68] md:text-center">
+          <div className="text-xs text-[#64748B] md:text-center">
             Demo data only. No live customer information. Audit trail and SHA-256 constraints are real.
           </div>
           <div className="flex gap-4 font-mono text-xs">
-            <Link href="/rules" className="text-[#6E6E68] hover:text-[#1C1C1A] transition-colors">
+            <Link href="/rules" className="text-[#64748B] hover:text-[#0F172A] transition-colors">
               Rules
             </Link>
-            <Link href="/dashboard" className="text-[#6E6E68] hover:text-[#1C1C1A] transition-colors">
+            <Link href="/dashboard" className="text-[#64748B] hover:text-[#0F172A] transition-colors">
               Dashboard
             </Link>
           </div>
