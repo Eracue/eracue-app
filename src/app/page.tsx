@@ -220,6 +220,22 @@ export default function Home() {
           <div className="text-xs font-mono text-[#64748B] mt-4">
             SHA-256 locked · append-only · record cannot be altered
           </div>
+
+          {/* Transition into the governance flow — closes the scenario
+              with the principal review + examiner record outcome and
+              hands the reader off to the live record. */}
+          <div className="mt-6 pt-6 border-t border-[#E2E8F0] text-sm text-[#374151] leading-relaxed">
+            That verdict routes to the principal&apos;s queue. Sarah Chen
+            reviews it, makes a structured decision with a documented
+            basis, and ERA CUE generates an immutable examiner record —
+            automatically.{" "}
+            <a
+              href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
+              className="text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+            >
+              See the full record →
+            </a>
+          </div>
         </div>
       </section>
 
@@ -317,24 +333,24 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* CARD 04 — IR / GC / Public Co */}
+            {/* CARD 04 — IR / General Counsel / Public Co */}
             <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 flex flex-col">
               <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
-                IR · GC · PUBLIC COMPANY
+                IR · GENERAL COUNSEL · PUBLIC COMPANY
               </div>
               <div className="text-lg font-semibold text-[#0F172A] mb-2 leading-snug">
                 Reg FD enforced at the moment of drafting.
               </div>
               <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
-                The DraftKings
-                <a href="#ref-8">
-                  <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">8</sup>
+                In 2024, SEC charged DraftKings
+                <a href="#ref-6">
+                  <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">6</sup>
                 </a>{" "}
-                CEO posted on LinkedIn during a quiet period. SEC charged
-                the company $200K. ERA CUE enforces earnings quiet periods
-                and flags Reg FD-sensitive language before any executive
-                communicates publicly — and creates the disclosure record
-                automatically.
+                $200K after the CEO posted material nonpublic information
+                on personal LinkedIn and X accounts during a quiet period.
+                ERA CUE enforces earnings quiet periods and flags Reg
+                FD-sensitive language before any executive communicates
+                publicly.
               </p>
               <Link
                 href="/rules"
@@ -350,14 +366,14 @@ export default function Home() {
                 INVESTMENT BANK · PRIVATE EQUITY · HEDGE FUND
               </div>
               <div className="text-lg font-semibold text-[#0F172A] mb-2 leading-snug">
-                Deal-specific quiet periods. Portfolio company communications. Transaction announcements.
+                Deal-specific quiet periods. Every partner. Every portfolio company.
               </div>
               <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
                 Every deal, fundraise, and exit creates a communications
-                minefield. ERA CUE enforces deal-specific quiet periods
-                across your entire team — partners, associates, portfolio
-                company executives. Every communication checked before it
-                goes out. Every approval on record.
+                minefield. ERA CUE enforces transaction-specific quiet
+                periods across your entire team — partners, associates,
+                and portfolio company executives. Every communication
+                checked before it goes out. Every approval on record.
               </p>
               <Link
                 href="/rules"
@@ -687,27 +703,27 @@ export default function Home() {
               },
               {
                 num: 5,
-                text: "SEC Rule 204-2 — Investment Advisers Act. Requires RIAs to maintain records of all written communications relating to recommendations, advice, and client transactions for 5 years.",
+                text: "SEC Rule 204-2 — Investment Advisers Act. Requires registered investment advisers to maintain records of written communications relating to recommendations and advice for a minimum of 5 years.",
                 url: "https://www.ecfr.gov/current/title-17/chapter-II/part-275/section-275.204-2",
                 label: "ecfr.gov — SEC Rule 204-2",
               },
               {
                 num: 6,
+                text: "SEC v. DraftKings Inc. (Sept. 26, 2024) — SEC charged DraftKings with Reg FD violations after CEO posted material nonpublic information on personal LinkedIn and X accounts during an earnings quiet period. $200,000 civil penalty.",
+                url: "https://www.sec.gov/litigation/admin/2024/34-101107.pdf",
+                label: "sec.gov — DraftKings Reg FD action",
+              },
+              {
+                num: 7,
                 text: "FINRA 2026 Annual Regulatory Oversight Report — GenAI: Continuing and Emerging Trends. Recommends human-in-the-loop oversight for agentic AI, audit trails of agent actions, and explicit human checkpoints before execution.",
                 url: "https://www.finra.org/rules-guidance/guidance/reports/2026-finra-annual-regulatory-oversight-report/gen-ai",
                 label: "finra.org — 2026 Annual Regulatory Oversight Report",
               },
               {
-                num: 7,
+                num: 8,
                 text: "SEC Rule 17a-4(b) — Requires preservation of communications records for 3 years, with the first 2 years in an accessible location.",
                 url: "https://www.ecfr.gov/current/title-17/chapter-II/part-240/section-240.17a-4",
                 label: "ecfr.gov — SEC Rule 17a-4",
-              },
-              {
-                num: 8,
-                text: "SEC v. DraftKings Inc. (Sept. 26, 2024) — SEC charged DraftKings with Regulation FD violations for material nonpublic information posted on the CEO's personal LinkedIn and X accounts. $200,000 civil penalty.",
-                url: "https://www.sec.gov/litigation/admin/2024/34-101107.pdf",
-                label: "sec.gov — DraftKings Reg FD enforcement",
               },
             ].map((ref) => (
               <div
