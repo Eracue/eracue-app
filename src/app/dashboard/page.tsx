@@ -55,10 +55,25 @@ type RulePerf = {
  isActive: boolean;
 };
 
+type SpeakerStat = {
+ name: string;
+ title: string;
+ totalDrafts: number;
+ blocked: number;
+ escalated: number;
+ overridden: number;
+ everBlocked: number; // blocked + overridden
+};
+
+type SpeakerJoinRow = {
+ status: string;
+ users: { name: string; title: string | null } | null;
+};
+
 async function getDashboardData() {
  const sb = getSupabaseAdmin();
 
- const [draftsRes, rulesRes, verdictsRes, reviewerActionsRes] = await Promise.all([
+ const [draftsRes, rulesRes, verdictsRes, reviewerActionsRes, speakerStatsRes] = await Promise.all([
  sb
  .from("drafts")
  .select("id, status, source_origin")
@@ -85,12 +100,17 @@ async function getDashboardData() {
  .in("payload->>decision", ["override", "confirm_block", "approve", "reject"])
  .order("occurred_at", { ascending: false })
  .limit(10),
+ sb
+ .from("drafts")
+ .select("status, users:speaker_id(name, title)")
+ .eq("org_id", DEMO_ORG_ID),
  ]);
 
  if (draftsRes.error) throw new Error("drafts: " + draftsRes.error.message);
  if (rulesRes.error) throw new Error("rules: " + rulesRes.error.message);
  if (verdictsRes.error) throw new Error("verdicts: " + verdictsRes.error.message);
  if (reviewerActionsRes.error) throw new Error("reviewer actions: " + reviewerActionsRes.error.message);
+ if (speakerStatsRes.error) throw new Error("speaker stats: " + speakerStatsRes.error.message);
 
  const drafts = (draftsRes.data || []) as DraftLite[];
  const rules = (rulesRes.data || []) as RuleRow[];
@@ -149,11 +169,40 @@ async function getDashboardData() {
  return true;
  });
 
+ // Speaker exposure — aggregate drafts by speaker name. Status 'overridden'
+ // counts toward both the "blocked" exposure (it was blocked first) and the
+ // "overridden" tally; everBlocked is what determines the highest-exposure flag.
+ const speakerMap = new Map<string, SpeakerStat>();
+ for (const row of (speakerStatsRes.data || []) as unknown as SpeakerJoinRow[]) {
+ const u = row.users;
+ if (!u) continue;
+ if (!speakerMap.has(u.name)) {
+ speakerMap.set(u.name, {
+ name: u.name,
+ title: u.title || "",
+ totalDrafts: 0,
+ blocked: 0,
+ escalated: 0,
+ overridden: 0,
+ everBlocked: 0,
+ });
+ }
+ const s = speakerMap.get(u.name)!;
+ s.totalDrafts++;
+ if (row.status === "blocked") { s.blocked++; s.everBlocked++; }
+ else if (row.status === "escalated") s.escalated++;
+ else if (row.status === "overridden") { s.overridden++; s.everBlocked++; }
+ }
+ const speakerStats = Array.from(speakerMap.values()).sort(
+ (a, b) => b.everBlocked - a.everBlocked
+ );
+
  return {
  health: { draftsReviewed, blockRatePct, overrideRatePct, gapExposure },
  rulesPerf,
  reviewerFeed: reviewerActions,
  activeRules,
+ speakerStats,
  };
 }
 
@@ -192,7 +241,8 @@ function basisFromReason(reason: unknown): string | null {
 }
 
 export default async function DashboardPage() {
- const { health, rulesPerf, reviewerFeed, activeRules } = await getDashboardData();
+ const { health, rulesPerf, reviewerFeed, activeRules, speakerStats } = await getDashboardData();
+ const topExposureName = speakerStats[0]?.everBlocked > 0 ? speakerStats[0].name : null;
 
  return (
  <>
@@ -251,6 +301,50 @@ export default async function DashboardPage() {
  Gap monitoring active — no unreviewed posts detected
  </div>
  </div>
+ </div>
+ </section>
+
+ {/* SECTION 1.5 — Speaker exposure (real data, top-blocked highlighted) */}
+ <section className="mb-10">
+ <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] mb-3">
+ Speaker exposure
+ </div>
+ <div className="grid grid-cols-2 gap-3 mt-4">
+ {speakerStats.slice(0, 4).map((s) => {
+ const isTopExposure = topExposureName !== null && s.name === topExposureName;
+ return (
+ <div
+ key={s.name}
+ className={`bg-white border border-[#E2E1DC] rounded-sm p-5 ${
+ isTopExposure ? "border-t-2 border-t-[#B91C1C]" : ""
+ }`}
+ >
+ <div className="flex items-baseline justify-between gap-3">
+ <div className="text-sm font-medium text-[#1C1C1A]">{s.name}</div>
+ <div className="font-mono text-xs text-[#6E6E68]">{s.title}</div>
+ </div>
+ <div className="flex gap-4 mt-3">
+ <div>
+ <div className="font-mono text-xl font-light text-[#1C1C1A]">{s.totalDrafts}</div>
+ <div className="font-mono text-[10px] uppercase text-[#6E6E68]">Drafts</div>
+ </div>
+ <div>
+ <div className="font-mono text-xl font-light text-[#1C1C1A]">{s.blocked}</div>
+ <div className="font-mono text-[10px] uppercase text-[#6E6E68]">Blocked</div>
+ </div>
+ <div>
+ <div className="font-mono text-xl font-light text-[#1C1C1A]">{s.escalated}</div>
+ <div className="font-mono text-[10px] uppercase text-[#6E6E68]">Escalated</div>
+ </div>
+ </div>
+ {isTopExposure && (
+ <div className="font-mono text-[10px] text-[#B91C1C] uppercase tracking-wide mt-3">
+ Highest exposure
+ </div>
+ )}
+ </div>
+ );
+ })}
  </div>
  </section>
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/app/site-header";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const EXAMINER_DRAFT_ID = "e71b56c1-2e30-4a9c-bb78-f0db7ee1f651";
 
@@ -259,6 +260,103 @@ export default function Home() {
               </Link>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          SECTION 3.5 — MULTI-SPEAKER CAMPAIGN SNAPSHOT
+          Static demo data; no Supabase query.
+         ============================================================ */}
+      <section className="bg-white border-y border-[#E2E1DC] py-16">
+        <div className="max-w-[1100px] mx-auto px-6">
+          <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68] mb-4">
+            ONE PRINCIPAL · FOUR EXECUTIVES · ONE CAMPAIGN WINDOW
+          </div>
+          <h2
+            className="font-light text-2xl md:text-3xl text-[#1C1C1A] mb-2"
+            style={{ fontFamily: "var(--font-newsreader)" }}
+          >
+            ERA CUE governs your entire team — simultaneously.
+          </h2>
+          <p className="text-sm text-[#6E6E68] max-w-xl mb-10 leading-relaxed">
+            One VP Comms or CCO overseeing every executive&apos;s public communications.
+            Every draft checked. Every conflict surfaced. Every decision on record —
+            before anything goes live.
+          </p>
+
+          {/* Campaign header strip */}
+          <div className="bg-[#F7F6F3] border border-[#E2E1DC] rounded-sm px-5 py-3 flex justify-between items-center mb-1">
+            <div className="flex items-baseline">
+              <span className="font-mono text-xs text-[#6E6E68] uppercase tracking-widest">
+                Campaign
+              </span>
+              <span className="text-sm font-medium text-[#1C1C1A] ml-3">
+                Series B Announce
+              </span>
+            </div>
+            <span className="font-mono text-xs text-[#6E6E68]">
+              Active window · Jun 30, 2026
+            </span>
+          </div>
+
+          {/* Speaker rows */}
+          {[
+            { name: "Marcus Rivera", role: "CEO",      drafts: 6, blocked: 4, escalated: 1, highest: true },
+            { name: "Lena Brooks",   role: "VP Comms", drafts: 5, blocked: 3, escalated: 0, highest: false },
+            { name: "James Kim",     role: "VP Sales", drafts: 4, blocked: 0, escalated: 2, highest: false },
+            { name: "Priya Patel",   role: "CMO",      drafts: 3, blocked: 1, escalated: 1, highest: false },
+          ].map((s) => (
+            <div
+              key={s.name}
+              className="bg-white border border-[#E2E1DC] rounded-sm px-5 py-4 flex items-center justify-between mb-1"
+            >
+              <div>
+                <div className="text-sm font-medium text-[#1C1C1A]">{s.name}</div>
+                <div className="font-mono text-xs text-[#6E6E68]">{s.role}</div>
+              </div>
+              <div className="flex items-center gap-6">
+                <span className="font-mono text-xs text-[#6E6E68]">{s.drafts} drafts</span>
+                {s.blocked > 0 ? (
+                  <span className="font-mono text-xs px-2 py-0.5 rounded-sm border bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]">
+                    {s.blocked} blocked
+                  </span>
+                ) : (
+                  <span className="font-mono text-xs text-[#6E6E68]">0 blocked</span>
+                )}
+                {s.escalated > 0 ? (
+                  <span className="font-mono text-xs px-2 py-0.5 rounded-sm border bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]">
+                    {s.escalated} escalated
+                  </span>
+                ) : (
+                  <span className="font-mono text-xs text-[#6E6E68]">0 escalated</span>
+                )}
+              </div>
+              <div className="w-32 text-right">
+                {s.highest && (
+                  <span className="font-mono text-[10px] text-[#B91C1C] uppercase tracking-wide">
+                    Highest exposure
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Governance summary strip */}
+          <div className="bg-[#F7F6F3] border border-[#E2E1DC] rounded-sm px-5 py-3 mt-1 flex justify-between items-center">
+            <span className="font-mono text-xs text-[#6E6E68]">
+              18 drafts · 8 blocked · 3 escalated · 2 overridden
+            </span>
+            <span className="font-mono text-xs text-[#6E6E68]">
+              Governed by: Sarah Chen · GC · Designated Principal
+            </span>
+          </div>
+
+          <Link
+            href="/dashboard"
+            className="block font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] mt-6 transition-colors"
+          >
+            View live dashboard →
+          </Link>
         </div>
       </section>
 

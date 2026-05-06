@@ -7,102 +7,137 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 type QueueRow = {
- id: string;
- draft_text: string;
- channel: string;
- source_origin: string;
- status: string;
- submitted_at: string;
- users: { name: string; title: string | null } | null;
- campaigns: { name: string } | null;
+  id: string;
+  draft_text: string;
+  channel: string;
+  source_origin: string;
+  status: string;
+  submitted_at: string;
+  users: { name: string; title: string | null } | null;
+  campaigns: { name: string } | null;
 };
 
 async function getQueue() {
- const sb = getSupabaseAdmin();
- const { data, error } = await sb
- .from("drafts")
- .select("id, draft_text, channel, source_origin, status, submitted_at, users(name, title), campaigns(name)")
- .eq("org_id", DEMO_ORG_ID)
- .in("status", ["blocked", "escalated"])
- .order("submitted_at", { ascending: false });
- if (error) throw new Error(error.message);
- return (data || []) as unknown as QueueRow[];
+  const sb = getSupabaseAdmin();
+  const { data, error } = await sb
+    .from("drafts")
+    .select("id, draft_text, channel, source_origin, status, submitted_at, users(name, title), campaigns(name)")
+    .eq("org_id", DEMO_ORG_ID)
+    .in("status", ["blocked", "escalated"])
+    .order("submitted_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data || []) as unknown as QueueRow[];
 }
 
 function statusBadge(status: string) {
- const colors: Record<string, string> = {
- blocked: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]",
- escalated: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]",
- };
- return colors[status] || "bg-[#F0EFE9] text-[#1C1C1A]";
+  const colors: Record<string, string> = {
+    blocked: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]",
+    escalated: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]",
+  };
+  return colors[status] || "bg-[#F0EFE9] text-[#1C1C1A] border-[#E2E1DC]";
 }
 
 export default async function ReviewerQueuePage() {
- const queue = await getQueue();
+  const queue = await getQueue();
 
- return (
- <>
- <SiteHeader />
- <main className="min-h-screen bg-[#F7F6F3]">
- <div className="max-w-5xl mx-auto px-6 py-12">
- <div className="mb-8">
- <Link href="/" className="text-sm text-[#6E6E68] hover:text-[#1C1C1A]">← Home</Link>
- <h1 className="text-3xl font-light tracking-tight text-[#1C1C1A] mt-2">
- Reviewer queue
- </h1>
- <p className="text-sm text-[#6E6E68] mt-1">
- {queue.length} draft{queue.length === 1 ? "" : "s"} waiting on you
- </p>
- <p className="text-sm text-[#6E6E68] mt-3 max-w-2xl">
- Drafts that hit a BLOCK or ESCALATE rule. You can override with a written reason or confirm the system&apos;s decision.
- </p>
- </div>
+  // Group queue by speaker name; sort groups by draft count descending.
+  const groupMap = new Map<string, { name: string; title: string; drafts: QueueRow[] }>();
+  for (const d of queue) {
+    const name = d.users?.name || "Unknown";
+    if (!groupMap.has(name)) {
+      groupMap.set(name, { name, title: d.users?.title || "", drafts: [] });
+    }
+    groupMap.get(name)!.drafts.push(d);
+  }
+  const groups = Array.from(groupMap.values()).sort(
+    (a, b) => b.drafts.length - a.drafts.length
+  );
 
- {queue.length === 0 ? (
- <div className="bg-white border border-[#E2E1DC] rounded-sm p-12 text-center">
- <p className="text-[#6E6E68]">No drafts in your queue right now.</p>
- </div>
- ) : (
- <div className="bg-white border border-[#E2E1DC] rounded-sm overflow-hidden">
- <table className="w-full text-sm">
- <thead className="bg-[#F7F6F3] border-b border-[#E2E1DC]">
- <tr>
- <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Speaker</th>
- <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Channel</th>
- <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Draft</th>
- <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Campaign</th>
- <th className="text-left px-4 py-3 font-medium text-[#6E6E68]">Status</th>
- <th className="text-right px-4 py-3 font-medium text-[#6E6E68]"></th>
- </tr>
- </thead>
- <tbody>
- {queue.map((d) => (
- <tr key={d.id} className="border-b border-[#E2E1DC] last:border-0 hover:bg-[#F7F6F3]">
- <td className="px-4 py-3">
- <div className="font-medium text-[#1C1C1A]">{d.users?.name || "—"}</div>
- <div className="text-xs text-[#6E6E68]">{d.users?.title || ""}</div>
- </td>
- <td className="px-4 py-3 text-[#6E6E68]">{d.channel}</td>
- <td className="px-4 py-3 text-[#1C1C1A] max-w-md truncate">{d.draft_text}</td>
- <td className="px-4 py-3 text-[#6E6E68]">{d.campaigns?.name || "—"}</td>
- <td className="px-4 py-3">
- <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border ${statusBadge(d.status)}`}>
- {d.status}
- </span>
- </td>
- <td className="px-4 py-3 text-right">
- <Link href={`/reviewer/${d.id}`} className="text-sm text-[#1C1C1A] hover:underline">
- Review →
- </Link>
- </td>
- </tr>
- ))}
- </tbody>
- </table>
- </div>
- )}
- </div>
- </main>
- </>
- );
+  return (
+    <>
+      <SiteHeader />
+      <main className="min-h-screen bg-[#F7F6F3]">
+        <div className="max-w-5xl mx-auto px-6 py-12">
+          <div className="mb-8">
+            <Link href="/" className="text-sm text-[#6E6E68] hover:text-[#1C1C1A]">← Home</Link>
+            <h1 className="text-3xl font-light tracking-tight text-[#1C1C1A] mt-2">
+              Reviewer queue
+            </h1>
+            <p className="text-sm text-[#6E6E68] mt-1">
+              {queue.length} draft{queue.length === 1 ? "" : "s"} waiting on you
+            </p>
+            <p className="text-sm text-[#6E6E68] mt-3 max-w-2xl">
+              Every speaker&apos;s blocked and escalated drafts — in one queue. Override
+              with a documented reason or confirm the system&apos;s decision. Every choice
+              on the record.
+            </p>
+          </div>
+
+          {queue.length === 0 ? (
+            <div className="bg-white border border-[#E2E1DC] rounded-sm p-12 text-center">
+              <p className="text-[#6E6E68]">No drafts in your queue right now.</p>
+            </div>
+          ) : (
+            <div>
+              {groups.map((group) => (
+                <div key={group.name}>
+                  {/* Group header */}
+                  <div className="bg-[#F7F6F3] border border-[#E2E1DC] rounded-sm px-4 py-3 mb-1 flex justify-between items-center">
+                    <div className="flex items-baseline">
+                      <span className="text-sm font-medium text-[#1C1C1A]">{group.name}</span>
+                      {group.title && (
+                        <span className="font-mono text-xs text-[#6E6E68] ml-2">{group.title}</span>
+                      )}
+                    </div>
+                    <span className="bg-white border border-[#E2E1DC] rounded-sm font-mono text-xs text-[#6E6E68] px-2 py-0.5">
+                      {group.drafts.length} draft{group.drafts.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  {/* Draft rows for this speaker */}
+                  {group.drafts.map((d, idx) => {
+                    const isLast = idx === group.drafts.length - 1;
+                    return (
+                      <div
+                        key={d.id}
+                        className={`bg-white border border-[#E2E1DC] border-t-0 px-4 py-3 flex items-center justify-between gap-4 ${
+                          isLast ? "rounded-b-sm mb-4" : ""
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-[#1C1C1A] max-w-md truncate">
+                            {d.draft_text}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-mono text-xs bg-[#F7F6F3] text-[#6E6E68] border border-[#E2E1DC] px-2 py-0.5 rounded-sm">
+                            {d.channel}
+                          </span>
+                          {d.campaigns?.name && (
+                            <span className="font-mono text-xs bg-[#F7F6F3] text-[#6E6E68] border border-[#E2E1DC] px-2 py-0.5 rounded-sm">
+                              {d.campaigns.name}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-sm text-xs font-medium border ${statusBadge(d.status)}`}>
+                            {d.status}
+                          </span>
+                          <Link
+                            href={`/reviewer/${d.id}`}
+                            className="font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] transition-colors"
+                          >
+                            Review →
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    </>
+  );
 }

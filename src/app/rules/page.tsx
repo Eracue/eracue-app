@@ -118,7 +118,7 @@ export default async function RulesPage({ searchParams }: PageProps) {
  {principal ? `Authorized by ${principal.name}${principal.title ? `, ${principal.title}` : ""}` : "Authorized by org principal"}
  </p>
  <p className="text-sm text-[#6E6E68] mt-3 max-w-2xl">
- Every draft is checked against these policies before publication. The principal is responsible for keeping them current.
+ One principal. Every speaker. These rules govern what your entire team can say — before anything goes live. Sarah Chen, GC holds authority over all 6 policies.
  </p>
  </div>
 
@@ -216,15 +216,18 @@ export default async function RulesPage({ searchParams }: PageProps) {
  )}
 
  <div className="mt-3 pt-3 border-t border-[#E2E1DC]">
- <div className="flex items-center justify-between text-xs text-[#6E6E68] mb-2">
+ <div className="font-mono text-xs text-[#6E6E68] mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
  <span className={status.tone === "expired" ? "text-[#6E6E68]" : status.tone === "future" ? "text-[#6E6E68]" : "text-[#166534]"}>
  {status.label}
  </span>
  {r.users && (
- <span>
- Authorized by {r.users.name}{r.users.title ? `, ${r.users.title}` : ""}
- </span>
+ <>
+ <span aria-hidden>·</span>
+ <span>Authorized by {r.users.name}{r.users.title ? `, ${r.users.title}` : ""}</span>
+ </>
  )}
+ <span aria-hidden>·</span>
+ <span>Applies to: All speakers</span>
  </div>
  <div className="text-xs text-[#6E6E68]">
  <span className="text-[#6E6E68]">Evaluated by:</span>{" "}
