@@ -33,6 +33,10 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  const [basis, setBasis] = useState("");
  const [verdictAssessment, setVerdictAssessment] = useState("");
  const [note, setNote] = useState("");
+ // Once a decision lands, swap the form for a brief confirmation panel
+ // before pushing the GC back to the dashboard queue. router.refresh()
+ // would have left them on a record they've already actioned.
+ const [decided, setDecided] = useState(false);
 
  // Determine button options based on current verdict/status
  const isBlocked = currentStatus === "blocked" || verdict === "block";
@@ -67,7 +71,8 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  setSubmitting(false);
  return;
  }
- router.refresh();
+ setDecided(true);
+ setTimeout(() => router.push("/dashboard"), 1500);
  } catch (err) {
  const message = err instanceof Error ? err.message : "Unknown error";
  setError(message);
@@ -76,6 +81,36 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  }
 
  const remaining = NOTE_MAX_LENGTH - note.length;
+
+ if (decided) {
+ return (
+ <div className="bg-white border border-[#E2E8F0] rounded-sm">
+ <div className="text-center py-8 px-6">
+ <div className="w-10 h-10 rounded-full bg-[#F0FDF4] border-2 border-[#BBF7D0] flex items-center justify-center mx-auto mb-4">
+ <svg
+ width="20"
+ height="20"
+ viewBox="0 0 24 24"
+ fill="none"
+ stroke="#166534"
+ strokeWidth="2.5"
+ strokeLinecap="round"
+ strokeLinejoin="round"
+ aria-hidden
+ >
+ <polyline points="20 6 9 17 4 12" />
+ </svg>
+ </div>
+ <div className="font-mono text-xs uppercase tracking-widest text-[#166534] mb-2">
+ Decision recorded
+ </div>
+ <div className="text-sm text-[#374151]">
+ Returning to dashboard...
+ </div>
+ </div>
+ </div>
+ );
+ }
 
  return (
  <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">

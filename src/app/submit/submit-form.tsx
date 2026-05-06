@@ -289,6 +289,20 @@ export function SubmitForm() {
                   </button>
                 </div>
               )}
+
+              {/* Block / escalate routes the GC into the queue management flow.
+                  Clear / review verdicts don't surface this nudge — those drafts
+                  don't need triage. */}
+              {isBlockOrEscalate && (
+                <div className="mt-4 pt-4 border-t border-[#E2E8F0] text-center">
+                  <Link
+                    href="/dashboard"
+                    className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
+                  >
+                    Go to dashboard to manage all pending reviews →
+                  </Link>
+                </div>
+              )}
             </div>
           )}
         </div>

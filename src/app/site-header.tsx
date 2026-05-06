@@ -14,6 +14,12 @@ export function SiteHeader() {
           </span>
         </Link>
         <nav className="flex items-center gap-8 text-sm font-mono text-[#64748B]">
+          <Link
+            href="/submit"
+            className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-xs font-medium px-3 py-1.5 rounded-sm hover:bg-[#1447C0] transition-colors whitespace-nowrap mr-2"
+          >
+            Check a draft →
+          </Link>
           <Link href="/dashboard" className="hover:text-[#0F172A] transition-colors">
             Dashboard
           </Link>

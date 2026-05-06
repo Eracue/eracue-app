@@ -179,12 +179,12 @@ export function DraftsClient({ drafts }: { drafts: DraftRecord[] }) {
         <table className="w-full table-fixed text-sm">
           <thead className="bg-[#F8F9FB] border-b border-[#E2E8F0]">
             <tr>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] w-40 shrink-0">Speaker</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] w-24 shrink-0">Channel</th>
+              <th className="w-40 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Speaker</th>
+              <th className="w-28 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Channel</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Draft</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] w-24 shrink-0">Verdict</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B] w-28 shrink-0">Status</th>
-              <th className="px-4 py-3 w-36 shrink-0" aria-label="Examiner record link" />
+              <th className="w-24 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Verdict</th>
+              <th className="w-28 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Status</th>
+              <th className="w-36 px-4 py-3" aria-label="Examiner record link" />
             </tr>
           </thead>
           <tbody>
@@ -193,7 +193,7 @@ export function DraftsClient({ drafts }: { drafts: DraftRecord[] }) {
                 key={d.id}
                 className="border-b border-[#E2E8F0] last:border-0 hover:bg-[#F8F9FB]"
               >
-                <td className="px-4 py-3 w-40 shrink-0">
+                <td className="px-4 py-3 whitespace-nowrap">
                   <Link href={`/drafts/${d.id}`} className="block group">
                     <div className="text-sm font-semibold text-[#0F172A] group-hover:underline truncate">
                       {d.users?.name || "—"}
@@ -201,23 +201,31 @@ export function DraftsClient({ drafts }: { drafts: DraftRecord[] }) {
                     <div className="text-xs text-[#64748B] truncate">{d.users?.title || ""}</div>
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-[#374151] w-24 shrink-0 truncate">{formatChannel(d.channel)}</td>
-                <td className="px-4 py-3 overflow-hidden">
-                  <div className="text-sm text-[#374151] line-clamp-2 leading-snug">
+                <td className="px-4 py-3 text-[#374151] truncate whitespace-nowrap">{formatChannel(d.channel)}</td>
+                <td className="px-4 py-3">
+                  <div
+                    className="text-sm text-[#374151] overflow-hidden"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
                     {d.draft_text}
                   </div>
                 </td>
-                <td className="px-4 py-3 w-24 shrink-0">
+                <td className="px-4 py-3 whitespace-nowrap">
                   <VerdictBadge verdict={d.verdict} />
                 </td>
-                <td className="px-4 py-3 w-28 shrink-0">
+                <td className="px-4 py-3 whitespace-nowrap">
                   <span
                     className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide ${statusBadge(d.status)}`}
                   >
                     {d.status}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right w-36 shrink-0">
+                <td className="px-4 py-3 text-right whitespace-nowrap">
                   <Link
                     href={`/drafts/${d.id}/examiner`}
                     className="inline-flex items-center gap-1 font-mono text-xs font-medium text-[#1A56DB] hover:text-[#1447C0] bg-[#EFF8FF] border border-[#BAE6FD] px-2 py-1 rounded-sm transition-colors whitespace-nowrap"
