@@ -70,6 +70,9 @@ type SpeakerStat = {
   totalDrafts: number;
   blocked: number;
   escalated: number;
+  // "Corpus" = approved + overridden — the speaker's published-on-record
+  // statements. Drives the consistency-check footprint on the card.
+  corpusCount: number;
 };
 
 type SpeakerJoinRow = {
@@ -228,12 +231,14 @@ async function getDashboardData() {
         totalDrafts: 0,
         blocked: 0,
         escalated: 0,
+        corpusCount: 0,
       });
     }
     const s = speakerMap.get(u.name)!;
     s.totalDrafts++;
     if (row.status === "blocked" || row.status === "overridden") s.blocked++;
     else if (row.status === "escalated") s.escalated++;
+    if (row.status === "approved" || row.status === "overridden") s.corpusCount++;
   }
   const speakerStats = Array.from(speakerMap.values()).sort(
     (a, b) => b.blocked - a.blocked
@@ -579,6 +584,24 @@ export default async function DashboardPage() {
                         <div className="font-mono text-xs uppercase text-[#64748B] mt-1">escalated</div>
                       </div>
                     </div>
+                    {/* Corpus footer — the speaker's approved-statement record.
+                        Drives the Consistency Check; surfaced here so the
+                        dashboard reads as "what we know about this speaker"
+                        rather than just "what we blocked." */}
+                    <div className="mt-3 pt-3 border-t border-[#E2E8F0] flex items-center justify-between">
+                      <span className="font-mono text-[10px] text-[#64748B] uppercase tracking-widest">
+                        Corpus
+                      </span>
+                      <span className="font-mono text-xs text-[#374151]">
+                        {s.corpusCount} approved statements
+                      </span>
+                    </div>
+                    <Link
+                      href={`/speakers/${s.id}`}
+                      className="font-mono text-[10px] text-[#1A56DB] hover:text-[#1447C0] transition-colors mt-1 block"
+                    >
+                      View communication record →
+                    </Link>
                     {isTop && (
                       <div className="font-mono text-[10px] text-[#B91C1C] uppercase tracking-wide mt-3 text-right">
                         Highest exposure

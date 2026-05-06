@@ -666,6 +666,20 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
                       Matched keyword: <span className="font-mono bg-neutral-100 px-1.5 py-0.5 rounded">{c.matched_keyword}</span>
                     </div>
                   )}
+                  {/* Consistency Check carries the corpus size it compared
+                      against at submission time. Surfaced on the examiner
+                      record so an auditor can verify how thorough the
+                      check actually was. */}
+                  {c.check_name === "Consistency Check" && typeof c.corpus_size === "number" && (
+                    <div className="font-mono text-[10px] text-[#64748B] mt-1 ml-4">
+                      Corpus at submission: {c.corpus_size} approved statements from this speaker
+                    </div>
+                  )}
+                  {c.check_name === "Consistency Check" && c.prior_statement && (
+                    <div className="text-xs text-neutral-700 mt-1 ml-4 pl-3 border-l-2 border-[#FED7AA] italic">
+                      Prior statement: &ldquo;{c.prior_statement}&rdquo;
+                    </div>
+                  )}
                 </div>
                 <CheckResultLabel result={c.result} />
               </li>

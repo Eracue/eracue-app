@@ -86,9 +86,9 @@ function buildFooterText(r: RuleRow, classification: "active" | "expired" | "dea
   return `${prefix} · Authorized by Sarah Chen, GC · Applies to: ${scopeLabel(r.scope)} · Rule 2210(d)`;
 }
 
-type Props = { rules: RuleRow[] };
+type Props = { rules: RuleRow[]; corpusCount?: number };
 
-export function RulesClient({ rules }: Props) {
+export function RulesClient({ rules, corpusCount = 0 }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("active");
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -194,8 +194,8 @@ export function RulesClient({ rules }: Props) {
               <div className="font-mono text-xs uppercase text-[#64748B] mt-1">{s.label}</div>
             </div>
           ))}
-          <div className="ml-auto text-sm text-[#374151]">
-            2 of 5 checks active · Rule Check + Quiet Period Check evaluating these rules today
+          <div className="ml-auto font-mono text-sm text-[#374151]">
+            2 of 5 checks active · Rule Check + Quiet Period Check deterministic · Consistency Check comparing against {corpusCount} approved statements
           </div>
         </div>
 

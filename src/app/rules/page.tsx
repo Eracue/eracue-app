@@ -29,10 +29,10 @@ type VerdictAction = {
   payload: { primary_match?: { rule_id?: string; rule_name?: string } | null };
 };
 
-async function getRulesData(): Promise<RuleRow[]> {
+async function getRulesData(): Promise<{ rules: RuleRow[]; corpusCount: number }> {
   const sb = getSupabaseAdmin();
 
-  const [rulesRes, actionsRes] = await Promise.all([
+  const [rulesRes, actionsRes, corpusRes] = await Promise.all([
     sb
       .from("rules")
       // PostgREST aliases:  alias_name:column_name. Surface DB columns under
@@ -47,10 +47,19 @@ async function getRulesData(): Promise<RuleRow[]> {
       .select("occurred_at, payload")
       .eq("org_id", DEMO_ORG_ID)
       .eq("action_type", "verdict_issued"),
+    // Approved-draft count drives the Consistency Check status line
+    // ("comparing against N approved statements"). head:true skips the
+    // payload — we only need the count header.
+    sb
+      .from("drafts")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", DEMO_ORG_ID)
+      .eq("status", "approved"),
   ]);
 
   if (rulesRes.error) throw new Error("rules: " + rulesRes.error.message);
   if (actionsRes.error) throw new Error("verdicts: " + actionsRes.error.message);
+  if (corpusRes.error) throw new Error("corpus: " + corpusRes.error.message);
 
   const rules = (rulesRes.data || []) as unknown as RawRuleRow[];
   const verdicts = (actionsRes.data || []) as VerdictAction[];
@@ -58,7 +67,7 @@ async function getRulesData(): Promise<RuleRow[]> {
   // Compute trigger_count and last_triggered per rule by joining in JS on
   // payload.primary_match.rule_name. (rule_id would be more reliable but the
   // existing seed/backfill data also matches by name.)
-  return rules.map((r) => {
+  const rulesWithCounts: RuleRow[] = rules.map((r) => {
     let count = 0;
     let last: string | null = null;
     for (const v of verdicts) {
@@ -75,14 +84,16 @@ async function getRulesData(): Promise<RuleRow[]> {
       last_triggered: last,
     };
   });
+
+  return { rules: rulesWithCounts, corpusCount: corpusRes.count ?? 0 };
 }
 
 export default async function RulesPage() {
-  const rules = await getRulesData();
+  const { rules, corpusCount } = await getRulesData();
   return (
     <>
       <SiteHeader />
-      <RulesClient rules={rules} />
+      <RulesClient rules={rules} corpusCount={corpusCount} />
     </>
   );
 }

@@ -249,7 +249,10 @@ export default function Home() {
               </div>
               <p className="text-sm text-[#374151] mt-2 leading-relaxed">
                 See every draft your speakers submit. Every verdict, every
-                override, every gap. One dashboard. No Monday morning surprises.
+                override, every gap. ERA CUE checks each new draft against
+                your team&apos;s approved statement history — catching
+                contradictions before they become crises. One dashboard. No
+                Monday morning surprises.
               </p>
               <Link
                 href="/dashboard"
@@ -492,16 +495,21 @@ export default function Home() {
               },
               {
                 num: "03",
+                label: "Consistency on record",
+                desc: "Every approved draft builds the speaker's compliance corpus. New drafts are checked against it automatically — no contradictions, no drift, no surprises.",
+              },
+              {
+                num: "04",
                 label: "Structured reviewer decision",
                 desc: "No freeform notes. Basis, verdict assessment, supplemental note. Constrained fields limit liability.",
               },
               {
-                num: "04",
+                num: "05",
                 label: "SHA-256 immutability",
                 desc: "Append-only database constraints. The record cannot be altered after the fact.",
               },
               {
-                num: "05",
+                num: "06",
                 label: "36-month retention",
                 desc: "SEC Rule 17a-4 + FINRA Rule 4511. Every record retained 36 months, tamper-evident, accessible within 24 hours of request.",
               },

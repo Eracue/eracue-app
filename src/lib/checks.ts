@@ -30,6 +30,10 @@ export type CheckEntry = {
   // surfaces the specific prior statement that conflicts so the
   // reviewer can compare verbatim.
   prior_statement?: string | null;
+  // Size of the corpus the Consistency Check ran against at submission
+  // time. Persisted on the verdict_issued payload so the examiner
+  // record can show "Corpus at submission: N" without re-querying.
+  corpus_size?: number;
 };
 
 export const CHECK_NAMES = [
@@ -224,6 +228,7 @@ Is the new draft consistent with these prior statements? Only flag genuine factu
       check_name: "Consistency Check",
       result: "pass",
       detail: `Consistent with ${priorDrafts.length} prior approved statements.`,
+      corpus_size: priorDrafts.length,
     };
   }
 
@@ -232,6 +237,7 @@ Is the new draft consistent with these prior statements? Only flag genuine factu
     result: "warn",
     detail: consistency.contradiction_found || "Potential inconsistency detected.",
     prior_statement: consistency.prior_statement,
+    corpus_size: priorDrafts.length,
   };
 }
 
