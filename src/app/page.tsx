@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { SiteHeader } from "@/app/site-header";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +64,7 @@ export default function Home() {
   });
 
   return (
-    <div className="dark min-h-screen bg-[#0A0A0B] text-[#F2F2F0]">
+    <div className="min-h-screen bg-[#0A0A0B] text-[#F2F2F0]">
       {/* Minimal motion: only the hero block fades in. Everything else is static. */}
       <style>{`
         @keyframes fadeInUp {
@@ -77,7 +76,25 @@ export default function Home() {
         }
       `}</style>
 
-      <SiteHeader />
+      {/* Inline header — homepage canvas is unconditionally dark, so the shared
+          SiteHeader (which has light/dark variants tied to the theme cookie) is
+          replaced here with a minimal, always-dark strip. SiteHeader still
+          governs every other route. */}
+      <header className="print:hidden bg-[#0A0A0B] border-b border-[#1E1E22] px-6 py-4 flex justify-between items-center">
+        <Link
+          href="/"
+          className="text-lg font-light text-[#F2F2F0]"
+          style={{ fontFamily: "var(--font-newsreader)" }}
+        >
+          ERA CUE
+        </Link>
+        <Link
+          href="/submit"
+          className="font-mono text-xs text-[#6B6B72] hover:text-[#F2F2F0] transition-colors"
+        >
+          Enter →
+        </Link>
+      </header>
 
       {/* ============================================================
           SECTION 1 — HERO
