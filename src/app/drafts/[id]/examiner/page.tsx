@@ -391,6 +391,59 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
         {/* Section 1: Speaker & Submission */}
         <section className="mb-8">
           <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">1. Speaker & Submission</h2>
+
+          {/* Most prominent fact in the document — has a designated
+              principal completed FINRA Rule 3110 review or not? Decided
+              record gets a green block; undecided gets an amber block.
+              Sits above the dl so it's the first thing an examiner sees. */}
+          {reviewerDecisions.length > 0 ? (
+            (() => {
+              const last = reviewerDecisions[reviewerDecisions.length - 1];
+              const lookupActor = last?.actor_id ? actors[last.actor_id] : null;
+              const reviewerName =
+                (last?.payload?.reviewer_name as string | undefined) ||
+                (lookupActor
+                  ? `${lookupActor.name}${lookupActor.title ? `, ${lookupActor.title}` : ""}`
+                  : "Sarah Chen, GC");
+              const occurredLabel = last?.occurred_at
+                ? new Date(last.occurred_at).toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })
+                : "";
+              return (
+                <div className="mb-6 p-4 bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-2">
+                    ✓ Human Review Completed
+                  </div>
+                  <div className="text-base font-semibold text-[#0F172A]">
+                    Reviewed and approved by {reviewerName}
+                  </div>
+                  {occurredLabel && (
+                    <div className="font-mono text-xs text-[#374151] mt-1">
+                      {occurredLabel}
+                    </div>
+                  )}
+                  <div className="font-mono text-[10px] text-[#166534] mt-2">
+                    FINRA Rule 3110(a) supervisory evidence · EU AI Act Article 50(4) exemption applies
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <div className="mb-6 p-4 bg-[#FFF7ED] border border-[#FED7AA] rounded-sm">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#C2410C] mb-1">
+                ⏳ Pending Principal Review
+              </div>
+              <div className="text-sm text-[#374151]">
+                This draft has not yet been formally reviewed by a designated principal. ERA CUE system clearance recorded but principal approval is pending.
+              </div>
+            </div>
+          )}
+
           <dl className="grid grid-cols-3 gap-y-2 text-sm">
             <dt className="text-neutral-500">Speaker</dt>
             <dd className="col-span-2 text-base text-[#0F172A] font-medium">{draft.users?.name || "—"}{draft.users?.title ? ` (${draft.users.title})` : ""}</dd>

@@ -26,7 +26,10 @@ type VerdictAction = {
   payload: { verdict?: string };
 };
 
-async function getDrafts(): Promise<DraftRecord[]> {
+async function getDrafts(): Promise<{
+  drafts: DraftRecord[];
+  principalApprovedIds: string[];
+}> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) throw new Error("Supabase env vars not configured");
@@ -34,9 +37,11 @@ async function getDrafts(): Promise<DraftRecord[]> {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Fetch drafts and all verdict_issued actions in parallel; resolve the latest
-  // verdict per draft client-side. Two queries are cheaper than one row-per-draft join.
-  const [draftsRes, verdictsRes] = await Promise.all([
+  // Three parallel queries: drafts, verdict_issued actions (to resolve the
+  // most recent verdict per draft), and reviewer_decided actions (to mark
+  // which drafts have a recorded principal decision — the archive renders
+  // 'Principal approved' vs 'System cleared' off this signal).
+  const [draftsRes, verdictsRes, decisionsRes] = await Promise.all([
     sb
       .from("drafts")
       .select(
@@ -50,10 +55,16 @@ async function getDrafts(): Promise<DraftRecord[]> {
       .eq("org_id", DEMO_ORG_ID)
       .eq("action_type", "verdict_issued")
       .order("occurred_at", { ascending: true }),
+    sb
+      .from("actions")
+      .select("draft_id")
+      .eq("org_id", DEMO_ORG_ID)
+      .eq("action_type", "reviewer_decided"),
   ]);
 
   if (draftsRes.error) throw new Error(draftsRes.error.message);
   if (verdictsRes.error) throw new Error(verdictsRes.error.message);
+  if (decisionsRes.error) throw new Error(decisionsRes.error.message);
 
   // Most-recent verdict per draft (later inserts overwrite earlier ones in the map).
   const latestVerdictByDraft = new Map<string, string>();
@@ -62,17 +73,30 @@ async function getDrafts(): Promise<DraftRecord[]> {
     if (verdict) latestVerdictByDraft.set(v.draft_id, verdict);
   }
 
+  // Distinct draft_ids carrying at least one reviewer_decided action.
+  // Set conversion happens client-side so the prop stays serialisable
+  // across the RSC boundary.
+  const principalApprovedIds = Array.from(
+    new Set(
+      ((decisionsRes.data as { draft_id: string }[] | null) || [])
+        .map((d) => d.draft_id)
+        .filter(Boolean),
+    ),
+  );
+
   // Merge verdict onto each row so the client component holds a single
   // self-contained array — simpler to filter than a (rows + map) pair.
   const rows = (draftsRes.data || []) as unknown as DraftRow[];
-  return rows.map((d) => ({
+  const drafts = rows.map((d) => ({
     ...d,
     verdict: latestVerdictByDraft.get(d.id) ?? null,
   }));
+
+  return { drafts, principalApprovedIds };
 }
 
 export default async function DraftsPage() {
-  const drafts = await getDrafts();
+  const { drafts, principalApprovedIds } = await getDrafts();
 
   return (
     <>
@@ -97,7 +121,7 @@ export default async function DraftsPage() {
             </p>
           </div>
 
-          <DraftsClient drafts={drafts} />
+          <DraftsClient drafts={drafts} principalApprovedIds={principalApprovedIds} />
         </div>
       </main>
     </>

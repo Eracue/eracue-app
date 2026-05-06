@@ -67,6 +67,22 @@ function VerdictBadge({ verdict }: { verdict: string }) {
   );
 }
 
+// One-line plain-English explanation of each system verdict, surfaced
+// just below the verdict badge so the principal sees what they're being
+// asked to do without having to interpret the colour/word alone.
+const verdictExplanation: Record<string, string> = {
+  block:
+    "This draft violated a hard-stop rule. The principal must override or confirm the block before publication.",
+  escalate:
+    "This draft needs principal review before publication. Approve or reject using the decision form.",
+  review:
+    "This draft has been flagged for consistency review. Check against prior statements before approving.",
+  guide:
+    "Advisory flag only. This draft can publish but consider the guidance noted.",
+  clear:
+    "No violations found. System cleared this draft for publication.",
+};
+
 function decisionBadge(d: string | undefined): { cls: string; label: string } {
   if (d === "override")
     return { cls: "bg-[#EFF8FF] text-[#1447C0] border-[#BAE6FD]", label: "OVERRIDE" };
@@ -194,6 +210,11 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
                   <div className="mt-2">
                     <VerdictBadge verdict={verdict} />
                   </div>
+                  {verdict && verdictExplanation[verdict] && (
+                    <p className="text-sm text-[#374151] mt-2 leading-relaxed">
+                      {verdictExplanation[verdict]}
+                    </p>
+                  )}
                   {primaryMatch && (
                     <>
                       <div className="text-sm font-medium text-[#0F172A] mt-3">

@@ -37,15 +37,45 @@ function formatChannel(ch: string): string {
   return map[ch] ?? ch;
 }
 
-function statusBadge(status: string) {
+// "approved" / "overridden" rows split into two visual treatments based on
+// whether a reviewer_decided action was recorded against the draft —
+// 'Principal approved' (green) when one was, 'System cleared' (slate)
+// when only the engine cleared it. Other statuses keep the original
+// colour-class lookup.
+function statusBadge(
+  status: string,
+  draftId: string,
+  principalApprovedIds: Set<string>,
+) {
+  if (status === "approved" || status === "overridden") {
+    if (principalApprovedIds.has(draftId)) {
+      return (
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#166534]" aria-hidden />
+          Principal approved
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border bg-[#F8F9FB] text-[#64748B] border-[#E2E8F0]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#64748B]" aria-hidden />
+        System cleared
+      </span>
+    );
+  }
   const colors: Record<string, string> = {
-    pending: "bg-[#F1F5F9] text-[#0F172A]",
-    approved: "bg-[#F0FDF4] text-[#166534]",
+    pending:   "bg-[#F1F5F9] text-[#0F172A]",
     escalated: "bg-[#FFF7ED] text-[#C2410C]",
-    blocked: "bg-[#FEF2F2] text-[#B91C1C]",
-    overridden: "bg-[#EFF8FF] text-[#1447C0]",
+    blocked:   "bg-[#FEF2F2] text-[#B91C1C]",
   };
-  return colors[status] || "bg-[#F1F5F9] text-[#0F172A]";
+  const cls = colors[status] || "bg-[#F1F5F9] text-[#0F172A]";
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide ${cls}`}
+    >
+      {status}
+    </span>
+  );
 }
 
 function VerdictBadge({ verdict }: { verdict: string | null }) {
@@ -70,10 +100,24 @@ function VerdictBadge({ verdict }: { verdict: string | null }) {
 const SELECT_CLASSES =
   "border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-xs font-mono text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]";
 
-export function DraftsClient({ drafts }: { drafts: DraftRecord[] }) {
+export function DraftsClient({
+  drafts,
+  principalApprovedIds,
+}: {
+  drafts: DraftRecord[];
+  // Distinct draft_ids that carry a reviewer_decided action. Arrives as
+  // an array to stay serialisable across the RSC boundary; we re-hydrate
+  // it into a Set on mount.
+  principalApprovedIds: string[];
+}) {
   const [verdictFilter, setVerdictFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [speakerFilter, setSpeakerFilter] = useState<string>("all");
+
+  const principalApprovedSet = useMemo(
+    () => new Set(principalApprovedIds),
+    [principalApprovedIds],
+  );
 
   // Speaker dropdown is built from whatever speakers are actually present
   // in the dataset — keeps the menu honest if a name was added/removed.
@@ -219,11 +263,7 @@ export function DraftsClient({ drafts }: { drafts: DraftRecord[] }) {
                   <VerdictBadge verdict={d.verdict} />
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
-                  <span
-                    className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold uppercase tracking-wide ${statusBadge(d.status)}`}
-                  >
-                    {d.status}
-                  </span>
+                  {statusBadge(d.status, d.id, principalApprovedSet)}
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">
                   <Link

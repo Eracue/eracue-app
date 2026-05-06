@@ -256,14 +256,30 @@ export function SubmitForm() {
                 })}
               </div>
 
-              {/* Notification line — block or escalate only */}
+              {/* Status line — block/escalate get an amber pending-review
+                  tone; clear gets a green ready-to-publish tone. Replaces
+                  the old muted notification so the resolution of the
+                  verdict reads as the most important sentence in the
+                  card. */}
               {isBlockOrEscalate && (
-                <div className="mt-4 pt-4 border-t border-[#E2E8F0] flex items-center gap-2 font-mono text-xs text-[#64748B]">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                    <polyline points="22,6 12,13 2,6" />
-                  </svg>
-                  Sarah Chen (GC) notified — draft is in the reviewer queue
+                <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
+                  <div className="flex items-center gap-2 text-sm text-[#374151]">
+                    <span className="w-2 h-2 rounded-full bg-[#F59E0B] shrink-0" aria-hidden />
+                    <span>
+                      Pending principal review — Sarah Chen (GC) has been notified. Your draft will not publish until approved.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {verdictLower === "clear" && (
+                <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
+                  <div className="flex items-center gap-2 text-sm text-[#374151]">
+                    <span className="w-2 h-2 rounded-full bg-[#22C55E] shrink-0" aria-hidden />
+                    <span>
+                      System cleared — no rule violations found. This draft is ready to publish.
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -287,6 +303,21 @@ export function SubmitForm() {
                   >
                     Check another draft
                   </button>
+                  {/* Block/escalate only: keep the draft text but clear the
+                      verdict so the user can iterate on the wording without
+                      retyping the body. */}
+                  {isBlockOrEscalate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerdict(null);
+                        setVerdictData(null);
+                      }}
+                      className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors cursor-pointer ml-4"
+                    >
+                      Edit and recheck →
+                    </button>
+                  )}
                 </div>
               )}
 
