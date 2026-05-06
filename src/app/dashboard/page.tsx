@@ -163,7 +163,28 @@ async function getDashboardData() {
 
   // Rules performance
   const now = Date.now();
-  const rulesPerf: RulePerf[] = rules
+
+  // Dedupe rules by name. The `rules` table has carried duplicate rows for
+  // the same conceptual rule across re-seed cycles (same name, different id),
+  // which then duplicates each row in this section. Keep one row per name,
+  // preferring the entry with the latest `effective_from` so the kept row is
+  // the most recently authored. Trigger counts stay accurate because the
+  // matches filter below also falls back to `pm.rule_name`, which catches
+  // verdicts whose primary_match.rule_id pointed at the dropped duplicate.
+  const dedupedRulesByName = new Map<string, RuleRow>();
+  for (const r of rules) {
+    const prev = dedupedRulesByName.get(r.name);
+    if (!prev) {
+      dedupedRulesByName.set(r.name, r);
+      continue;
+    }
+    const prevTs = new Date(prev.effective_from).getTime();
+    const curTs = new Date(r.effective_from).getTime();
+    if (curTs > prevTs) dedupedRulesByName.set(r.name, r);
+  }
+  const dedupedRules = Array.from(dedupedRulesByName.values());
+
+  const rulesPerf: RulePerf[] = dedupedRules
     .map((rule) => {
       // Match by rule_id if present; fall back to rule_name for legacy seed rows.
       const matches = verdicts.filter((v) => {
