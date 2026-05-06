@@ -116,22 +116,40 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
  <div className="text-xs text-[#64748B] uppercase tracking-wide mb-3">Your decision</div>
 
- {/* Field A — basis (required) */}
+ {/* Field A — basis (required). Stacked radio cards so each option
+ reads as a distinct decision rather than a dropdown choice — gives
+ the principal full sight of every basis without a click. */}
  <div className="mb-4">
- <label htmlFor="basis" className="block text-sm font-medium text-[#0F172A] mb-2">
+ <div className="block text-sm font-medium text-[#0F172A] mb-2">
  Basis for decision <span className="text-[#64748B] font-normal">(required)</span>
- </label>
- <select
- id="basis"
- value={basis}
- onChange={(e) => setBasis(e.target.value)}
- className="w-full px-3 py-2 border border-[#E2E8F0] rounded-sm text-sm bg-white text-[#0F172A] focus:outline-none focus:ring-1 focus:ring-[#0F172A]"
+ </div>
+ <div className="space-y-1.5">
+ {BASIS_OPTIONS.map((option) => (
+ <button
+ key={option}
+ type="button"
+ onClick={() => setBasis(option)}
+ className={`w-full text-left px-3 py-2.5 rounded-sm border text-sm transition-colors cursor-pointer ${
+ basis === option
+ ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#0F172A]"
+ : "bg-white border-[#E2E8F0] text-[#374151] hover:bg-[#F8F9FB]"
+ }`}
  >
- <option value="">— Select a basis —</option>
- {BASIS_OPTIONS.map((opt) => (
- <option key={opt} value={opt}>{opt}</option>
+ <div className="flex items-center gap-2.5">
+ <div
+ aria-hidden
+ className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 ${
+ basis === option
+ ? "border-[#1A56DB] bg-[#1A56DB]"
+ : "border-[#CBD5E1]"
+ }`}
+ style={basis === option ? { boxShadow: "inset 0 0 0 2px white" } : {}}
+ />
+ <span className="text-sm leading-snug">{option}</span>
+ </div>
+ </button>
  ))}
- </select>
+ </div>
  </div>
 
  {/* Field B — verdict assessment (required when verdict is block/escalate) */}

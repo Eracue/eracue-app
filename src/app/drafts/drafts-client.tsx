@@ -113,6 +113,7 @@ export function DraftsClient({
   const [verdictFilter, setVerdictFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [speakerFilter, setSpeakerFilter] = useState<string>("all");
+  const [campaignFilter, setCampaignFilter] = useState<string>("all");
 
   const principalApprovedSet = useMemo(
     () => new Set(principalApprovedIds),
@@ -130,6 +131,17 @@ export function DraftsClient({
     return Array.from(set).sort();
   }, [drafts]);
 
+  // Campaign list — same shape as speakers, derived from whichever
+  // campaigns the dataset references via the joined campaigns row.
+  const campaigns = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of drafts) {
+      const n = d.campaigns?.name?.trim();
+      if (n) set.add(n);
+    }
+    return Array.from(set).sort();
+  }, [drafts]);
+
   // Verdict options come from the spec as uppercase (BLOCK/ESCALATE/CLEAR/REVIEW)
   // but the column is stored lowercase, so compare case-insensitively.
   const filtered = useMemo(() => {
@@ -137,17 +149,22 @@ export function DraftsClient({
       if (verdictFilter !== "all" && (d.verdict ?? "").toLowerCase() !== verdictFilter.toLowerCase()) return false;
       if (statusFilter !== "all" && d.status !== statusFilter) return false;
       if (speakerFilter !== "all" && d.users?.name !== speakerFilter) return false;
+      if (campaignFilter !== "all" && d.campaigns?.name !== campaignFilter) return false;
       return true;
     });
-  }, [drafts, verdictFilter, statusFilter, speakerFilter]);
+  }, [drafts, verdictFilter, statusFilter, speakerFilter, campaignFilter]);
 
   const anyActive =
-    verdictFilter !== "all" || statusFilter !== "all" || speakerFilter !== "all";
+    verdictFilter !== "all" ||
+    statusFilter !== "all" ||
+    speakerFilter !== "all" ||
+    campaignFilter !== "all";
 
   const clearFilters = () => {
     setVerdictFilter("all");
     setStatusFilter("all");
     setSpeakerFilter("all");
+    setCampaignFilter("all");
   };
 
   return (
@@ -190,6 +207,17 @@ export function DraftsClient({
         >
           <option value="all">All speakers</option>
           {speakers.map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+        <select
+          value={campaignFilter}
+          onChange={(e) => setCampaignFilter(e.target.value)}
+          className={SELECT_CLASSES}
+          aria-label="Filter by campaign"
+        >
+          <option value="all">All campaigns</option>
+          {campaigns.map((name) => (
             <option key={name} value={name}>{name}</option>
           ))}
         </select>

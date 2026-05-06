@@ -90,10 +90,12 @@ type QueueDraft = {
   campaigns: { name: string } | null;
 };
 
+type QueueDraftDeduped = QueueDraft & { duplicate_count: number };
+
 type QueueGroup = {
   name: string;
   title: string;
-  drafts: QueueDraft[];
+  drafts: QueueDraftDeduped[];
 };
 
 // ---------- Data fetch ----------------------------------------------------
@@ -244,10 +246,29 @@ async function getDashboardData() {
     (a, b) => b.blocked - a.blocked
   );
 
-  // Action queue — group queue drafts by speaker name, sort groups by count desc.
+  // Action queue — deduplicate identical (speaker × draft text) submissions,
+  // keep the most recent, attach a duplicate_count so the row can show "×N"
+  // instead of repeating the same draft three times.
   const queueDrafts = (queueRes.data || []) as unknown as QueueDraft[];
-  const queueMap = new Map<string, QueueGroup>();
+  const dedupKey = (d: QueueDraft) =>
+    `${d.users?.name ?? "Unknown"}::${d.draft_text.trim()}`;
+  const dedupMap = new Map<string, QueueDraftDeduped>();
   for (const d of queueDrafts) {
+    const key = dedupKey(d);
+    const existing = dedupMap.get(key);
+    if (!existing) {
+      dedupMap.set(key, { ...d, duplicate_count: 1 });
+    } else if (d.submitted_at > existing.submitted_at) {
+      // Newer record wins the row; the running count is preserved.
+      dedupMap.set(key, { ...d, duplicate_count: existing.duplicate_count + 1 });
+    } else {
+      existing.duplicate_count++;
+    }
+  }
+  const dedupedQueueDrafts = Array.from(dedupMap.values());
+
+  const queueMap = new Map<string, QueueGroup>();
+  for (const d of dedupedQueueDrafts) {
     const name = d.users?.name || "Unknown";
     if (!queueMap.has(name)) {
       queueMap.set(name, { name, title: d.users?.title || "", drafts: [] });
@@ -257,6 +278,9 @@ async function getDashboardData() {
   const queueGroups = Array.from(queueMap.values()).sort(
     (a, b) => b.drafts.length - a.drafts.length
   );
+  // Real count for the stat tile and section heading. Counts each submission
+  // (including duplicates) so the number reflects what's in the database,
+  // not just the visible row count.
   const pendingReview = queueDrafts.length;
 
   // Examiner-records list — flatten reviewer-decided actions into a
@@ -505,7 +529,14 @@ export default async function DashboardPage() {
                           }`}
                         >
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-[#0F172A] truncate">{d.draft_text}</div>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="text-sm font-medium text-[#0F172A] truncate min-w-0">{d.draft_text}</div>
+                              {d.duplicate_count > 1 && (
+                                <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] px-1.5 py-0.5 rounded-sm border border-[#E2E8F0] shrink-0">
+                                  ×{d.duplicate_count}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="flex gap-2 shrink-0">
                             <span className="font-mono text-xs bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">

@@ -118,22 +118,22 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-3 mt-2">
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#1447C0]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block"></span>
-              FINRA Rule 3110
+              FINRA Rule 3110 · Supervision
             </span>
             <span className="text-[#E2E8F0] text-xs select-none">·</span>
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#1447C0]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block"></span>
-              FINRA Rule 2210
+              FINRA Rule 2210 · Communications
             </span>
             <span className="text-[#E2E8F0] text-xs select-none">·</span>
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#92400E]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] inline-block"></span>
-              EU AI Act Article 50
+              EU AI Act Art. 50 · Transparency
             </span>
             <span className="text-[#E2E8F0] text-xs select-none">·</span>
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#475569]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#64748B] inline-block"></span>
-              SEC 17a-4
+              SEC Rule 17a-4 · Records
             </span>
           </div>
 
@@ -564,7 +564,7 @@ export default function Home() {
             <span className="font-mono">· demo · May 2026</span>
           </div>
           <div className="text-xs text-[#64748B] md:text-center">
-            Demo data only. No live customer information. Audit trail and SHA-256 constraints are real.
+            Demo data only. No live customer information. The append-only audit trail and tamper-evident records shown are real database constraints — not simulated.
           </div>
           <div className="flex gap-4 font-mono text-xs">
             <Link href="/rules" className="text-[#64748B] hover:text-[#0F172A] transition-colors">

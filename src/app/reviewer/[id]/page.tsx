@@ -124,6 +124,29 @@ function capitalize(s: string): string {
   return s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+// Map raw actor_kind values onto the names a principal would actually
+// recognise. The payload param is reserved for future per-row enrichment
+// (e.g. resolving a specific reviewer's name); today every reviewer is
+// Sarah Chen, GC.
+function formatActor(
+  actorKind: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _payload?: Record<string, unknown>,
+): string {
+  switch (actorKind) {
+    case "system":
+      return "ERA CUE system";
+    case "ai_check":
+      return "ERA CUE checks";
+    case "reviewer":
+      return "Sarah Chen, GC";
+    case "user":
+      return "Speaker";
+    default:
+      return actorKind;
+  }
+}
+
 export default async function ReviewerDetailPage({ params }: PageProps) {
   const { id } = await params;
   const result = await getDraft(id);
@@ -363,7 +386,7 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
                       <span className="text-sm text-[#0F172A]">
                         {capitalize(a.action_type.replace(/_/g, " "))}
                       </span>
-                      <span className="font-mono text-xs text-[#64748B]">({a.actor_kind})</span>
+                      <span className="font-mono text-xs text-[#64748B]">({formatActor(a.actor_kind, a.payload)})</span>
                     </li>
                   ))}
                 </ul>
