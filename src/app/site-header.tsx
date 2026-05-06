@@ -20,9 +20,6 @@ export function SiteHeader() {
           <Link href="/rules" className="hover:text-[#1C1C1A] transition-colors">
             Rules
           </Link>
-          <Link href="/reviewer/queue" className="hover:text-[#1C1C1A] transition-colors">
-            Reviewer
-          </Link>
         </nav>
       </div>
     </header>

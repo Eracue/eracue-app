@@ -162,10 +162,10 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
           {/* Page header — full width above columns */}
           <div className="mb-8">
             <Link
-              href="/reviewer/queue"
+              href="/dashboard"
               className="font-mono text-xs text-[#6E6E68] hover:text-[#1C1C1A]"
             >
-              ← Queue
+              ← Dashboard
             </Link>
             <h1
               style={{ fontFamily: "var(--font-newsreader)" }}

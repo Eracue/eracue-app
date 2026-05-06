@@ -70,12 +70,28 @@ type SpeakerJoinRow = {
   users: { name: string; title: string | null } | null;
 };
 
+type QueueDraft = {
+  id: string;
+  draft_text: string;
+  channel: string;
+  status: string;
+  submitted_at: string;
+  users: { name: string; title: string | null } | null;
+  campaigns: { name: string } | null;
+};
+
+type QueueGroup = {
+  name: string;
+  title: string;
+  drafts: QueueDraft[];
+};
+
 // ---------- Data fetch ----------------------------------------------------
 
 async function getDashboardData() {
   const sb = getSupabaseAdmin();
 
-  const [draftsRes, rulesRes, verdictsRes, reviewerActionsRes, speakerStatsRes] = await Promise.all([
+  const [draftsRes, rulesRes, verdictsRes, reviewerActionsRes, speakerStatsRes, queueRes] = await Promise.all([
     sb.from("drafts").select("id, status, source_origin").eq("org_id", DEMO_ORG_ID),
     sb
       .from("rules")
@@ -99,6 +115,13 @@ async function getDashboardData() {
       .order("occurred_at", { ascending: false })
       .limit(10),
     sb.from("drafts").select("status, users:speaker_id(name, title)").eq("org_id", DEMO_ORG_ID),
+    // Action queue — drafts blocked or escalated, awaiting principal decision.
+    sb
+      .from("drafts")
+      .select("id, draft_text, channel, status, submitted_at, users(name, title), campaigns(name)")
+      .eq("org_id", DEMO_ORG_ID)
+      .in("status", ["blocked", "escalated"])
+      .order("submitted_at", { ascending: false }),
   ]);
 
   if (draftsRes.error) throw new Error("drafts: " + draftsRes.error.message);
@@ -106,6 +129,7 @@ async function getDashboardData() {
   if (verdictsRes.error) throw new Error("verdicts: " + verdictsRes.error.message);
   if (reviewerActionsRes.error) throw new Error("reviewer actions: " + reviewerActionsRes.error.message);
   if (speakerStatsRes.error) throw new Error("speaker stats: " + speakerStatsRes.error.message);
+  if (queueRes.error) throw new Error("queue: " + queueRes.error.message);
 
   const drafts = (draftsRes.data || []) as DraftLite[];
   const rules = (rulesRes.data || []) as RuleRow[];
@@ -186,11 +210,27 @@ async function getDashboardData() {
     (a, b) => b.blocked - a.blocked
   );
 
+  // Action queue — group queue drafts by speaker name, sort groups by count desc.
+  const queueDrafts = (queueRes.data || []) as unknown as QueueDraft[];
+  const queueMap = new Map<string, QueueGroup>();
+  for (const d of queueDrafts) {
+    const name = d.users?.name || "Unknown";
+    if (!queueMap.has(name)) {
+      queueMap.set(name, { name, title: d.users?.title || "", drafts: [] });
+    }
+    queueMap.get(name)!.drafts.push(d);
+  }
+  const queueGroups = Array.from(queueMap.values()).sort(
+    (a, b) => b.drafts.length - a.drafts.length
+  );
+  const pendingReview = queueDrafts.length;
+
   return {
-    health: { draftsReviewed, blockRatePct, overrideRatePct, gapExposure },
+    health: { draftsReviewed, blockRatePct, overrideRatePct, gapExposure, pendingReview },
     rulesPerf,
     reviewerFeed: reviewerActions,
     speakerStats,
+    queueGroups,
   };
 }
 
@@ -251,7 +291,7 @@ function decisionBadge(d: string | undefined): { cls: string; label: string } {
 // ---------- Page ----------------------------------------------------------
 
 export default async function DashboardPage() {
-  const { health, rulesPerf, reviewerFeed, speakerStats } = await getDashboardData();
+  const { health, rulesPerf, reviewerFeed, speakerStats, queueGroups } = await getDashboardData();
   const top = speakerStats[0]?.blocked > 0 ? speakerStats[0].name : null;
 
   return (
@@ -316,13 +356,99 @@ export default async function DashboardPage() {
             </div>
             <div className="bg-white border border-[#E2E1DC] rounded-sm p-6">
               <div className="font-mono text-[10px] uppercase tracking-widest text-[#6E6E68] mb-2">
-                GAP EXPOSURE
+                PENDING REVIEW
               </div>
-              <div className="font-mono text-4xl font-light text-[#1C1C1A]">
-                {health.gapExposure}
+              <div className="font-mono text-4xl font-light text-[#C2410C]">
+                {health.pendingReview}
               </div>
-              <div className="text-xs text-[#6E6E68] mt-1">Gap monitoring active</div>
+              <div className="text-xs text-[#6E6E68] mt-1">Awaiting principal decision</div>
             </div>
+          </section>
+
+          {/* SECTION 2 — Action required (queue grouped by speaker) */}
+          <section className="mt-10">
+            <div className="flex justify-between items-baseline">
+              <div>
+                <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
+                  ACTION REQUIRED
+                </div>
+                <div className="text-lg font-medium text-[#1C1C1A] mt-1">
+                  {queueGroups.reduce((n, g) => n + g.drafts.length, 0)} draft
+                  {queueGroups.reduce((n, g) => n + g.drafts.length, 0) === 1 ? "" : "s"} need your decision
+                </div>
+              </div>
+              {queueGroups.length > 0 && (
+                <span className="font-mono text-xs text-[#6E6E68]">Grouped by speaker</span>
+              )}
+            </div>
+
+            {queueGroups.length === 0 ? (
+              <div className="bg-white border border-[#E2E1DC] rounded-sm p-8 text-center mt-4 text-sm text-[#6E6E68]">
+                No drafts awaiting review. ERA CUE is governing your team&apos;s communications.
+              </div>
+            ) : (
+              <div className="mt-4">
+                {queueGroups.map((group) => (
+                  <div key={group.name}>
+                    {/* Group header */}
+                    <div className="bg-[#F7F6F3] border border-[#E2E1DC] rounded-t-sm px-5 py-3 mt-3 flex justify-between items-center">
+                      <div className="flex items-baseline">
+                        <span className="text-sm font-medium text-[#1C1C1A]">{group.name}</span>
+                        {group.title && (
+                          <span className="font-mono text-xs text-[#6E6E68] ml-2">{group.title}</span>
+                        )}
+                      </div>
+                      <span className="bg-white border border-[#E2E1DC] rounded-sm font-mono text-xs text-[#6E6E68] px-2 py-0.5">
+                        {group.drafts.length} draft{group.drafts.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    {/* Draft rows */}
+                    {group.drafts.map((d, idx) => {
+                      const isLast = idx === group.drafts.length - 1;
+                      const statusCls =
+                        d.status === "blocked"
+                          ? "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]"
+                          : "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]";
+                      return (
+                        <div
+                          key={d.id}
+                          className={`bg-white border-x border-b border-[#E2E1DC] px-5 py-3 flex items-center gap-4 hover:bg-[#F7F6F3] transition-colors ${
+                            isLast ? "rounded-b-sm" : ""
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-[#1C1C1A] truncate">{d.draft_text}</div>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <span className="font-mono text-[10px] bg-[#F0EFE9] text-[#6E6E68] border border-[#E2E1DC] px-2 py-0.5 rounded-sm">
+                              {d.channel}
+                            </span>
+                            {d.campaigns?.name && (
+                              <span className="font-mono text-[10px] bg-[#F0EFE9] text-[#6E6E68] border border-[#E2E1DC] px-2 py-0.5 rounded-sm">
+                                {d.campaigns.name}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span
+                              className={`font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border ${statusCls}`}
+                            >
+                              {d.status}
+                            </span>
+                            <Link
+                              href={`/reviewer/${d.id}`}
+                              className="font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] transition-colors"
+                            >
+                              Review →
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* SECTION 2 — Speaker exposure */}
@@ -376,7 +502,7 @@ export default async function DashboardPage() {
               RULES PERFORMANCE
             </div>
             <p className="text-sm text-[#6E6E68] mt-1 mb-4">
-              Which rules are governing communications right now.
+              Active governance policies and trigger counts.
             </p>
             <div>
               {rulesPerf.length === 0 ? (
@@ -418,15 +544,21 @@ export default async function DashboardPage() {
                 ))
               )}
             </div>
+            <Link
+              href="/rules"
+              className="block font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] mt-3"
+            >
+              Manage rules →
+            </Link>
           </section>
 
-          {/* SECTION 4 — Reviewer decisions */}
+          {/* SECTION 5 — Recent decisions */}
           <section className="mt-10 pb-16">
             <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
-              REVIEWER DECISIONS
+              RECENT DECISIONS
             </div>
             <p className="text-sm text-[#6E6E68] mt-1 mb-4">
-              Decisions made by the designated principal on blocked and escalated drafts.
+              Principal decisions on blocked and escalated drafts.
             </p>
             {reviewerFeed.length === 0 ? (
               <div className="bg-white border border-[#E2E1DC] rounded-sm p-8 text-center text-sm text-[#6E6E68]">
@@ -451,9 +583,10 @@ export default async function DashboardPage() {
                         {badge.label}
                       </span>
                       <div className="text-sm text-[#1C1C1A] mt-2">
-                        Sarah Chen · CCO decided on draft from{" "}
+                        Sarah Chen decided on{" "}
                         <span className="font-medium">{speakerName}</span>
                         {speakerTitle && <span className="text-[#6E6E68]"> ({speakerTitle})</span>}
+                        &apos;s draft
                       </div>
                       {basis && (
                         <div className="font-mono text-xs text-[#6E6E68] mt-1">Basis: {basis}</div>
@@ -466,7 +599,7 @@ export default async function DashboardPage() {
                           href={`/drafts/${a.draft_id}`}
                           className="font-mono text-xs text-[#C9A92C] hover:text-[#8A7520]"
                         >
-                          View draft →
+                          View →
                         </Link>
                       )}
                     </div>
