@@ -222,7 +222,15 @@ export default async function RulesPage({ searchParams }: PageProps) {
                           </div>
                           <div className="text-xs text-neutral-500">
                             <span className="text-neutral-400">Evaluated by:</span>{" "}
-                            <span>Keyword Check + Timing Check</span>
+                            {r.keywords && r.keywords.length > 0 ? (
+                              <span>Keyword Check + Timing Check</span>
+                            ) : (
+                              <span>
+                                <span className="text-neutral-400">Alignment Check</span>
+                                <span className="text-neutral-400 italic"> (available)</span>
+                                <span> + Timing Check</span>
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
