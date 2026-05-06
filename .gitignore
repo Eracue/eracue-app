@@ -42,3 +42,6 @@ next-env.d.ts
 
 # ephemeral test scripts
 .tmp-*
+
+# Claude Code session state
+.claude/

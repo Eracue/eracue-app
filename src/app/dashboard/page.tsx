@@ -316,12 +316,6 @@ export default async function DashboardPage() {
                   Every speaker. Every draft. Every decision. One principal. One record.
                 </p>
               </div>
-              <Link
-                href="/reviewer/queue"
-                className="font-mono text-xs text-[#C9A92C] hover:text-[#8A7520] shrink-0 mt-1"
-              >
-                Go to reviewer queue →
-              </Link>
             </div>
           </div>
 
