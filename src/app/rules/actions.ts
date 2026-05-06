@@ -71,6 +71,39 @@ export async function createRuleAction(
   return { ok: true, ruleId: data.id };
 }
 
+export type UpdateRuleInput = {
+  ruleId: string;
+  name: string;
+  description: string;
+  verdict: string;
+  keywords: string[];
+  scope: string;
+  effective_from: string;
+  effective_until: string | null;
+};
+type UpdateRuleResult = { success: true } | { error: string };
+
+export async function updateRuleAction(
+  input: UpdateRuleInput
+): Promise<UpdateRuleResult> {
+  const sb = getSupabaseAdmin();
+  const { error } = await sb
+    .from("rules")
+    .update({
+      name: input.name,
+      description: input.description,
+      rule_type: input.verdict,
+      keywords: input.keywords,
+      scope: input.scope,
+      effective_from: input.effective_from,
+      effective_to: input.effective_until,
+    })
+    .eq("id", input.ruleId)
+    .eq("org_id", DEMO_ORG_ID);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 // ---- Claude rule-drafting (server-side so the API key never reaches the browser) ----
 
 export type DraftedRule = {

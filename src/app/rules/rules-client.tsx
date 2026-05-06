@@ -91,6 +91,7 @@ export function RulesClient({ rules }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("active");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
   const [pending, startTransition] = useTransition();
 
   const now = Date.now();
@@ -291,7 +292,7 @@ export function RulesClient({ rules }: Props) {
                           <>
                             <button
                               type="button"
-                              onClick={() => alert("Edit coming soon")}
+                              onClick={() => setEditingRule(r)}
                               className="font-mono text-xs text-[#6E6E68] hover:text-[#1C1C1A] transition cursor-pointer"
                             >
                               Edit
@@ -325,7 +326,14 @@ export function RulesClient({ rules }: Props) {
         </div>
       </div>
 
-      <AddRulePanel isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} />
+      <AddRulePanel
+        isOpen={isAddOpen || editingRule !== null}
+        initialRule={editingRule}
+        onClose={() => {
+          setIsAddOpen(false);
+          setEditingRule(null);
+        }}
+      />
     </main>
   );
 }

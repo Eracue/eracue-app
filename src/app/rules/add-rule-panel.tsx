@@ -3,9 +3,32 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { draftRuleAction, createRuleAction, type DraftedRule } from "./actions";
+import {
+  draftRuleAction,
+  createRuleAction,
+  updateRuleAction,
+  type DraftedRule,
+} from "./actions";
 
-type Props = { isOpen: boolean; onClose: () => void };
+// Structurally compatible with RuleRow from rules-client.tsx — declared here
+// (instead of importing) to avoid a circular dependency. Extra fields on the
+// caller's RuleRow are allowed by TS structural typing.
+export type InitialRule = {
+  id: string;
+  name: string;
+  description: string | null;
+  verdict: string;
+  keywords: string[] | null;
+  scope: string | null;
+  effective_from: string | null;
+  effective_until: string | null;
+};
+
+type Props = {
+  isOpen: boolean;
+  onClose: () => void;
+  initialRule?: InitialRule | null;
+};
 
 type PanelState = "describe" | "review" | "confirmed";
 type ScopeType = "all" | "role" | "person";
@@ -24,14 +47,31 @@ const VERDICT_STRIPE: Record<DraftedRule["verdict"], string> = {
   guide:    "bg-[#6D28D9]",
 };
 
-const EXAMPLE_CHIPS = [
-  "Quiet period — no fundraising language",
-  "Escalate all competitor mentions to reviewer",
-  "Block forward guidance before earnings",
-];
-
 const ROLES = ["CEO", "VP Comms", "VP Sales", "CMO", "General Counsel"];
 const SPEAKERS = ["Marcus Rivera", "Lena Brooks", "James Kim", "Priya Patel", "Sarah Chen"];
+
+// Reverse of getScopeValue() — turns a stored scope string back into the
+// describe-state UI selection so an existing rule can be edited in place.
+function parseScope(scope: string | null): {
+  scopeType: ScopeType;
+  scopeRole: string;
+  scopePerson: string;
+} {
+  if (!scope || scope === "all_speakers") {
+    return { scopeType: "all", scopeRole: "", scopePerson: "" };
+  }
+  if (scope.startsWith("role:")) {
+    const slug = scope.slice("role:".length);
+    const match = ROLES.find((r) => r.toLowerCase().replace(/\s+/g, "_") === slug);
+    return { scopeType: "role", scopeRole: match ?? "", scopePerson: "" };
+  }
+  if (scope.startsWith("speaker:")) {
+    const slug = scope.slice("speaker:".length);
+    const match = SPEAKERS.find((s) => s.toLowerCase().replace(/\s+/g, "_") === slug);
+    return { scopeType: "person", scopeRole: "", scopePerson: match ?? "" };
+  }
+  return { scopeType: "all", scopeRole: "", scopePerson: "" };
+}
 
 const PLACEHOLDER_ALL = `Describe what you want to govern in plain English.
 
@@ -44,7 +84,7 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function AddRulePanel({ isOpen, onClose }: Props) {
+export function AddRulePanel({ isOpen, onClose, initialRule }: Props) {
   const router = useRouter();
   const [state, setState] = useState<PanelState>("describe");
   const [description, setDescription] = useState("");
@@ -83,7 +123,8 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
     return "all_speakers";
   }
 
-  // Reset all state when the panel closes.
+  // Reset all state when the panel closes; pre-fill from `initialRule` when
+  // opening in edit mode.
   useEffect(() => {
     if (!isOpen) {
       setState("describe");
@@ -96,8 +137,48 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
       setScopePerson("");
       setActiveUntil("");
       setShowConfirmation(false);
+      return;
     }
-  }, [isOpen]);
+    if (initialRule) {
+      const vRaw = initialRule.verdict;
+      const v: DraftedRule["verdict"] =
+        vRaw === "block" || vRaw === "escalate" || vRaw === "review" || vRaw === "guide"
+          ? vRaw
+          : "review";
+      const desc = initialRule.description ?? initialRule.name;
+      const kws = initialRule.keywords ?? [];
+      const fromISO = initialRule.effective_from
+        ? new Date(initialRule.effective_from).toISOString().slice(0, 10)
+        : todayISO();
+      const untilISO = initialRule.effective_until
+        ? new Date(initialRule.effective_until).toISOString().slice(0, 10)
+        : "";
+      const synthDrafted: DraftedRule = {
+        name: initialRule.name,
+        description: desc,
+        verdict: v,
+        keywords: kws,
+        scope: initialRule.scope ?? "all_speakers",
+        suggested_end_date: untilISO || null,
+        regulatory_basis: "FINRA Rule 2210(d) content standard",
+      };
+      const sp = parseScope(initialRule.scope);
+      setDescription(desc);
+      setDrafted(synthDrafted);
+      setName(initialRule.name);
+      setVerdict(v);
+      setReviewDescription(desc);
+      setKeywords(kws);
+      setActiveFrom(fromISO);
+      setActiveUntil(untilISO);
+      setScopeType(sp.scopeType);
+      setScopeRole(sp.scopeRole);
+      setScopePerson(sp.scopePerson);
+      setState("review");
+      setError(null);
+      setLoading(false);
+    }
+  }, [isOpen, initialRule]);
 
   function applyDrafted(d: DraftedRule) {
     setDrafted(d);
@@ -155,24 +236,48 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const result = await createRuleAction({
-        name,
-        description: reviewDescription,
-        verdict,
-        keywords,
-        scope: getScopeValue(),
-        effective_from: activeFrom
-          ? new Date(activeFrom).toISOString()
-          : new Date().toISOString(),
-        effective_until: activeUntil ? new Date(activeUntil).toISOString() : null,
-        regulatory_basis: drafted.regulatory_basis,
-        authorized_by: "Sarah Chen, GC",
-      });
-      if (!result.ok) {
-        setError(result.error);
-        setLoading(false);
-        return;
+      const effectiveFromISO = activeFrom
+        ? new Date(activeFrom).toISOString()
+        : new Date().toISOString();
+      const effectiveUntilISO = activeUntil
+        ? new Date(activeUntil).toISOString()
+        : null;
+
+      if (initialRule) {
+        const result = await updateRuleAction({
+          ruleId: initialRule.id,
+          name,
+          description: reviewDescription,
+          verdict,
+          keywords,
+          scope: getScopeValue(),
+          effective_from: effectiveFromISO,
+          effective_until: effectiveUntilISO,
+        });
+        if ("error" in result) {
+          setError(result.error);
+          setLoading(false);
+          return;
+        }
+      } else {
+        const result = await createRuleAction({
+          name,
+          description: reviewDescription,
+          verdict,
+          keywords,
+          scope: getScopeValue(),
+          effective_from: effectiveFromISO,
+          effective_until: effectiveUntilISO,
+          regulatory_basis: drafted.regulatory_basis,
+          authorized_by: "Sarah Chen, GC",
+        });
+        if (!result.ok) {
+          setError(result.error);
+          setLoading(false);
+          return;
+        }
       }
+
       setState("confirmed");
       setShowConfirmation(true);
       setTimeout(() => {
@@ -180,7 +285,13 @@ export function AddRulePanel({ isOpen, onClose }: Props) {
         router.refresh();
       }, 2500);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not authorize rule.");
+      setError(
+        e instanceof Error
+          ? e.message
+          : initialRule
+            ? "Could not save changes."
+            : "Could not authorize rule.",
+      );
       setLoading(false);
     }
   }
@@ -233,7 +344,7 @@ Examples:
           <div className="px-6 py-5 border-b border-[#E2E1DC] flex justify-between items-center">
             <div>
               <div className="font-mono text-xs uppercase tracking-widest text-[#6E6E68]">
-                ADD GOVERNANCE RULE
+                {initialRule ? "EDIT GOVERNANCE RULE" : "ADD GOVERNANCE RULE"}
               </div>
               <div
                 style={{ fontFamily: "var(--font-newsreader)" }}
@@ -371,22 +482,10 @@ Examples:
                 </span>
               </div>
 
-              {/* Section D — example chips */}
+              {/* Section D — helper copy */}
               <p className="text-xs font-mono text-[#6E6E68] mt-2 leading-relaxed">
                 ERA CUE will draft the rule structure for your review. You can edit anything before authorizing.
               </p>
-              <div className="flex flex-wrap gap-2 mt-4">
-                {EXAMPLE_CHIPS.map((chip) => (
-                  <button
-                    key={chip}
-                    type="button"
-                    onClick={() => setDescription(chip)}
-                    className="text-xs font-mono bg-[#F0EFE9] text-[#6E6E68] border border-[#E2E1DC] px-3 py-1.5 rounded-sm hover:bg-[#E8E6DE] transition cursor-pointer"
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
 
               {/* Section E — draft button */}
               <button
@@ -683,7 +782,13 @@ Examples:
                 disabled={loading}
                 className="bg-[#4F46E5] text-white text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition"
               >
-                {loading ? "Authorizing..." : "Authorize this rule →"}
+                {loading
+                  ? initialRule
+                    ? "Saving..."
+                    : "Authorizing..."
+                  : initialRule
+                    ? "Save changes →"
+                    : "Authorize this rule →"}
               </button>
             </div>
           </div>
