@@ -187,7 +187,13 @@ export default async function ExaminerRecordPage({ params }: PageProps) {
         {/* Header */}
         <header className="border-b-2 border-neutral-900 pb-6 mb-8">
           <div className="text-xs uppercase tracking-widest text-neutral-500 mb-2">Examiner Record</div>
-          <h1 className="text-2xl font-light text-neutral-900 mb-1">ERA CUE Audit Record</h1>
+          <h1 className="text-2xl mb-1">
+            <span style={{ fontFamily: "var(--font-newsreader)" }} className="font-light">
+              <span className="text-[#4F46E5]">ERA</span>
+              <span className="text-[#4F46E5] italic"> CUE</span>
+            </span>
+            <span className="text-[#1C1C1A] font-light"> Audit Record</span>
+          </h1>
           <p className="text-sm text-neutral-600">Draft ID: <span className="font-mono">{draft.id}</span></p>
           <p className="text-xs text-neutral-500 mt-2">Generated: {fmtTime(new Date().toISOString())}</p>
         </header>

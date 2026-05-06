@@ -2,6 +2,7 @@
 
 import { DEMO_ORG_ID } from "@/lib/demo-config";
 import { runChecks, verdictToStatus, getSupabaseAdmin, buildChecksArray } from "@/lib/checks";
+import type { CheckEntry, RuleMatch, Verdict } from "@/lib/checks";
 
 type SubmitInput = {
   speakerId: string;
@@ -11,7 +12,14 @@ type SubmitInput = {
   draftText: string;
 };
 
-type SubmitResult = { draftId: string; error?: undefined } | { draftId?: undefined; error: string };
+export type SubmitSuccess = {
+  draftId: string;
+  verdict: Verdict;
+  primaryMatch: RuleMatch | null;
+  checks: CheckEntry[];
+  error?: undefined;
+};
+type SubmitResult = SubmitSuccess | { draftId?: undefined; error: string };
 
 export async function submitDraftAction(input: SubmitInput): Promise<SubmitResult> {
   const sb = getSupabaseAdmin();
@@ -93,5 +101,10 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
   const newStatus = verdictToStatus(result.verdict);
   await sb.from("drafts").update({ status: newStatus }).eq("id", draft.id);
 
-  return { draftId: draft.id };
+  return {
+    draftId: draft.id,
+    verdict: result.verdict,
+    primaryMatch: result.primary_match,
+    checks,
+  };
 }

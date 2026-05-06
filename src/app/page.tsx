@@ -498,8 +498,12 @@ export default function Home() {
          ============================================================ */}
       <footer className="border-t border-[#E2E1DC] bg-[#F7F6F3]">
         <div className="max-w-[1100px] mx-auto px-6 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div className="font-mono text-xs text-[#6E6E68]">
-            ERA CUE · demo · May 2026
+          <div className="text-xs text-[#6E6E68] flex items-center gap-2">
+            <span style={{ fontFamily: "var(--font-newsreader)" }} className="text-base font-light tracking-tight">
+              <span className="text-[#4F46E5]">ERA</span>
+              <span className="text-[#4F46E5] italic"> CUE</span>
+            </span>
+            <span className="font-mono">· demo · May 2026</span>
           </div>
           <div className="text-xs text-[#6E6E68] md:text-center">
             Demo data only. No live customer information. Audit trail and SHA-256 constraints are real.
