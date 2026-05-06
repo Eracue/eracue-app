@@ -3,6 +3,12 @@ import { SiteHeader } from "@/app/site-header";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+// `fetchCache = "force-no-store"` is the third lever that stops Next from
+// memoising fetch() responses inside the route handler. Combined with the
+// CDN-level no-store header in next.config and the page-level dynamic
+// directive, this makes the route fully uncacheable end-to-end. Required
+// because Vercel's ISR was serving a months-old prerender of this page.
+export const fetchCache = "force-no-store";
 
 const EXAMINER_DRAFT_ID = "e71b56c1-2e30-4a9c-bb78-f0db7ee1f651";
 
@@ -60,6 +66,7 @@ function KeywordChip({ children }: { children: React.ReactNode }) {
 export default function Home() {
   return (
     <div className="bg-[#F8F9FB] min-h-screen">
+      {/* v2-homepage-2026-redesign */}
       <SiteHeader />
 
       {/* ============================================================

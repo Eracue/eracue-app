@@ -242,9 +242,12 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
 
             {/* RIGHT — Decision workspace (2 cols) */}
             <div className="lg:col-span-2 flex flex-col gap-4">
-              {/* Card 1 — Principal identity */}
-              <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-sm p-4">
-                <div className="font-mono text-[10px] text-[#92400E] uppercase tracking-widest">
+              {/* Card 1 — Principal identity. Border softened to FEF3C7 and
+                  the eyebrow shifted to a deeper amber (#B45309) so the
+                  hierarchy reads: eyebrow → name → authority lines → demo
+                  note in muted slate. */}
+              <div className="bg-[#FFFBEB] border border-[#FEF3C7] rounded-sm p-4">
+                <div className="font-mono text-[10px] text-[#B45309] uppercase tracking-widest">
                   Reviewing as
                 </div>
                 <div className="text-sm font-medium text-[#0F172A] mt-1">
@@ -253,10 +256,10 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
                 <div className="font-mono text-xs text-[#92400E] mt-2">
                   Designated Principal · Final approval
                 </div>
-                <div className="font-mono text-[10px] text-[#64748B] mt-2">
+                <div className="font-mono text-[10px] text-[#92400E] mt-2">
                   FINRA Rule 3110(a) + Rule 2210(b)
                 </div>
-                <div className="font-mono text-[10px] text-[#64748B] mt-3 italic">
+                <div className="font-mono text-[10px] text-[#94A3B8] mt-3 italic">
                   Demo identity — production reads from user record
                 </div>
               </div>

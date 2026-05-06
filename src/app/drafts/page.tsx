@@ -6,6 +6,22 @@ import { SiteHeader } from "@/app/site-header";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+// Channel raw value → display label. Mirrors the helper in dashboard/page.tsx;
+// the duplication is small enough to leave in place rather than route through a
+// shared module. Falls back to the raw value for unknown channels.
+function formatChannel(ch: string): string {
+  const map: Record<string, string> = {
+    linkedin:      "LinkedIn",
+    twitter:       "X / Twitter",
+    press_release: "Press Release",
+    blog:          "Blog",
+    email:         "Email",
+    interview:     "Interview",
+    other:         "Other",
+  };
+  return map[ch] ?? ch;
+}
+
 type DraftRow = {
   id: string;
   draft_text: string;
@@ -181,7 +197,7 @@ export default async function DraftsPage() {
                         <div className="text-xs text-[#64748B]">{d.users?.title || ""}</div>
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-[#64748B]">{d.channel}</td>
+                    <td className="px-4 py-3 text-[#64748B]">{formatChannel(d.channel)}</td>
                     <td className="px-4 py-3 text-[#0F172A] max-w-md truncate">{d.draft_text}</td>
                     <td className="px-4 py-3 text-[#64748B]">{d.campaigns?.name || "—"}</td>
                     <td className="px-4 py-3">

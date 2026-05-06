@@ -465,7 +465,10 @@ export default async function DashboardPage() {
                 No drafts awaiting review. ERA CUE is governing your team&apos;s communications.
               </div>
             ) : (
-              <div className="mt-4">
+              // `space-y-6` introduces an explicit gap between speaker groups
+              // — without it the group headers butted directly against the
+              // bottom of the previous group's last draft row.
+              <div className="mt-4 space-y-6">
                 {queueGroups.map((group) => (
                   <div key={group.name}>
                     {/* Group header */}

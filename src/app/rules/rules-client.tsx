@@ -362,7 +362,7 @@ export function RulesClient({ rules }: Props) {
                 "Automatic EU AI Act Article 50 disclosure flagging",
               ].map((item) => (
                 <div key={item} className="flex items-center gap-2">
-                  <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] shrink-0" />
+                  <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-[#D97706] shrink-0" />
                   <span className="font-mono text-xs text-[#64748B]">{item}</span>
                 </div>
               ))}

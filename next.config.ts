@@ -22,6 +22,9 @@ const nextConfig: NextConfig = {
   // and forces the browser to revalidate on every request.
   async headers() {
     return [
+      // Belt: every path gets no-store. `/(.*)` already matches `/`, but Next's
+      // routing precedence gives a more specific source priority — so we add an
+      // explicit `/` entry below carrying additional CDN-busting headers.
       {
         source: "/(.*)",
         headers: [
@@ -29,6 +32,19 @@ const nextConfig: NextConfig = {
             key: "Cache-Control",
             value: "no-store, must-revalidate",
           },
+        ],
+      },
+      // Braces: explicit homepage entry. Surrogate-Control targets Vercel's
+      // CDN layer (which honours the header in addition to Cache-Control), and
+      // Pragma: no-cache covers HTTP/1.0-style intermediaries. This is the
+      // belt-and-braces pass to defeat the stale-prerender issue specifically
+      // on `/` where ISR was sticking.
+      {
+        source: "/",
+        headers: [
+          { key: "Cache-Control",     value: "no-store, must-revalidate" },
+          { key: "Surrogate-Control", value: "no-store" },
+          { key: "Pragma",            value: "no-cache" },
         ],
       },
     ];
