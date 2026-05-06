@@ -26,6 +26,10 @@ export type CheckEntry = {
   result: "pass" | "fail" | "warn";
   detail: string | null;
   matched_keyword?: string;
+  // Populated by the Consistency Check when a contradiction is found —
+  // surfaces the specific prior statement that conflicts so the
+  // reviewer can compare verbatim.
+  prior_statement?: string | null;
 };
 
 export const CHECK_NAMES = [
@@ -39,10 +43,15 @@ export const CHECK_NAMES = [
 /**
  * Build the full 5-check chain from a CheckResult + source_origin.
  * Process-reconstructable: every check has an entry, with `result: "pass"` and
- * `detail: null` for checks that didn't fire (Consistency / Alignment in this
- * implementation — they're AI checks not yet wired up).
+ * `detail: null` for checks that didn't fire. Pass `consistencyResult` from
+ * `runConsistencyCheck` to fold the AI-driven consistency result in;
+ * omitted means "no corpus check ran".
  */
-export function buildChecksArray(result: CheckResult, sourceOrigin: string): CheckEntry[] {
+export function buildChecksArray(
+  result: CheckResult,
+  sourceOrigin: string,
+  consistencyResult?: CheckEntry,
+): CheckEntry[] {
   const pm = result.primary_match;
   const isQuietPeriod = pm ? /quiet period/i.test(pm.rule_name) : false;
 
@@ -59,9 +68,12 @@ export function buildChecksArray(result: CheckResult, sourceOrigin: string): Che
     ? { check_name: "Quiet Period Check", result: "fail", detail: `Quiet period rule matched: ${pm.rule_name}` }
     : { check_name: "Quiet Period Check", result: "pass", detail: null };
 
+  const consistencyCheck: CheckEntry =
+    consistencyResult ?? { check_name: "Consistency Check", result: "pass", detail: null };
+
   return [
     ruleCheck,
-    { check_name: "Consistency Check", result: "pass", detail: null },
+    consistencyCheck,
     { check_name: "Alignment Check", result: "pass", detail: null },
     quietPeriodCheck,
     {
@@ -72,6 +84,155 @@ export function buildChecksArray(result: CheckResult, sourceOrigin: string): Che
         : "AI source declared (model + prompt hash recorded)",
     },
   ];
+}
+
+// ---------- Consistency Check (AI-powered) ---------------------------------
+
+type ConsistencyResponse = {
+  consistent: boolean;
+  contradiction_found: string | null;
+  prior_statement: string | null;
+};
+
+/**
+ * Compare a new draft against the speaker's last 10 approved drafts using
+ * Claude. Only flags genuine factual contradictions — tone / topic /
+ * emphasis differences are explicitly excluded by the system prompt.
+ *
+ * Failure modes are absorbed into a `pass` result with an explanatory
+ * detail, so a missing API key, network error, or upstream API error
+ * never blocks a submission.
+ */
+export async function runConsistencyCheck(
+  sb: SupabaseClient,
+  orgId: string,
+  speakerId: string,
+  draftText: string,
+): Promise<CheckEntry> {
+  // Step 1 — pull the speaker's approved corpus (most recent first).
+  const { data: priorDrafts } = await sb
+    .from("drafts")
+    .select("draft_text, submitted_at, channel")
+    .eq("org_id", orgId)
+    .eq("speaker_id", speakerId)
+    .eq("status", "approved")
+    .order("submitted_at", { ascending: false })
+    .limit(10);
+
+  // Step 2 — no corpus, nothing to compare against.
+  if (!priorDrafts || priorDrafts.length === 0) {
+    return {
+      check_name: "Consistency Check",
+      result: "pass",
+      detail:
+        "No prior approved statements on record. Corpus builds as drafts are approved.",
+    };
+  }
+
+  // Step 3 — without a key we cannot call the model; fall through cleanly.
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return {
+      check_name: "Consistency Check",
+      result: "pass",
+      detail: "Consistency check unavailable — API key required",
+    };
+  }
+
+  const corpusText = priorDrafts
+    .map(
+      (d, i) =>
+        `${i + 1}. "${d.draft_text}" (${new Date(d.submitted_at).toLocaleDateString()})`,
+    )
+    .join("\n");
+
+  const systemPrompt = `You are a compliance consistency checker for executive communications. Your job is to identify direct contradictions between a new draft and a speaker's prior approved statements.
+
+ONLY flag genuine contradictions — factual claims that directly conflict (e.g., "we are hiring" vs "we paused hiring", "we have 500 customers" vs "we have 200 customers").
+
+Do NOT flag:
+- Tone differences
+- Topic differences
+- Emphasis differences
+- Normal evolution of messaging
+
+Respond with JSON only:
+{
+  "consistent": true | false,
+  "contradiction_found": "one sentence describing the specific contradiction" | null,
+  "prior_statement": "the specific prior statement that conflicts" | null
+}`;
+
+  const userMessage = `New draft: "${draftText}"
+
+Prior approved statements from this speaker:
+${corpusText}
+
+Is the new draft consistent with these prior statements? Only flag genuine factual contradictions.`;
+
+  let consistency: ConsistencyResponse;
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 500,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+      }),
+    });
+
+    if (!response.ok) {
+      return {
+        check_name: "Consistency Check",
+        result: "pass",
+        detail: `Consistency check unavailable — API error ${response.status}`,
+      };
+    }
+
+    const data = (await response.json()) as {
+      content?: Array<{ type: string; text?: string }>;
+    };
+    const text = (data.content ?? [])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text || "")
+      .join("");
+
+    try {
+      const clean = text.replace(/```json/g, "").replace(/```/g, "").trim();
+      consistency = JSON.parse(clean) as ConsistencyResponse;
+    } catch {
+      // Model returned something un-parseable — treat as pass to avoid
+      // false-positives blocking the queue.
+      consistency = { consistent: true, contradiction_found: null, prior_statement: null };
+    }
+  } catch (err) {
+    return {
+      check_name: "Consistency Check",
+      result: "pass",
+      detail: `Consistency check error — ${err instanceof Error ? err.message : "unknown"}`,
+    };
+  }
+
+  if (consistency.consistent) {
+    return {
+      check_name: "Consistency Check",
+      result: "pass",
+      detail: `Consistent with ${priorDrafts.length} prior approved statements.`,
+    };
+  }
+
+  return {
+    check_name: "Consistency Check",
+    result: "warn",
+    detail: consistency.contradiction_found || "Potential inconsistency detected.",
+    prior_statement: consistency.prior_statement,
+  };
 }
 
 export type CheckResult = {

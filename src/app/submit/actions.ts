@@ -1,7 +1,13 @@
 "use server";
 
 import { DEMO_ORG_ID } from "@/lib/demo-config";
-import { runChecks, verdictToStatus, getSupabaseAdmin, buildChecksArray } from "@/lib/checks";
+import {
+  runChecks,
+  runConsistencyCheck,
+  verdictToStatus,
+  getSupabaseAdmin,
+  buildChecksArray,
+} from "@/lib/checks";
 import type { CheckEntry, Verdict } from "@/lib/checks";
 
 type SubmitInput = {
@@ -136,8 +142,19 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     rules_active: result.rules_active,
   });
 
-  // 6. verdict_issued action
-  const checks = buildChecksArray(result, finalSourceOrigin);
+  // 6. Consistency Check — Claude compares draft against the speaker's
+  //    last 10 approved drafts. A 'warn' result is informational and does
+  //    not change the verdict; the warning text rides along on the
+  //    verdict payload as `consistency_warning` so the reviewer sees it.
+  const consistencyResult = await runConsistencyCheck(
+    sb,
+    DEMO_ORG_ID,
+    speakerId,
+    input.draftText,
+  );
+
+  // 7. verdict_issued action
+  const checks = buildChecksArray(result, finalSourceOrigin, consistencyResult);
   await sb.from("actions").insert({
     org_id: DEMO_ORG_ID,
     draft_id: draft.id,
@@ -148,15 +165,18 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
       primary_match: result.primary_match,
       checks_passed: ["rule_check", "timing_check"],
       checks,
+      ...(consistencyResult.result === "warn"
+        ? { consistency_warning: consistencyResult.detail }
+        : {}),
     },
     rules_active: result.rules_active,
   });
 
-  // 7. Update draft.status
+  // 8. Update draft.status
   const newStatus = verdictToStatus(result.verdict);
   await sb.from("drafts").update({ status: newStatus }).eq("id", draft.id);
 
-  // 8. Flat return shape — primary_match unfolded into rule* fields so the
+  // 9. Flat return shape — primary_match unfolded into rule* fields so the
   //    form can render directly without reaching into a nested object.
   return {
     draftId: draft.id,

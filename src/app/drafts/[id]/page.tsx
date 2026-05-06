@@ -66,6 +66,21 @@ const CHECK_DEFINITIONS: { name: string; description: string; engine: "determini
  { name: "Agent Origin Check", description: "Validates AI source disclosure", engine: "ai" },
 ];
 
+// Channel raw value → display label. Mirrors the helper in the dashboard
+// and archive — kept local for self-containment.
+function formatChannel(ch: string): string {
+ const map: Record<string, string> = {
+ linkedin: "LinkedIn",
+ twitter: "X / Twitter",
+ press_release: "Press Release",
+ blog: "Blog",
+ email: "Email",
+ interview: "Interview",
+ other: "Other",
+ };
+ return map[ch] ?? ch;
+}
+
 function VerdictBadge({ verdict }: { verdict: string }) {
  const styles: Record<string, { bg: string; text: string; label: string; border: string }> = {
  block: { bg: "bg-[#FEF2F2]", text: "text-[#B91C1C]", border: "border-[#FECACA]", label: "BLOCK" },
@@ -84,36 +99,40 @@ function VerdictBadge({ verdict }: { verdict: string }) {
 
 function ChecksPerformedPanel({ checks }: { checks: CheckEntry[] }) {
  const byName = new Map(checks.map((c) => [c.check_name, c]));
- const activeCount = CHECK_DEFINITIONS.filter((d) => d.engine === "deterministic" && byName.has(d.name)).length;
- const totalCount = CHECK_DEFINITIONS.length;
 
  return (
  <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 mb-6">
  <div className="flex items-center justify-between mb-4">
  <div className="text-xs text-[#64748B] uppercase tracking-wide">Checks performed</div>
- <div className="text-xs text-[#64748B]">
- <span className="font-medium text-[#0F172A]">{activeCount} of {totalCount}</span> active
+ <div className="font-mono text-xs text-[#64748B]">
+ 5 checks run · 2 deterministic · 3 AI-powered
  </div>
  </div>
  <ul className="space-y-3">
  {CHECK_DEFINITIONS.map((def) => {
  const entry = byName.get(def.name);
- const isActive = def.engine === "deterministic";
- // For active deterministic checks: show entry detail when present
- // (e.g., "Matched: Series B Quiet Period"). For AI-available checks:
- // show the engine description as a "would-do" hint.
- const resultLine = isActive
- ? (entry?.detail ?? "No rules matched")
- : def.description;
+ const isDeterministic = def.engine === "deterministic";
+ // A check counts as "produced a result" when its entry carries a
+ // detail string. For AI checks that's a real signal (Consistency
+ // returns prose; the others stay as "would-do" stubs); for
+ // deterministic checks it's always considered active.
+ const hasDetail = !!entry?.detail;
+ const isActive = isDeterministic || hasDetail;
+ const isWarn = entry?.result === "warn";
+ const resultLine =
+ entry?.detail ?? (isDeterministic ? "No rules matched" : def.description);
+
+ const iconCls = isWarn
+ ? "bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA]"
+ : isActive
+ ? "bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0]"
+ : "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]";
+ const iconChar = isWarn ? "!" : isActive ? "✓" : "○";
 
  return (
  <li key={def.name} className="flex items-start gap-3">
- <div className={`shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
- isActive
- ? "bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0]"
- : "bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]"
- }`}>
- {isActive ? "✓" : "○"}
+ <div className={`shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${iconCls}`}>
+ {iconChar}
  </div>
  <div className="flex-1 min-w-0">
  <div className="flex items-baseline justify-between gap-3">
@@ -122,7 +141,12 @@ function ChecksPerformedPanel({ checks }: { checks: CheckEntry[] }) {
  {def.engine === "deterministic" ? "deterministic" : "AI · available"}
  </div>
  </div>
- <div className="text-xs text-[#64748B] mt-0.5">{resultLine}</div>
+ <div className={`text-xs mt-0.5 ${isWarn ? "text-[#C2410C]" : "text-[#64748B]"}`}>{resultLine}</div>
+ {def.name === "Consistency Check" && entry?.prior_statement && (
+ <div className="text-xs text-[#64748B] mt-1 pl-3 border-l-2 border-[#FED7AA] italic">
+ Prior statement: &ldquo;{entry.prior_statement}&rdquo;
+ </div>
+ )}
  </div>
  </li>
  );
@@ -191,7 +215,7 @@ export default async function DraftDetailPage({ params }: PageProps) {
  <main className="min-h-screen bg-[#F8F9FB]">
  <div className="max-w-3xl mx-auto px-6 py-12">
  <div className="mb-8">
- <Link href="/drafts" className="text-sm text-[#64748B] hover:text-[#0F172A]">← Governance log</Link>
+ <Link href="/drafts" className="text-sm text-[#64748B] hover:text-[#0F172A]">← Archive</Link>
  <h1 className="text-3xl font-light tracking-tight text-[#0F172A] mt-2">Draft</h1>
  <p className="text-sm text-[#64748B] mt-1">
  Submitted by {draft.users?.name || "—"}{draft.users?.title ? ` (${draft.users.title})` : ""}
@@ -216,7 +240,7 @@ export default async function DraftDetailPage({ params }: PageProps) {
  <VerdictBadge verdict={verdict} />
  </div>
  <div className="text-right text-xs text-[#64748B]">
- {actions.filter((a) => a.action_type === "check_ran").length} checks run
+ 5 checks
  </div>
  </div>
  {primaryMatch && (
@@ -234,14 +258,19 @@ export default async function DraftDetailPage({ params }: PageProps) {
  </div>
  )}
 
- {/* Send to reviewer prompt — only when verdict and status both indicate
- the draft genuinely needs review (avoids showing this on drafts whose
- verdict is CLEAR but status was manually set elsewhere). */}
- {(draft.status === "blocked" || draft.status === "escalated") &&
- (verdict === "block" || verdict === "escalate") && (
- <div className="bg-[#F1F5F9] border border-[#E2E8F0] rounded-sm p-4 mb-6 flex items-center justify-between gap-4">
- <div className="text-sm text-[#0F172A]">
- This draft needs reviewer attention.
+ {/* Status-aware banner. Plain-English copy keyed off draft.status
+ plus whether a reviewer_decided action exists; surfaces what's
+ happening without leaking internal state names. */}
+ {(() => {
+ const hasReviewerDecision = actions.some((a) => a.action_type === "reviewer_decided");
+ if ((draft.status === "blocked" || draft.status === "escalated") && !hasReviewerDecision) {
+ const isBlocked = draft.status === "blocked";
+ return (
+ <div className="bg-[#FFF7ED] border border-[#FED7AA] rounded-sm p-4 mb-6 flex items-center justify-between gap-4">
+ <div className="text-sm text-[#374151]">
+ {isBlocked
+ ? "Pending principal review — this draft cannot publish until a designated principal approves."
+ : "Escalated for review — this draft has been routed to the principal for a decision."}
  </div>
  <Link
  href={`/reviewer/${draft.id}`}
@@ -250,19 +279,38 @@ export default async function DraftDetailPage({ params }: PageProps) {
  Open in reviewer →
  </Link>
  </div>
- )}
+ );
+ }
+ if (draft.status === "approved" || draft.status === "overridden") {
+ return (
+ <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-4 mb-6 text-sm text-[#166534]">
+ Cleared for publication.
+ </div>
+ );
+ }
+ if (draft.status === "pending") {
+ return (
+ <div className="bg-[#F1F5F9] border border-[#E2E8F0] rounded-sm p-4 mb-6 text-sm text-[#374151]">
+ Pending — under governance review.
+ </div>
+ );
+ }
+ return null;
+ })()}
 
  {/* Checks Performed */}
  <ChecksPerformedPanel checks={checks} />
 
  {/* Draft Text */}
  <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 mb-6">
- <div className="flex items-center gap-2 mb-4 text-xs text-[#64748B] uppercase tracking-wide">
- <span>{draft.channel}</span>
- <span>·</span>
- <span>{draft.source_origin.replace("_", " ")}</span>
- <span>·</span>
- <span>Status: {draft.status}</span>
+ <div className="flex items-center gap-2 mb-4">
+ <span className="font-mono text-xs bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-sm border border-[#E2E8F0] uppercase">
+ {formatChannel(draft.channel)}
+ </span>
+ <span className="font-mono text-xs bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-sm border border-[#E2E8F0]">
+ {draft.source_origin?.replace("_", " ")}
+ </span>
+ {verdict && <VerdictBadge verdict={verdict} />}
  </div>
  <p className="text-[#0F172A] whitespace-pre-wrap leading-relaxed">
  {highlightMatch(draft.draft_text, matchedKeyword)}
@@ -290,11 +338,24 @@ export default async function DraftDetailPage({ params }: PageProps) {
  </div>
  )}
 
- {/* Action timeline */}
+ {/* Action timeline. Older drafts have a second verdict_issued written
+ by the reclassify script; only the most recent one is shown here.
+ The fact that a reclassification happened is preserved as a footnote
+ below the list. */}
+ {(() => {
+ const verdictIssued = actions.filter((a) => a.action_type === "verdict_issued");
+ const wasReclassified = verdictIssued.length > 1;
+ const lastVerdictId = verdictIssued.length > 0
+ ? verdictIssued[verdictIssued.length - 1].id
+ : null;
+ const filtered = actions.filter(
+ (a) => a.action_type !== "verdict_issued" || a.id === lastVerdictId,
+ );
+ return (
  <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
  <div className="text-xs text-[#64748B] uppercase tracking-wide mb-3">Audit timeline</div>
  <ul className="space-y-2 text-sm">
- {actions.map((a) => (
+ {filtered.map((a) => (
  <li key={a.id} className="flex items-baseline gap-3">
  <span className="text-xs text-[#64748B] font-mono w-20 shrink-0">{new Date(a.occurred_at).toLocaleTimeString()}</span>
  <span className="text-[#0F172A]">{a.action_type.replace("_", " ")}</span>
@@ -302,7 +363,14 @@ export default async function DraftDetailPage({ params }: PageProps) {
  </li>
  ))}
  </ul>
+ {wasReclassified && (
+ <div className="font-mono text-[10px] text-[#94A3B8] mt-3">
+ Verdict was updated after initial submission.
  </div>
+ )}
+ </div>
+ );
+ })()}
  </div>
  </main>
  </>

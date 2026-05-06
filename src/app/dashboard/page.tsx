@@ -64,6 +64,7 @@ type RulePerf = {
 };
 
 type SpeakerStat = {
+  id: string;
   name: string;
   title: string;
   totalDrafts: number;
@@ -73,7 +74,7 @@ type SpeakerStat = {
 
 type SpeakerJoinRow = {
   status: string;
-  users: { name: string; title: string | null } | null;
+  users: { id: string; name: string; title: string | null } | null;
 };
 
 type QueueDraft = {
@@ -120,7 +121,7 @@ async function getDashboardData() {
       .in("payload->>decision", ["override", "confirm_block", "approve", "reject"])
       .order("occurred_at", { ascending: false })
       .limit(10),
-    sb.from("drafts").select("status, users:speaker_id(name, title)").eq("org_id", DEMO_ORG_ID),
+    sb.from("drafts").select("status, users:speaker_id(id, name, title)").eq("org_id", DEMO_ORG_ID),
     // Action queue — drafts blocked or escalated, awaiting principal decision.
     sb
       .from("drafts")
@@ -221,6 +222,7 @@ async function getDashboardData() {
     if (!u) continue;
     if (!speakerMap.has(u.name)) {
       speakerMap.set(u.name, {
+        id: u.id,
         name: u.name,
         title: u.title || "",
         totalDrafts: 0,
@@ -556,7 +558,12 @@ export default async function DashboardPage() {
                       isTop ? "border-t-2 border-t-[#B91C1C]" : ""
                     }`}
                   >
-                    <div className="text-base font-medium text-[#0F172A]">{s.name}</div>
+                    <Link
+                      href={`/speakers/${s.id}`}
+                      className="text-base font-medium text-[#0F172A] hover:underline"
+                    >
+                      {s.name}
+                    </Link>
                     <div className="text-sm text-[#374151] mt-0.5">{s.title}</div>
                     <div className="flex gap-6 mt-4">
                       <div>
