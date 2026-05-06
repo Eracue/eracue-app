@@ -664,6 +664,37 @@ export default function Home() {
       </footer>
 
       {/* ============================================================
+          SECTION 6.5 — REQUEST EARLY ACCESS
+          Sits between the demo footer and the regulatory references
+          so a reader who's read the page and wants to act has a
+          single primary CTA before the legal small-print closes
+          things out.
+         ============================================================ */}
+      <section className="border-t border-[#E2E8F0] py-16 px-6 md:px-12 text-center">
+        <div className="max-w-[1100px] mx-auto">
+          <div
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-2xl font-light text-[#0F172A] mb-3"
+          >
+            Ready to govern your communications?
+          </div>
+          <div className="text-sm text-[#374151] mb-8 max-w-md mx-auto leading-relaxed">
+            ERA CUE is in early access. Request a demo or ask about
+            deployment for your organization.
+          </div>
+          <a
+            href="mailto:hello@eracue.com?subject=ERA%20CUE%20Early%20Access%20Request"
+            className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-sm font-medium px-8 py-3.5 rounded-sm hover:bg-[#1447C0] transition-colors"
+          >
+            Request early access →
+          </a>
+          <div className="font-mono text-xs text-[#94A3B8] mt-4">
+            or email hello@eracue.com
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
           SECTION 7 — REGULATORY REFERENCES
           Sits below the demo footer so the page closes on the legal
           framing the body copy cites. Each row carries an id="ref-N"

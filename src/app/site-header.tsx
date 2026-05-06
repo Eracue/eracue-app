@@ -20,7 +20,7 @@ export function SiteHeader() {
             <span className="text-[#1A56DB] font-bold">ERA</span>
             <span className="text-[#1A56DB] italic font-normal"> CUE</span>
           </span>
-          <span className="ml-1 text-[10px] font-mono bg-[#F1F5F9] text-[#94A3B8] px-1.5 py-0.5 rounded-sm">
+          <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#94A3B8] px-1.5 py-0.5 rounded-sm border border-[#E2E8F0] ml-2">
             demo
           </span>
         </Link>

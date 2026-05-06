@@ -291,6 +291,9 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
                   hierarchy reads: eyebrow → name → authority lines → demo
                   note in muted slate. */}
               <div className="bg-[#FFFBEB] border border-[#FEF3C7] rounded-sm p-4">
+                <div className="font-mono text-[10px] text-[#94A3B8] mb-3 pb-3 border-b border-[#FEF3C7] italic">
+                  In this demo, you are the designated principal — the named supervisor responsible for this communication.
+                </div>
                 <div className="font-mono text-[10px] text-[#B45309] uppercase tracking-widest">
                   Reviewing as
                 </div>
