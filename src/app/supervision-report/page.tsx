@@ -6,7 +6,9 @@ import { PrintButton } from "./print-button";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-type PageProps = { searchParams: Promise<{ from?: string; to?: string }> };
+type PageProps = {
+  searchParams: Promise<{ from?: string; to?: string; campaign?: string }>;
+};
 
 // ---------- Types ---------------------------------------------------------
 
@@ -17,6 +19,10 @@ type DraftRow = {
   source_origin: string;
   submitted_at: string;
   users: { name: string; title: string | null } | null;
+  // Joined campaigns row — present when the report is scoped to a campaign,
+  // also fetched on the date-range version so filtering can be applied
+  // client-side without a second round trip.
+  campaigns: { name: string } | null;
 };
 
 type DecisionRow = {
@@ -84,6 +90,11 @@ function basisFromReason(reason: unknown): string {
 
 export default async function SupervisionReportPage({ searchParams }: PageProps) {
   const sp = await searchParams;
+  const campaign = sp.campaign?.trim() || null;
+
+  // When ?campaign=… is present we ignore the date range and fetch all
+  // submissions tagged with that campaign. Otherwise the report is the
+  // existing date-window view (defaults to current month).
   const fromDate = sp.from || firstOfMonthISO();
   const toDate = sp.to || todayISO();
   const fromIso = `${fromDate}T00:00:00.000Z`;
@@ -92,43 +103,67 @@ export default async function SupervisionReportPage({ searchParams }: PageProps)
 
   const sb = getSupabaseAdmin();
 
+  let draftsQuery = sb
+    .from("drafts")
+    .select(
+      "id, draft_text, status, source_origin, submitted_at, users:speaker_id(name, title), campaigns(name)",
+    )
+    .eq("org_id", DEMO_ORG_ID)
+    .order("submitted_at", { ascending: true });
+  if (!campaign) {
+    draftsQuery = draftsQuery.gte("submitted_at", fromIso).lte("submitted_at", toIso);
+  }
+
+  let decisionsQuery = sb
+    .from("actions")
+    .select(
+      "id, occurred_at, draft_id, payload, drafts(id, draft_text, users:speaker_id(name, title), campaigns(name))",
+    )
+    .eq("org_id", DEMO_ORG_ID)
+    .eq("action_type", "reviewer_decided")
+    .in("payload->>decision", ["override", "confirm_block", "approve", "reject"])
+    .order("occurred_at", { ascending: true });
+  if (!campaign) {
+    decisionsQuery = decisionsQuery.gte("occurred_at", fromIso).lte("occurred_at", toIso);
+  }
+
+  let verdictsQuery = sb
+    .from("actions")
+    .select("occurred_at, payload")
+    .eq("org_id", DEMO_ORG_ID)
+    .eq("action_type", "verdict_issued");
+  if (!campaign) {
+    verdictsQuery = verdictsQuery.gte("occurred_at", fromIso).lte("occurred_at", toIso);
+  }
+
   const [draftsRes, decisionsRes, rulesRes, verdictsRes] = await Promise.all([
-    sb
-      .from("drafts")
-      .select("id, draft_text, status, source_origin, submitted_at, users:speaker_id(name, title)")
-      .eq("org_id", DEMO_ORG_ID)
-      .gte("submitted_at", fromIso)
-      .lte("submitted_at", toIso)
-      .order("submitted_at", { ascending: true }),
-    sb
-      .from("actions")
-      .select(
-        "id, occurred_at, draft_id, payload, drafts(id, draft_text, users:speaker_id(name, title))",
-      )
-      .eq("org_id", DEMO_ORG_ID)
-      .eq("action_type", "reviewer_decided")
-      .in("payload->>decision", ["override", "confirm_block", "approve", "reject"])
-      .gte("occurred_at", fromIso)
-      .lte("occurred_at", toIso)
-      .order("occurred_at", { ascending: true }),
+    draftsQuery,
+    decisionsQuery,
     sb
       .from("rules")
       .select("id, name, rule_type, description, effective_from, effective_to, wsp_reference")
       .eq("org_id", DEMO_ORG_ID)
       .order("name"),
-    sb
-      .from("actions")
-      .select("occurred_at, payload")
-      .eq("org_id", DEMO_ORG_ID)
-      .eq("action_type", "verdict_issued")
-      .gte("occurred_at", fromIso)
-      .lte("occurred_at", toIso),
+    verdictsQuery,
   ]);
 
-  const drafts = (draftsRes.data || []) as unknown as DraftRow[];
-  const decisions = (decisionsRes.data || []) as unknown as DecisionRow[];
+  const allDrafts = (draftsRes.data || []) as unknown as DraftRow[];
+  const allDecisions = (decisionsRes.data || []) as unknown as DecisionRow[];
   const allRules = (rulesRes.data || []) as RuleRow[];
   const verdicts = (verdictsRes.data || []) as VerdictRow[];
+
+  // Campaign-scoped reports filter both lists in JS rather than via
+  // PostgREST, since the campaigns join is on a related row.
+  const drafts = campaign
+    ? allDrafts.filter((d) => d.campaigns?.name === campaign)
+    : allDrafts;
+  const decisions = campaign
+    ? allDecisions.filter((d) => {
+        const c = (d.drafts as unknown as { campaigns?: { name: string } | null } | null)
+          ?.campaigns?.name;
+        return c === campaign;
+      })
+    : allDecisions;
 
   // Active rules during period: effective range overlaps the report window.
   const fromTs = new Date(fromIso).getTime();
@@ -214,23 +249,34 @@ export default async function SupervisionReportPage({ searchParams }: PageProps)
 
       {/* Print toolbar — hidden in printed output */}
       <div className="no-print bg-neutral-100 border-b border-neutral-200 px-6 py-3 sticky top-0 flex justify-between items-center">
-        <span className="text-sm text-neutral-600">Supervision Period Report</span>
+        <span className="text-sm text-neutral-600">
+          {campaign ? `${campaign} — Campaign Governance Record` : "Supervision Period Report"}
+        </span>
         <PrintButton />
       </div>
 
       <div className="max-w-3xl mx-auto px-8 py-12">
-        {/* Header */}
+        {/* Header — campaign-scoped reports replace the date range with a
+            campaign title; date-range reports keep the existing chrome. */}
         <header className="border-b-2 border-neutral-900 pb-6 mb-8">
           <h1 className="text-3xl mb-2">
             <span style={{ fontFamily: "var(--font-newsreader)" }} className="font-light">
               <span className="text-[#1A56DB]">ERA</span>
               <span className="text-[#1A56DB] italic"> CUE</span>
             </span>
-            <span className="text-[#0F172A] font-light"> Supervision Period Report</span>
+            <span className="text-[#0F172A] font-light">
+              {campaign ? ` ${campaign} — Campaign Governance Record` : " Supervision Period Report"}
+            </span>
           </h1>
-          <p className="text-sm text-neutral-600">
-            Period: {fmtRange(fromIso)} to {fmtRange(toIso)}
-          </p>
+          {campaign ? (
+            <p className="text-sm text-neutral-600">
+              All communications submitted under this campaign through ERA CUE
+            </p>
+          ) : (
+            <p className="text-sm text-neutral-600">
+              Period: {fmtRange(fromIso)} to {fmtRange(toIso)}
+            </p>
+          )}
           <p className="text-xs text-neutral-500 mt-1">Generated: {fmtTime(generatedAt)}</p>
           <p className="text-xs text-neutral-500">Designated Principal: Sarah Chen, GC</p>
           <p className="text-xs text-neutral-500">Organization: ERA CUE Demo</p>
@@ -385,7 +431,7 @@ export default async function SupervisionReportPage({ searchParams }: PageProps)
             <span className="font-mono break-all">{reportHash}</span>
           </p>
           <p className="mt-1 font-mono">
-            end of report · period {fromDate} to {toDate}
+            end of report · {campaign ? `campaign ${campaign}` : `period ${fromDate} to ${toDate}`}
           </p>
         </footer>
       </div>

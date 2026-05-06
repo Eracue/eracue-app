@@ -243,7 +243,7 @@ export default async function DraftDetailPage({ params }: PageProps) {
  href={`/drafts/${draft.id}/examiner`}
  className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#0F172A] text-sm font-medium rounded-sm hover:bg-[#F8F9FB] transition"
  >
- Export examiner record →
+ Open governance record →
  </Link>
  </div>
  </div>

@@ -458,16 +458,25 @@ export function DraftsClient({
         </div>
       )}
 
-      {/* Supervision export — placeholder route; lives below the filter bar
-          so it sits beside the table action area without competing with the
-          filters themselves. */}
+      {/* Supervision / campaign export — when a campaign filter is active
+          the link points at the campaign-scoped report; otherwise it
+          falls back to the generic supervision-period export. */}
       <div className="flex justify-end mb-4">
-        <Link
-          href="/supervision-report"
-          className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
-        >
-          Export supervision report →
-        </Link>
+        {campaignFilter !== "all" ? (
+          <Link
+            href={`/supervision-report?campaign=${encodeURIComponent(campaignFilter)}`}
+            className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+          >
+            Export campaign governance record →
+          </Link>
+        ) : (
+          <Link
+            href="/supervision-report"
+            className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
+          >
+            Export supervision report →
+          </Link>
+        )}
       </div>
 
       {/* Desktop table — hidden on mobile in favour of the card list

@@ -47,10 +47,10 @@ export function ExaminerRecordsSection({ records }: Props) {
       <div className="flex justify-between items-baseline gap-4">
         <div>
           <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-            EXAMINER RECORDS
+            GOVERNANCE RECORDS
           </div>
           <div className="text-base font-semibold text-[#0F172A] mt-1">
-            Direct links to FINRA-defensible audit records
+            Direct links to governance records
           </div>
         </div>
         <input
@@ -100,10 +100,10 @@ export function ExaminerRecordsSection({ records }: Props) {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <Link
-                    href={`/drafts/${r.draftId}/examiner`}
+                    href={`/drafts/${r.draftId}/examiner?view=full`}
                     className="font-mono text-sm font-medium text-[#1A56DB] hover:text-[#0F172A] transition-colors"
                   >
-                    Examiner record →
+                    Governance record →
                   </Link>
                 </div>
               </div>
