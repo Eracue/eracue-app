@@ -11,6 +11,10 @@ export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
 const EXAMINER_DRAFT_ID = "e71b56c1-2e30-4a9c-bb78-f0db7ee1f651";
+// CCO role card links to a different blocked Marcus Rivera draft so the
+// examiner record on that page demonstrates a different rule firing path
+// than the one in the Examiner Record section below.
+const CCO_EXAMINER_DRAFT_ID = "afe14696-5336-4336-a0b7-c3410477ec31";
 
 // ---------- Small reusable pieces -----------------------------------------
 
@@ -100,11 +104,9 @@ export default function Home() {
           </h1>
 
           <p className="text-base md:text-lg font-normal text-[#374151] max-w-xl leading-relaxed mb-10">
-            AI agents draft. Executives post. Nobody has a record that a human
-            reviewed it — or that the messaging was consistent with what was
-            said last week. ERA CUE is the governance layer that changes that
-            — pre-publication checks, named principal approval, and an
-            immutable record of every communication your team makes.
+            AI drafts. Executives post. Nobody has a record that anyone
+            checked — or that the messaging was consistent with last week.
+            ERA CUE changes that.
           </p>
 
           <div className="mb-8">
@@ -116,25 +118,30 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 mt-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#1447C0]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block"></span>
               FINRA Rule 3110 · Supervision
             </span>
-            <span className="text-[#E2E8F0] text-xs select-none">·</span>
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#1447C0]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block"></span>
               FINRA Rule 2210 · Communications
             </span>
-            <span className="text-[#E2E8F0] text-xs select-none">·</span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#475569]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#64748B] inline-block"></span>
+              SEC Reg FD · Fair Disclosure
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#475569]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#64748B] inline-block"></span>
+              SEC Rule 204-2 · RIA Records
+            </span>
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#92400E]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] inline-block"></span>
               EU AI Act Art. 50 · Transparency
             </span>
-            <span className="text-[#E2E8F0] text-xs select-none">·</span>
             <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#475569]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#64748B] inline-block"></span>
-              SEC Rule 17a-4 · Records
+              SEC Rule 17a-4 · Retention
             </span>
           </div>
 
@@ -217,84 +224,146 @@ export default function Home() {
       </section>
 
       {/* ============================================================
-          SECTION 3 — THREE ROLES
+          SECTION 3 — FIVE ROLE CARDS
+          2×2 grid for cards 01–04 with card 05 spanning full width on
+          its own row (signalled by the lighter #F8F9FB card background).
          ============================================================ */}
       <section>
         <div className="max-w-[1100px] mx-auto px-6 py-16">
-          <Eyebrow>WHO ERA CUE IS FOR</Eyebrow>
+          <Eyebrow>BUILT FOR EVERY ROLE</Eyebrow>
+          <h2
+            className="text-2xl font-light text-[#0F172A] mt-2 mb-2"
+            style={{ fontFamily: "var(--font-newsreader)" }}
+          >
+            From the executive drafting the post to the examiner reviewing the record.
+          </h2>
 
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-px bg-[#E2E8F0] rounded-sm overflow-hidden">
-            {/* Card 01 — Executive */}
-            <div className="bg-[#F8F9FB] p-8">
-              <div className="font-mono text-xs text-[#64748B]">01</div>
-              <div className="text-sm font-medium text-[#0F172A] mt-3">
-                Executive · Founder · CEO
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* CARD 01 — Executive */}
+            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+                EXECUTIVE · FOUNDER · CEO
               </div>
-              <p className="text-sm text-[#374151] mt-2 leading-relaxed">
-                Draft anything. ERA CUE checks it before it leaves your hands.
-                Your record is clean before you ask.
+              <div className="text-lg font-semibold text-[#0F172A] mb-2 leading-snug">
+                Check it before you post.
+              </div>
+              <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+                Draft anything. ERA CUE checks it against your
+                organization&apos;s active governance rules in under one
+                second. If something&apos;s wrong, you see exactly why —
+                before it reaches anyone.
               </p>
               <Link
                 href="/submit"
-                className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-6 transition-colors"
+                className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-auto transition-colors"
               >
                 Check a draft →
               </Link>
             </div>
 
-            {/* Card 02 — Comms / PR */}
-            <div className="bg-[#F8F9FB] p-8">
-              <div className="font-mono text-xs text-[#64748B]">02</div>
-              <div className="text-sm font-medium text-[#0F172A] mt-3">
-                VP Comms · PR Agency · Brand Team
+            {/* CARD 02 — CMO / Comms / Brand */}
+            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+                CMO · VP COMMS · PR AGENCY
               </div>
-              <p className="text-sm text-[#374151] mt-2 leading-relaxed">
-                See every draft your speakers submit. Every verdict, every
-                override, every gap. ERA CUE checks each new draft against
-                your team&apos;s approved statement history — catching
-                contradictions before they become crises. One dashboard. No
-                Monday morning surprises.
+              <div className="text-lg font-semibold text-[#0F172A] mb-2 leading-snug">
+                See everything before it goes live.
+              </div>
+              <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+                Every executive on your team. Every campaign. Every channel.
+                ERA CUE flags contradictions, catches violations, and checks
+                new drafts against your team&apos;s approved statement
+                history — automatically.
               </p>
               <Link
                 href="/dashboard"
-                className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-6 transition-colors"
+                className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-auto transition-colors"
               >
                 View the dashboard →
               </Link>
             </div>
 
-            {/* Card 03 — CCO / GC / Compliance */}
-            <div className="bg-[#F8F9FB] p-8">
-              <div className="font-mono text-xs text-[#64748B]">03</div>
-              <div className="text-sm font-medium text-[#0F172A] mt-3">
-                CCO · General Counsel · Compliance
+            {/* CARD 03 — CCO / GC / RIA / Broker-dealer */}
+            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+                CCO · GENERAL COUNSEL · RIA · BROKER-DEALER
               </div>
-              <p className="text-sm text-[#374151] mt-2 leading-relaxed">
-                FINRA Rule 3110 requires evidence that a registered principal
-                reviewed communications — including the reviewer&apos;s
-                identity, the communication, and the date of review.
+              <div className="text-lg font-semibold text-[#0F172A] mb-2 leading-snug">
+                The supervisory record, ready for examination.
+              </div>
+              <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+                FINRA Rule 3110
                 <a href="#ref-1">
                   <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">1</sup>
                 </a>{" "}
-                Rule 2210(b) requires principal pre-approval of retail
-                communications before use.
+                requires named principal review of communications. Rule
+                2210(b)
                 <a href="#ref-2">
                   <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">2</sup>
                 </a>{" "}
-                ERA CUE produces this supervisory evidence in one governed
-                submission. SEC Reg FD requires that material information
-                disclosed to any investor be simultaneously disclosed to all.
-                <a href="#ref-4">
-                  <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">4</sup>
+                requires pre-approval of retail communications. SEC Rule
+                204-2
+                <a href="#ref-5">
+                  <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">5</sup>
                 </a>{" "}
-                ERA CUE flags potential Reg FD-sensitive language before
-                publication.
+                requires records of all advisory communications. ERA CUE
+                produces all three — in one governed submission.
               </p>
               <Link
-                href={`/drafts/${EXAMINER_DRAFT_ID}/examiner`}
-                className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-6 transition-colors"
+                href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
+                className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-auto transition-colors"
               >
                 See the examiner record →
+              </Link>
+            </div>
+
+            {/* CARD 04 — IR / GC / Public Co */}
+            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+                IR · GC · PUBLIC COMPANY
+              </div>
+              <div className="text-lg font-semibold text-[#0F172A] mb-2 leading-snug">
+                Reg FD enforced at the moment of drafting.
+              </div>
+              <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+                The DraftKings
+                <a href="#ref-8">
+                  <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">8</sup>
+                </a>{" "}
+                CEO posted on LinkedIn during a quiet period. SEC charged
+                the company $200K. ERA CUE enforces earnings quiet periods
+                and flags Reg FD-sensitive language before any executive
+                communicates publicly — and creates the disclosure record
+                automatically.
+              </p>
+              <Link
+                href="/rules"
+                className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-auto transition-colors"
+              >
+                See active rules →
+              </Link>
+            </div>
+
+            {/* CARD 05 — Investment bank / PE / Hedge fund · full width */}
+            <div className="md:col-span-2 bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+                INVESTMENT BANK · PRIVATE EQUITY · HEDGE FUND
+              </div>
+              <div className="text-lg font-semibold text-[#0F172A] mb-2 leading-snug">
+                Deal-specific quiet periods. Portfolio company communications. Transaction announcements.
+              </div>
+              <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+                Every deal, fundraise, and exit creates a communications
+                minefield. ERA CUE enforces deal-specific quiet periods
+                across your entire team — partners, associates, portfolio
+                company executives. Every communication checked before it
+                goes out. Every approval on record.
+              </p>
+              <Link
+                href="/rules"
+                className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-auto transition-colors"
+              >
+                See how rules work →
               </Link>
             </div>
           </div>
@@ -618,15 +687,27 @@ export default function Home() {
               },
               {
                 num: 5,
+                text: "SEC Rule 204-2 — Investment Advisers Act. Requires RIAs to maintain records of all written communications relating to recommendations, advice, and client transactions for 5 years.",
+                url: "https://www.ecfr.gov/current/title-17/chapter-II/part-275/section-275.204-2",
+                label: "ecfr.gov — SEC Rule 204-2",
+              },
+              {
+                num: 6,
                 text: "FINRA 2026 Annual Regulatory Oversight Report — GenAI: Continuing and Emerging Trends. Recommends human-in-the-loop oversight for agentic AI, audit trails of agent actions, and explicit human checkpoints before execution.",
                 url: "https://www.finra.org/rules-guidance/guidance/reports/2026-finra-annual-regulatory-oversight-report/gen-ai",
                 label: "finra.org — 2026 Annual Regulatory Oversight Report",
               },
               {
-                num: 6,
+                num: 7,
                 text: "SEC Rule 17a-4(b) — Requires preservation of communications records for 3 years, with the first 2 years in an accessible location.",
                 url: "https://www.ecfr.gov/current/title-17/chapter-II/part-240/section-240.17a-4",
                 label: "ecfr.gov — SEC Rule 17a-4",
+              },
+              {
+                num: 8,
+                text: "SEC v. DraftKings Inc. (Sept. 26, 2024) — SEC charged DraftKings with Regulation FD violations for material nonpublic information posted on the CEO's personal LinkedIn and X accounts. $200,000 civil penalty.",
+                url: "https://www.sec.gov/litigation/admin/2024/34-101107.pdf",
+                label: "sec.gov — DraftKings Reg FD enforcement",
               },
             ].map((ref) => (
               <div
