@@ -760,7 +760,7 @@ export default async function DashboardPage() {
                             href={`/drafts/${a.draft_id}/examiner?view=full`}
                             className="font-mono text-sm text-[#1A56DB] hover:text-[#0F172A] font-medium transition-colors min-h-[44px] inline-flex items-center"
                           >
-                            Governance record →
+                            Communication record →
                           </Link>
                         </div>
                       )}

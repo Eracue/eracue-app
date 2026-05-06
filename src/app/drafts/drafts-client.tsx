@@ -46,7 +46,7 @@ function recordLinkLabel(status: string): string {
   if (status === "approved") return "Approval record →";
   if (status === "blocked" || status === "escalated") return "Review record →";
   if (status === "pending") return "Pending review →";
-  return "Governance record →";
+  return "Communication record →";
 }
 
 // Combined status descriptor — folds the raw verdict + status + whether
@@ -458,10 +458,32 @@ export function DraftsClient({
         </div>
       )}
 
-      {/* Supervision / campaign export — when a campaign filter is active
-          the link points at the campaign-scoped report; otherwise it
-          falls back to the generic supervision-period export. */}
-      <div className="flex justify-end mb-4">
+      {/* Export + discoverability row.
+          - With campaignFilter active, primary export is the campaign
+            record. Also surfaces a 'View full campaign record →' link
+            into the dedicated /campaigns/<name> page.
+          - With no filter active, expose 'View campaign records →' as a
+            subtle discoverability hint (sets the campaign filter to
+            the first available campaign so the user lands in a
+            campaign-aware view). */}
+      <div className="flex justify-end mb-4 gap-4 items-center flex-wrap">
+        {campaignFilter !== "all" && (
+          <Link
+            href={`/campaigns/${encodeURIComponent(campaignFilter)}`}
+            className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+          >
+            View full campaign record →
+          </Link>
+        )}
+        {campaignFilter === "all" && campaigns.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setCampaignFilter(campaigns[0])}
+            className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
+          >
+            View campaign records →
+          </button>
+        )}
         {campaignFilter !== "all" ? (
           <Link
             href={`/supervision-report?campaign=${encodeURIComponent(campaignFilter)}`}

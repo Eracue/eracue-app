@@ -47,10 +47,10 @@ export function ExaminerRecordsSection({ records }: Props) {
       <div className="flex justify-between items-baseline gap-4">
         <div>
           <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-            GOVERNANCE RECORDS
+            COMMUNICATION RECORDS
           </div>
           <div className="text-base font-semibold text-[#0F172A] mt-1">
-            Direct links to governance records
+            Direct links to communication records
           </div>
         </div>
         <input
@@ -103,7 +103,7 @@ export function ExaminerRecordsSection({ records }: Props) {
                     href={`/drafts/${r.draftId}/examiner?view=full`}
                     className="font-mono text-sm font-medium text-[#1A56DB] hover:text-[#0F172A] transition-colors"
                   >
-                    Governance record →
+                    Communication record →
                   </Link>
                 </div>
               </div>

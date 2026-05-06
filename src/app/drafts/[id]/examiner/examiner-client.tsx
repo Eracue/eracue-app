@@ -354,13 +354,13 @@ export function ExaminerClient({
         <div className="max-w-3xl mx-auto px-8 py-12">
           {/* Header */}
           <header className="border-b-2 border-neutral-900 pb-6 mb-8">
-            <div className="text-xs uppercase tracking-widest text-neutral-500 mb-2">Governance Record</div>
+            <div className="text-xs uppercase tracking-widest text-neutral-500 mb-2">Communication Record</div>
             <h1 className="text-2xl mb-1">
               <span style={{ fontFamily: "var(--font-newsreader)" }}>
                 <span className="text-[#1A56DB] font-bold">ERA</span>
                 <span className="text-[#1A56DB] italic font-normal"> CUE</span>
               </span>
-              <span className="text-[#0F172A] font-light"> Governance Record</span>
+              <span className="text-[#0F172A] font-light"> Communication Record</span>
             </h1>
             <p className="text-sm text-neutral-600">Draft ID: <span className="font-mono">{draft.id}</span></p>
             <p className="text-xs text-neutral-500 mt-2">Generated: {fmtTime(generatedAt)}</p>
@@ -379,7 +379,7 @@ export function ExaminerClient({
                     : "text-[#64748B] hover:text-[#0F172A]"
                 }`}
               >
-                {v === "summary" ? "Approval summary" : "Full compliance record"}
+                {v === "summary" ? "Communication summary" : "Full compliance record"}
               </button>
             ))}
           </div>
@@ -387,6 +387,7 @@ export function ExaminerClient({
           {view === "summary" ? (
             <SummaryView
               draft={draft}
+              actions={actions}
               primaryMatch={primaryMatch}
               verdict={verdict}
               isApproved={isApproved}
@@ -417,6 +418,7 @@ export function ExaminerClient({
 
 function SummaryView({
   draft,
+  actions,
   primaryMatch,
   verdict,
   isApproved,
@@ -427,6 +429,7 @@ function SummaryView({
   onShowFull,
 }: {
   draft: DraftRow;
+  actions: ActionRow[];
   primaryMatch: { rule_id?: string; rule_name?: string; rule_description?: string; matched_keyword?: string } | null;
   verdict: string | null;
   isApproved: boolean;
@@ -438,6 +441,70 @@ function SummaryView({
 }) {
   const reason = lastDecision ? basisFromReason(lastDecision.payload?.reason) : null;
   const reasonObj = reason && typeof reason === "object" ? reason : null;
+
+  // Timeline lookups. The submit action is currently written as 'submitted'
+  // but legacy/seed rows used 'draft_submitted', so accept either. The
+  // 'draft_opened' action_type isn't written today — gracefully render as
+  // not-yet-occurred so the row still appears.
+  const submittedAction = actions.find(
+    (a) => a.action_type === "submitted" || a.action_type === "draft_submitted",
+  );
+  const verdictAction = actions.find((a) => a.action_type === "verdict_issued");
+  const openedAction = actions.find((a) => a.action_type === "draft_opened");
+  const decidedAction = actions.find((a) => a.action_type === "reviewer_decided");
+
+  const checkDuration =
+    verdictAction && submittedAction
+      ? Math.round(
+          (new Date(verdictAction.occurred_at).getTime() -
+            new Date(submittedAction.occurred_at).getTime()) /
+            1000,
+        )
+      : null;
+
+  const approvalDuration =
+    decidedAction && submittedAction
+      ? Math.round(
+          (new Date(decidedAction.occurred_at).getTime() -
+            new Date(submittedAction.occurred_at).getTime()) /
+            1000 /
+            60,
+        )
+      : null;
+
+  const formatApprovalSpan = (mins: number): string => {
+    if (mins < 60) return `${mins}m after submission`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m after submission`;
+  };
+
+  const timelineSteps = [
+    {
+      action: submittedAction,
+      label: "Submitted",
+      actor: draft.users?.name ?? "—",
+      done: !!submittedAction,
+    },
+    {
+      action: verdictAction,
+      label: "ERA CUE checked",
+      actor: checkDuration !== null ? `${checkDuration}s · 5 checks` : "5 checks",
+      done: !!verdictAction,
+    },
+    {
+      action: openedAction,
+      label: "Principal opened",
+      actor: openedAction ? "Sarah Chen, GC" : "Not yet opened",
+      done: !!openedAction,
+    },
+    {
+      action: decidedAction,
+      label: decidedAction ? "Decision recorded" : "Awaiting decision",
+      actor: decidedAction
+        ? `Sarah Chen · ${approvalDuration !== null ? formatApprovalSpan(approvalDuration) : ""}`.trim()
+        : "No decision yet",
+      done: !!decidedAction,
+    },
+  ];
 
   return (
     <>
@@ -523,6 +590,60 @@ function SummaryView({
             })}
           </div>
         </div>
+      </div>
+
+      {/* Approval timeline — sits between the key-details grid and the
+          'What ERA CUE flagged' card. Each step shows a checkmark when the
+          underlying action exists, an empty circle when it hasn't happened
+          yet. Total approval time renders below the steps when both
+          submitted + decided actions are recorded. */}
+      <div className="pb-5 mb-8 border-b border-[#E2E8F0]">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
+          Timeline
+        </div>
+        <div className="space-y-3">
+          {timelineSteps.map((step, i) => (
+            <div key={i} className="flex items-start gap-3">
+              <div
+                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 font-mono text-[10px] ${
+                  step.done
+                    ? "bg-[#1A56DB] border-[#1A56DB] text-white"
+                    : "bg-white border-[#E2E8F0] text-[#94A3B8]"
+                }`}
+              >
+                {step.done ? "✓" : "○"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span
+                    className={`text-sm font-medium ${
+                      step.done ? "text-[#0F172A]" : "text-[#94A3B8]"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                  {step.action && (
+                    <span className="font-mono text-[10px] text-[#94A3B8] whitespace-nowrap shrink-0">
+                      {new Date(step.action.occurred_at).toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  )}
+                </div>
+                <div className="font-mono text-[10px] text-[#64748B] mt-0.5">{step.actor}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {approvalDuration !== null && (
+          <div className="mt-4 pt-3 border-t border-[#F1F5F9] font-mono text-[10px] text-[#64748B]">
+            Total approval time:{" "}
+            {approvalDuration < 60
+              ? `${approvalDuration} minutes`
+              : `${Math.floor(approvalDuration / 60)}h ${approvalDuration % 60}m`}
+          </div>
+        )}
       </div>
 
       {/* What ERA CUE flagged */}
