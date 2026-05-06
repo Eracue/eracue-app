@@ -173,16 +173,24 @@ export function RulesClient({ rules }: Props) {
           </div>
         </div>
 
-        {/* Stats strip */}
+        {/* Stats strip — Total dropped because it included deactivated rules
+            (misleading); Active is now the primary stat. Deactivated lives at
+            the end in muted slate so it reads as "not governing right now." */}
         <div className="flex gap-6 mt-6 pb-6 border-b border-[#E2E8F0] items-end flex-wrap">
           {[
-            { value: counts.total,  label: "Total rules" },
-            { value: counts.active, label: "Active" },
-            { value: counts.firing, label: "Firing" },
-            { value: counts.silent, label: "Silent" },
+            { value: counts.active,      label: "Active rules", muted: false },
+            { value: counts.firing,      label: "Firing",       muted: false },
+            { value: counts.silent,      label: "Silent",       muted: false },
+            { value: counts.deactivated, label: "Deactivated",  muted: true  },
           ].map((s) => (
             <div key={s.label}>
-              <div className="font-mono text-2xl font-light text-[#0F172A]">{s.value}</div>
+              <div
+                className={`font-mono text-2xl font-light ${
+                  s.muted ? "text-[#94A3B8]" : "text-[#0F172A]"
+                }`}
+              >
+                {s.value}
+              </div>
               <div className="font-mono text-[10px] uppercase text-[#64748B] mt-1">{s.label}</div>
             </div>
           ))}

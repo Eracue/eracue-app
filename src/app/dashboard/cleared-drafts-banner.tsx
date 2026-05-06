@@ -35,12 +35,13 @@ export function ClearedDraftsBanner({ count }: Props) {
           </svg>
           <div className="min-w-0">
             <div className="text-sm text-[#92400E]">
-              {count} cleared {count === 1 ? "draft has" : "drafts have"} not been
-              formally signed off by the designated principal.
+              {count} approved {count === 1 ? "communication" : "communications"} on
+              record. Principal sign-off recommended for a complete FINRA Rule 3110
+              supervisory record.
             </div>
             <div className="font-mono text-[10px] text-[#92400E] mt-0.5">
-              For a complete FINRA Rule 3110 supervisory record, each cleared
-              draft should have an explicit principal approval.
+              ERA CUE records every system clearance. Explicit principal sign-off
+              creates the strongest supervisory evidence for examination.
             </div>
           </div>
         </div>
@@ -50,9 +51,12 @@ export function ClearedDraftsBanner({ count }: Props) {
             onClick={() =>
               alert("Bulk sign-off coming soon. Use individual draft review for now.")
             }
-            className="bg-[#92400E] text-white font-mono text-xs px-4 py-1.5 rounded-sm hover:bg-[#7C3608] transition-colors"
+            className="bg-white border border-[#FDE68A] text-[#92400E] font-mono text-xs px-4 py-1.5 rounded-sm hover:bg-[#FFFBEB] transition-colors inline-flex items-center"
           >
             Sign off all ({count})
+            <span className="ml-2 font-mono text-[10px] bg-[#FEF3C7] text-[#92400E] px-1.5 py-0.5 rounded-sm">
+              Soon
+            </span>
           </button>
           <button
             type="button"

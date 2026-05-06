@@ -34,7 +34,7 @@ export function SupervisionExport() {
     <section className="mt-10">
       <div className="bg-[#F5F6F8] border border-[#E2E8F0] rounded-sm p-5 flex justify-between items-center gap-4 flex-wrap">
         <div>
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#5C6B7A]">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
             SUPERVISION PERIOD REPORT
           </div>
           <div className="text-xs text-[#0F172A] mt-1">
@@ -48,21 +48,21 @@ export function SupervisionExport() {
               value={from}
               onChange={(e) => setFrom(e.target.value)}
               aria-label="Report start date"
-              className="border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-xs font-mono text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1D6EE8]"
+              className="border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-xs font-mono text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
             />
-            <span className="text-xs text-[#5C6B7A]">to</span>
+            <span className="text-xs text-[#64748B]">to</span>
             <input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
               aria-label="Report end date"
-              className="border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-xs font-mono text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1D6EE8]"
+              className="border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-xs font-mono text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
             />
           </div>
           <button
             type="button"
             onClick={handleGenerate}
-            className="bg-[#1B2B4B] text-white text-xs font-mono font-medium px-4 py-1.5 rounded-sm hover:bg-[#0F172A] transition-colors"
+            className="bg-[#0F172A] text-white text-xs font-mono font-medium px-4 py-1.5 rounded-sm hover:bg-[#0F172A] transition-colors"
           >
             Generate report →
           </button>

@@ -321,6 +321,30 @@ function verdictDot(t: string): string {
   return "bg-[#6D28D9]";
 }
 
+// Token-coloured pill for a rule_type (block / escalate / review / guide).
+// Used in the Rules Performance row.
+function ruleTypeBadgeCls(t: string): string {
+  if (t === "block")    return "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]";
+  if (t === "escalate") return "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]";
+  if (t === "review")   return "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]";
+  return "bg-[#F5F3FF] text-[#6D28D9] border-[#DDD6FE]"; // guide
+}
+
+// Channel raw value → display label. Falls back to the raw value for unknown
+// channels so the UI never shows a blank.
+function formatChannel(ch: string): string {
+  const map: Record<string, string> = {
+    linkedin:      "LinkedIn",
+    twitter:       "X / Twitter",
+    press_release: "Press Release",
+    blog:          "Blog",
+    email:         "Email",
+    interview:     "Interview",
+    other:         "Other",
+  };
+  return map[ch] ?? ch;
+}
+
 function decisionBadge(d: string | undefined): { cls: string; label: string } {
   if (d === "override")
     return { cls: "bg-[#EFF8FF] text-[#1447C0] border-[#BAE6FD]", label: "OVERRIDE" };
@@ -475,7 +499,7 @@ export default async function DashboardPage() {
                           </div>
                           <div className="flex gap-2 shrink-0">
                             <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
-                              {d.channel}
+                              {formatChannel(d.channel)}
                             </span>
                             {d.campaigns?.name && (
                               <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
@@ -485,9 +509,9 @@ export default async function DashboardPage() {
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
                             <span
-                              className={`font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border ${statusCls}`}
+                              className={`inline-flex font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border ${statusCls}`}
                             >
-                              {d.status}
+                              {d.status.toUpperCase()}
                             </span>
                             <Link
                               href={`/reviewer/${d.id}`}
@@ -578,8 +602,10 @@ export default async function DashboardPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${verdictDot(r.rule_type)}`} aria-hidden />
                       <span className="text-sm font-medium text-[#0F172A] truncate">{r.name}</span>
-                      <span className="font-mono text-[10px] uppercase text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-sm shrink-0">
-                        {r.rule_type}
+                      <span
+                        className={`font-mono text-[10px] uppercase px-2 py-0.5 rounded-sm border shrink-0 inline-flex ${ruleTypeBadgeCls(r.rule_type)}`}
+                      >
+                        {r.rule_type.toUpperCase()}
                       </span>
                     </div>
                     <div className="flex items-center gap-8 shrink-0">
@@ -658,13 +684,13 @@ export default async function DashboardPage() {
                         <div className="flex gap-3 items-center">
                           <Link
                             href={`/drafts/${a.draft_id}`}
-                            className="font-mono text-xs text-[#5C6B7A] hover:text-[#0F172A] transition-colors"
+                            className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
                           >
                             View draft →
                           </Link>
                           <Link
                             href={`/drafts/${a.draft_id}/examiner`}
-                            className="font-mono text-xs text-[#1D6EE8] hover:text-[#1B2B4B] font-medium transition-colors"
+                            className="font-mono text-xs text-[#1A56DB] hover:text-[#0F172A] font-medium transition-colors"
                           >
                             Examiner record →
                           </Link>

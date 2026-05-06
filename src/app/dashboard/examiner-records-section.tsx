@@ -16,7 +16,7 @@ export type ExaminerRecord = {
 type Props = { records: ExaminerRecord[] };
 
 const DECISION_BADGE: Record<string, { cls: string; label: string }> = {
-  override:      { cls: "bg-[#EFF8FF] text-[#1B2B4B] border-[#BAE6FD]", label: "OVERRIDE" },
+  override:      { cls: "bg-[#EFF8FF] text-[#0F172A] border-[#BAE6FD]", label: "OVERRIDE" },
   confirm_block: { cls: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]", label: "CONFIRM BLOCK" },
   approve:       { cls: "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]", label: "APPROVE" },
   reject:        { cls: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]", label: "REJECT" },
@@ -59,13 +59,13 @@ export function ExaminerRecordsSection({ records }: Props) {
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter by speaker..."
           aria-label="Filter examiner records by speaker name"
-          className="border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-xs font-mono text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1B2B4B] w-48"
+          className="border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-xs font-mono text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#0F172A] w-48"
         />
       </div>
 
       <div className="mt-4">
         {filtered.length === 0 ? (
-          <div className="font-mono text-xs text-[#5C6B7A] py-4 text-center">
+          <div className="font-mono text-xs text-[#64748B] py-4 text-center">
             No records match your filter.
           </div>
         ) : (
@@ -84,7 +84,7 @@ export function ExaminerRecordsSection({ records }: Props) {
                   <div className="text-xs font-medium text-[#0F172A]">
                     {r.speakerName}
                   </div>
-                  <div className="font-mono text-[10px] text-[#5C6B7A] truncate max-w-xs mt-0.5">
+                  <div className="font-mono text-[10px] text-[#64748B] truncate max-w-xs mt-0.5">
                     {r.draftSnippet}
                   </div>
                 </div>
@@ -94,14 +94,14 @@ export function ExaminerRecordsSection({ records }: Props) {
                   >
                     {badge.label}
                   </span>
-                  <span className="font-mono text-[10px] text-[#5C6B7A]">
+                  <span className="font-mono text-[10px] text-[#64748B]">
                     {fmtDateTime(r.occurredAt)}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <Link
                     href={`/drafts/${r.draftId}/examiner`}
-                    className="font-mono text-xs text-[#1D6EE8] hover:text-[#1B2B4B] transition-colors font-medium"
+                    className="font-mono text-xs text-[#1A56DB] hover:text-[#0F172A] transition-colors font-medium"
                   >
                     Examiner record →
                   </Link>
