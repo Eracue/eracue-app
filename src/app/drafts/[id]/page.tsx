@@ -115,6 +115,14 @@ export default async function DraftDetailPage({ params }: PageProps) {
             Submitted by {draft.users?.name || "—"}{draft.users?.title ? ` (${draft.users.title})` : ""}
             {draft.campaigns?.name ? ` · Campaign: ${draft.campaigns.name}` : ""}
           </p>
+          <div className="flex gap-2 mt-4">
+            <Link
+              href={`/drafts/${draft.id}/examiner`}
+              className="px-4 py-2 bg-white border border-neutral-300 text-neutral-900 text-sm font-medium rounded-md hover:bg-neutral-50 transition"
+            >
+              Export examiner record →
+            </Link>
+          </div>
         </div>
 
         {/* Verdict Card */}
