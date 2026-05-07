@@ -43,7 +43,7 @@ export default function Home() {
         <div className="max-w-[1100px] mx-auto grid grid-cols-1 md:grid-cols-5 gap-12 items-center">
           {/* LEFT — copy + CTAs */}
           <div className="md:col-span-3">
-            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/[0.32] mb-4">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/[0.45] mb-4">
               Human oversight · AI 2026
             </div>
 
@@ -53,7 +53,7 @@ export default function Home() {
             >
               Every executive communication.
               <br />
-              <em className="italic font-light text-white/[0.42]">
+              <em className="italic font-light text-white/[0.62]">
                 Checked. Approved. On record.
               </em>
             </h1>
@@ -100,7 +100,7 @@ export default function Home() {
               </div>
 
               <div className="flex items-center gap-2 mb-3">
-                <span className="bg-[#4F46E5] text-white font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm">
+                <span className="bg-[#0D9488] text-white font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm">
                   Cleared
                 </span>
                 <span className="text-xs font-medium text-[#0D1B2A]">
@@ -120,7 +120,7 @@ export default function Home() {
                     <span className="font-mono text-[9px] text-[#94A3B8]">
                       {name}
                     </span>
-                    <span className="font-mono text-[9px] font-bold text-[#4F46E5]">
+                    <span className="font-mono text-[9px] font-bold text-[#0D9488]">
                       PASS
                     </span>
                   </div>
@@ -128,7 +128,11 @@ export default function Home() {
               </div>
 
               <div className="border-t border-[#E2E8F0] pt-3 flex justify-between">
-                <span className="font-mono text-[9px] text-[#94A3B8]">
+                <span className="font-mono text-[9px] text-[#94A3B8] inline-flex items-center">
+                  <span
+                    className="inline-block w-1.5 h-1.5 rounded-full bg-[#0D9488] mr-1.5"
+                    aria-hidden
+                  />
                   Principal approved
                 </span>
                 <span className="font-mono text-[9px] text-[#94A3B8]">
@@ -148,7 +152,7 @@ export default function Home() {
          ============================================================ */}
       <section className="bg-[#0D1B2A] border-t border-white/[0.06] py-5 px-6 md:px-12">
         <div className="max-w-[1100px] mx-auto flex items-center justify-center gap-2 flex-wrap">
-          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/[0.30] mr-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-white/[0.42] mr-2">
             Built for
           </span>
           {[
@@ -180,7 +184,7 @@ export default function Home() {
       <section className="bg-[#0D1B2A] py-16 md:py-20 px-6 md:px-12 border-t border-white/[0.06]">
         <div className="max-w-[1100px] mx-auto">
           <div className="mb-10">
-            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/[0.32] mb-3">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/[0.45] mb-3">
               The regulatory reality
             </div>
             <h2
@@ -189,7 +193,7 @@ export default function Home() {
             >
               Three regulations. Real consequences.
             </h2>
-            <p className="text-sm text-white/[0.48] leading-relaxed max-w-xl">
+            <p className="text-sm text-white/[0.65] leading-relaxed max-w-xl">
               Real cases from the last 18 months. No communication was
               reviewed before it was published.
             </p>
@@ -271,7 +275,7 @@ export default function Home() {
           </div>
 
           <div className="text-center mt-6">
-            <p className="font-mono text-xs text-white/[0.28] max-w-xl mx-auto leading-relaxed">
+            <p className="font-mono text-xs text-white/[0.40] max-w-xl mx-auto leading-relaxed">
               ERA CUE produces the supervisory evidence each of these
               regulations requires — before publication.
             </p>
@@ -297,7 +301,7 @@ export default function Home() {
             >
               Three steps. Every draft.
             </h2>
-            <p className="text-sm text-[#475569] leading-relaxed max-w-xl">
+            <p className="text-sm text-[#1E293B] leading-relaxed max-w-xl">
               Configure once. Check every draft. Record who approved.
             </p>
           </div>
@@ -382,7 +386,7 @@ export default function Home() {
                 <div className="border border-[#FECACA] bg-[#FEE2E2] rounded-sm px-3 py-1.5 font-mono text-[10px] font-bold text-[#B91C1C]">
                   Blocked → principal review
                 </div>
-                <div className="border border-[#C7D7FE] bg-[#EEF2FF] rounded-sm px-3 py-1.5 font-mono text-[10px] font-bold text-[#4F46E5]">
+                <div className="border border-[#99F6E4] bg-[#F0FDFA] rounded-sm px-3 py-1.5 font-mono text-[10px] font-bold text-[#0D9488]">
                   Cleared → publish
                 </div>
               </div>
@@ -406,22 +410,24 @@ export default function Home() {
       </section>
 
       {/* ============================================================
-          SECTION 6 — ROLE CARDS (dark)
-          Five role cards in a 2-col grid; card 5 spans both columns.
-          Each card = role eyebrow + a five-words-or-less value
-          statement + ONE supporting sentence. No links.
+          SECTION A — WHO IT'S FOR (dark)
+          Five role cards. Each card = role eyebrow + a value
+          statement + a supporting sentence. The IB / PE / hedge-fund
+          card spans the full width on its own row.
          ============================================================ */}
-      <section className="bg-[#0D1B2A] py-16 md:py-20 px-6 md:px-12 border-t border-white/[0.06]">
+      <section className="bg-[#0D1B2A] border-t border-white/[0.06] py-16 md:py-20 px-6 md:px-12">
         <div className="max-w-[1100px] mx-auto">
           <div className="mb-10">
-            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/[0.32] mb-3">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/[0.62] mb-3">
               Built for every role
             </div>
             <h2
-              className="text-3xl md:text-4xl font-light text-white leading-tight max-w-2xl"
+              className="text-3xl md:text-4xl font-light text-white leading-tight"
               style={{ fontFamily: "var(--font-newsreader)" }}
             >
-              From the executive drafting to the examiner reviewing.
+              You&apos;ll know who you are
+              <br />
+              in three seconds.
             </h2>
           </div>
 
@@ -429,49 +435,54 @@ export default function Home() {
             {[
               {
                 role: "Executive · Founder · CEO",
-                title: "Know before you post.",
-                body: "ERA CUE checks your draft against active rules before anyone sees it.",
-                full: false,
-              },
-              {
-                role: "CMO · VP Comms · PR Agency",
-                title: "See your whole team at once.",
-                body: "Every executive. Every campaign. Who approved what, when.",
-                full: false,
+                value: "Know before you post.",
+                detail:
+                  "Paste a draft. ERA CUE tells you if it’s safe to publish — before anyone else sees it.",
+                wide: false,
               },
               {
                 role: "CCO · General Counsel · Broker-Dealer",
-                title: "The supervisory record examiners ask for.",
-                body: "Named principal review. Structured decision. FINRA Rule 3110 satisfied.",
-                full: false,
+                value: "The supervisory record. Automatically.",
+                detail:
+                  "Named principal review. Structured decision. FINRA Rule 3110 satisfied in one submission.",
+                wide: false,
+              },
+              {
+                role: "CMO · VP Comms · PR Agency",
+                value: "Every approval. One campaign view.",
+                detail:
+                  "See who approved what, when, and how long it took — across your entire team.",
+                wide: false,
               },
               {
                 role: "IR · GC · Public company",
-                title: "Reg FD documented before publication.",
-                body: "ERA CUE checks for quiet period violations before any executive communicates publicly.",
-                full: false,
+                value: "Reg FD caught before publication.",
+                detail:
+                  "ERA CUE checks for quiet period violations before any executive communicates publicly.",
+                wide: false,
               },
               {
                 role: "Investment bank · PE · Hedge fund",
-                title: "Deal-specific quiet periods. Every person. Every platform.",
-                body: "Every deal creates a window where the wrong post creates real exposure. ERA CUE applies deal-specific quiet periods across your entire team.",
-                full: true,
+                value: "Deal quiet periods. Every person.",
+                detail:
+                  "Every deal creates a window where the wrong post creates real exposure. ERA CUE enforces it across your team.",
+                wide: true,
               },
             ].map((card) => (
               <div
                 key={card.role}
                 className={`bg-white/[0.04] border border-white/[0.08] border-l-[3px] border-l-[#4F46E5] rounded-lg p-5 ${
-                  card.full ? "md:col-span-2" : ""
+                  card.wide ? "md:col-span-2" : ""
                 }`}
               >
-                <div className="font-mono text-[9px] uppercase tracking-[0.11em] text-white/[0.30] mb-2">
+                <div className="font-mono text-[9px] uppercase tracking-[0.11em] text-white/[0.58] mb-2">
                   {card.role}
                 </div>
                 <div className="text-sm font-medium text-white mb-2 leading-snug">
-                  {card.title}
+                  {card.value}
                 </div>
-                <p className="text-xs text-white/[0.52] leading-relaxed">
-                  {card.body}
+                <p className="text-xs text-white/[0.62] leading-relaxed">
+                  {card.detail}
                 </p>
               </div>
             ))}
@@ -480,335 +491,269 @@ export default function Home() {
       </section>
 
       {/* ============================================================
-          SECTION 7 — CAMPAIGN VIEW (dark, seamless with role cards)
-          Two-column: a campaign-record card on the left + a "who uses
-          it" role list on the right. Status colors: purple-mid for
-          approved, amber for pending, white-dim for blocked.
+          SECTION B — ONE CAMPAIGN. ONE RECORD. (white)
+          Two-column. Left: a campaign-view card showing what the CCO
+          sees (4 speakers, 8/2/1 stats). Right: a communication-record
+          card showing what gets created for every draft. The two
+          surfaces sit side-by-side so a visitor sees the input and
+          the output at the same time.
          ============================================================ */}
-      <section className="bg-[#0D1B2A] border-t border-white/[0.06] pt-16 md:pt-20 pb-16 md:pb-20 px-6 md:px-12">
-        <div className="max-w-[1100px] mx-auto">
-          <div className="mb-10">
-            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/[0.32] mb-3">
-              Campaign governance
-            </div>
-            <h2
-              className="text-3xl md:text-4xl font-light text-white mb-3 leading-tight max-w-2xl"
-              style={{ fontFamily: "var(--font-newsreader)" }}
-            >
-              Every executive. One view.
-            </h2>
-            <p className="text-sm text-white/[0.48] leading-relaxed max-w-xl">
-              See who approved, who&apos;s pending, how long each review
-              took.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
-            <div className="bg-white/[0.05] border border-white/[0.10] rounded-lg overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/[0.08] flex items-center justify-between flex-wrap gap-3">
-                <div>
-                  <div className="text-sm font-medium text-white">
-                    Q3 product launch
-                  </div>
-                  <div className="font-mono text-[9px] text-white/[0.28] mt-0.5">
-                    Apr 1–Jun 30, 2026 · GC
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-center">
-                    <div className="font-mono text-sm font-bold text-[#818CF8]">
-                      8
-                    </div>
-                    <div className="font-mono text-[9px] uppercase tracking-[0.11em] text-white/[0.30]">
-                      Approved
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-mono text-sm font-bold text-[#F59E0B]">
-                      2
-                    </div>
-                    <div className="font-mono text-[9px] uppercase tracking-[0.11em] text-white/[0.30]">
-                      Pending
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-mono text-sm font-bold text-white/[0.30]">
-                      1
-                    </div>
-                    <div className="font-mono text-[9px] uppercase tracking-[0.11em] text-white/[0.30]">
-                      Blocked
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {[
-                {
-                  name: "Marcus Rivera",
-                  role: "CEO",
-                  meta: "LinkedIn · Series B",
-                  status: "Approved",
-                  statusColor: "#818CF8",
-                  time: "2h 14m review",
-                },
-                {
-                  name: "Lena Brooks",
-                  role: "Chief Comms",
-                  meta: "Press release · Q3",
-                  status: "Approved",
-                  statusColor: "#818CF8",
-                  time: "47m review",
-                },
-                {
-                  name: "James Kim",
-                  role: "Head of IR",
-                  meta: "LinkedIn · Price claim",
-                  status: "Pending",
-                  statusColor: "#F59E0B",
-                  time: "11:42 AM today",
-                },
-                {
-                  name: "Priya Patel",
-                  role: "CMO",
-                  meta: "Twitter · Campaign",
-                  status: "Approved",
-                  statusColor: "#818CF8",
-                  time: "1h 8m review",
-                },
-              ].map((row) => (
-                <div
-                  key={row.name}
-                  className="px-5 py-3 border-b border-white/[0.05] flex items-center justify-between gap-3 flex-wrap"
-                >
-                  <div>
-                    <div className="text-xs font-medium text-white/[0.75]">
-                      {row.name}{" "}
-                      <span className="font-mono text-[9px] text-white/[0.28] ml-1">
-                        · {row.role}
-                      </span>
-                    </div>
-                    <div className="font-mono text-[9px] text-white/[0.28] mt-0.5">
-                      {row.meta}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div
-                      className="font-mono text-[9px] font-bold"
-                      style={{ color: row.statusColor }}
-                    >
-                      {row.status}
-                    </div>
-                    <div className="font-mono text-[9px] text-white/[0.22] mt-0.5">
-                      {row.time}
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              <div className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
-                <span className="font-mono text-[9px] text-white/[0.18]">
-                  Every speaker. Every channel.
-                </span>
-                <Link
-                  href="/dashboard"
-                  className="font-mono text-[9px] text-[#818CF8] hover:text-white transition-colors"
-                >
-                  View record →
-                </Link>
-              </div>
-            </div>
-
-            <div>
-              <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/[0.28] mb-4">
-                Who uses the campaign record
-              </div>
-              {[
-                {
-                  role: "PR agency",
-                  use: "Client deliverable. Every approval, timing, and decision on record.",
-                },
-                {
-                  role: "CCO",
-                  use: "Supervisory evidence for the full campaign window. FINRA-ready.",
-                },
-                {
-                  role: "Examiner",
-                  use: "Named principal, timing, decision basis. Downloadable PDF.",
-                },
-              ].map((item) => (
-                <div key={item.role} className="flex gap-4 mb-4">
-                  <div className="font-mono text-xs text-[#818CF8] w-24 shrink-0 pt-0.5">
-                    {item.role}
-                  </div>
-                  <div className="text-sm text-white/[0.48] leading-relaxed">
-                    {item.use}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ============================================================
-          SECTION 8 — THE OUTPUT (white)
-          Two-column. Left: four colored-dot audience callouts (each
-          one sentence). Right: a record mockup card with a #4F46E5
-          left-border accent on the dark header.
-         ============================================================ */}
-      <section className="bg-white py-16 md:py-20 px-6 md:px-12 border-t border-[#E2E8F0]">
+      <section className="bg-white border-t border-[#E2E8F0] py-16 md:py-20 px-6 md:px-12">
         <div className="max-w-[1100px] mx-auto">
           <div className="mb-10">
             <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#64748B] mb-3">
               The output
             </div>
             <h2
-              className="text-3xl md:text-4xl font-light text-[#0D1B2A] mb-3 leading-tight"
+              className="text-3xl md:text-4xl font-light text-[#0D1B2A] leading-tight mb-3"
               style={{ fontFamily: "var(--font-newsreader)" }}
             >
-              One record. Four audiences.
+              One campaign. One record.
             </h2>
-            <p className="text-sm text-[#475569] leading-relaxed max-w-xl">
-              The same record serves every stakeholder.
+            <p className="text-sm text-[#1E293B] max-w-xl leading-relaxed">
+              ERA CUE tracks every communication across your team and
+              produces an immutable record for every draft that passes
+              through it.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+            {/* LEFT — campaign card */}
             <div>
-              {[
-                {
-                  who: "The executive",
-                  what: "Was my draft approved? Can I publish it now?",
-                },
-                {
-                  who: "The CCO or GC",
-                  what: "Named principal review. Structured decision. SHA-256 locked.",
-                },
-                {
-                  who: "The CMO or PR agency",
-                  what: "Who approved what, when, across the campaign. Client deliverable.",
-                },
-                {
-                  who: "The regulator or examiner",
-                  what: "Every check. Every decision. Principal identity. PDF export.",
-                },
-              ].map((row) => (
-                <div key={row.who} className="flex gap-3 mb-5">
-                  <span
-                    className="w-1.5 h-1.5 rounded-full bg-[#4F46E5] shrink-0 mt-1.5"
-                    aria-hidden
-                  />
+              <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#64748B] mb-3">
+                Campaign view — what the CCO sees
+              </div>
+
+              <div className="border border-[#E2E8F0] rounded-lg overflow-hidden">
+                <div className="bg-[#0D1B2A] px-5 py-4 flex items-center justify-between flex-wrap gap-3">
                   <div>
-                    <div className="text-sm font-medium text-[#0D1B2A] mb-0.5">
-                      {row.who}
+                    <div className="text-sm font-medium text-white">
+                      Q3 product launch
                     </div>
-                    <div className="text-xs text-[#475569] leading-relaxed">
-                      {row.what}
+                    <div className="font-mono text-[9px] text-white/[0.58] mt-0.5">
+                      Apr 1–Jun 30, 2026 · Governed by GC
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="text-center">
+                      <div className="font-mono text-base font-light text-[#0D9488]">
+                        8
+                      </div>
+                      <div className="font-mono text-[9px] uppercase text-white/[0.52]">
+                        Approved
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-mono text-base font-light text-[#F59E0B]">
+                        2
+                      </div>
+                      <div className="font-mono text-[9px] uppercase text-white/[0.52]">
+                        Pending
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-mono text-base font-light text-white/[0.52]">
+                        1
+                      </div>
+                      <div className="font-mono text-[9px] uppercase text-white/[0.52]">
+                        Blocked
+                      </div>
                     </div>
                   </div>
                 </div>
-              ))}
 
-              <Link
-                href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
-                className="font-mono text-sm text-[#4F46E5] mt-6 block hover:text-[#4338CA] transition-colors"
-              >
-                See a real communication record →
-              </Link>
-            </div>
+                {[
+                  {
+                    name: "Marcus Rivera · CEO",
+                    meta: "LinkedIn · Series B",
+                    status: "Approved",
+                    time: "2h 14m",
+                    ok: true,
+                  },
+                  {
+                    name: "Lena Brooks · Chief Comms",
+                    meta: "Press release · Q3",
+                    status: "Approved",
+                    time: "47m",
+                    ok: true,
+                  },
+                  {
+                    name: "James Kim · Head of IR",
+                    meta: "LinkedIn · Price claim",
+                    status: "Pending review",
+                    time: "11:42 AM",
+                    ok: false,
+                  },
+                  {
+                    name: "Priya Patel · CMO",
+                    meta: "Twitter · Campaign",
+                    status: "Approved",
+                    time: "1h 8m",
+                    ok: true,
+                  },
+                ].map((row, i) => (
+                  <div
+                    key={row.name}
+                    className={`px-5 py-3 flex items-center justify-between gap-3 flex-wrap ${
+                      i < 3 ? "border-b border-[#E2E8F0]" : ""
+                    }`}
+                  >
+                    <div>
+                      <div className="text-xs font-medium text-[#0D1B2A]">
+                        {row.name}
+                      </div>
+                      <div className="font-mono text-[9px] text-[#64748B] mt-0.5">
+                        {row.meta}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div
+                        className={`font-mono text-[9px] font-bold ${
+                          row.ok ? "text-[#0D9488]" : "text-[#F59E0B]"
+                        }`}
+                      >
+                        {row.status}
+                      </div>
+                      <div className="font-mono text-[9px] text-[#94A3B8] mt-0.5">
+                        {row.time}
+                      </div>
+                    </div>
+                  </div>
+                ))}
 
-            <div className="border border-[#E2E8F0] rounded-lg overflow-hidden">
-              <div className="bg-[#0D1B2A] px-5 py-4 border-l-[4px] border-l-[#4F46E5]">
-                <div className="font-mono text-[9px] uppercase text-white/[0.30] mb-1.5 tracking-[0.12em]">
-                  ERA CUE · Communication record
-                </div>
-                <div className="text-sm font-medium text-white mb-1">
-                  ✓ Approved for publication
-                </div>
-                <div className="font-mono text-[9px] text-white/[0.30]">
-                  Reviewed by principal · May 6, 2026 at 10:23 AM
+                <div className="px-5 py-3 bg-[#F8FAFC] border-t border-[#E2E8F0] flex items-center justify-between gap-3 flex-wrap">
+                  <span className="font-mono text-[9px] text-[#94A3B8]">
+                    Every speaker. Every channel.
+                  </span>
+                  <Link
+                    href="/dashboard"
+                    className="font-mono text-[9px] text-[#0D9488] hover:text-[#0F766E] transition-colors"
+                  >
+                    View full record →
+                  </Link>
                 </div>
               </div>
 
-              <div className="px-5 py-4">
-                <div className="grid grid-cols-2 gap-3 mb-4 pb-3 border-b border-[#E2E8F0]">
-                  <div>
-                    <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#94A3B8] mb-1">
-                      Speaker
-                    </div>
-                    <div className="text-xs font-medium text-[#0D1B2A]">
-                      Marcus Rivera
-                    </div>
-                    <div className="font-mono text-[9px] text-[#64748B] mt-0.5">
-                      CEO · LinkedIn
-                    </div>
+              <p className="text-xs text-[#1E293B] leading-relaxed mt-3">
+                The CCO sees every executive, every draft, every decision
+                — in one governed view. Who approved. Who&apos;s pending.
+                How long it took.
+              </p>
+            </div>
+
+            {/* RIGHT — communication record */}
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#64748B] mb-3">
+                Communication record — what gets created for every draft
+              </div>
+
+              <div className="border border-[#E2E8F0] rounded-lg overflow-hidden">
+                <div className="bg-[#0D1B2A] px-5 py-4 border-l-[4px] border-l-[#4F46E5]">
+                  <div className="font-mono text-[9px] uppercase tracking-[0.11em] text-white/[0.58] mb-1.5">
+                    ERA CUE · Communication record
                   </div>
-                  <div>
-                    <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#94A3B8] mb-1">
-                      Campaign
-                    </div>
-                    <div className="text-xs text-[#4F46E5]">
-                      Series B Announce
-                    </div>
-                    <div className="font-mono text-[9px] text-[#64748B] mt-0.5">
-                      Apr 15–Jun 30, 2026
-                    </div>
+                  <div className="text-sm font-medium text-white mb-1">
+                    ✓ Approved for publication
+                  </div>
+                  <div className="font-mono text-[9px] text-white/[0.58]">
+                    Reviewed by principal · May 6, 2026 at 10:23 AM
                   </div>
                 </div>
 
-                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-sm p-3 text-xs italic text-[#1E293B] leading-relaxed mb-3">
-                  &ldquo;Customer trust is everything — building for the
-                  long term.&rdquo;
-                </div>
+                <div className="px-5 py-4">
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <div className="font-mono text-[9px] uppercase text-[#94A3B8] mb-1">
+                        Speaker
+                      </div>
+                      <div className="text-xs font-medium text-[#0D1B2A]">
+                        Marcus Rivera
+                      </div>
+                      <div className="font-mono text-[9px] text-[#64748B]">
+                        CEO · LinkedIn
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-mono text-[9px] uppercase text-[#94A3B8] mb-1">
+                        Campaign
+                      </div>
+                      <div className="text-xs font-medium text-[#4F46E5]">
+                        Series B Announce
+                      </div>
+                      <div className="font-mono text-[9px] text-[#64748B]">
+                        Apr 15–Jun 30, 2026
+                      </div>
+                    </div>
+                  </div>
 
-                <div className="mb-3">
-                  <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#94A3B8] mb-2">
+                  <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-sm p-3 text-xs italic text-[#1E293B] leading-relaxed mb-3">
+                    &ldquo;Customer trust is everything — building for the
+                    long term.&rdquo;
+                  </div>
+
+                  <div className="font-mono text-[9px] uppercase text-[#94A3B8] mb-2">
                     Checks
                   </div>
-                  <div className="space-y-1">
-                    {[
-                      "Rule check",
-                      "Quiet period",
-                      "Consistency",
-                      "Agent origin",
-                    ].map((name) => (
-                      <div
-                        key={name}
-                        className="flex justify-between"
-                      >
-                        <span className="font-mono text-[9px] text-[#64748B]">
-                          {name}
-                        </span>
-                        <span className="font-mono text-[9px] font-bold text-[#4F46E5]">
-                          PASS
-                        </span>
-                      </div>
-                    ))}
+                  {[
+                    "Rule check",
+                    "Quiet period",
+                    "Consistency",
+                    "Agent origin",
+                  ].map((check) => (
+                    <div
+                      key={check}
+                      className="flex justify-between py-1"
+                    >
+                      <span className="font-mono text-[9px] text-[#64748B]">
+                        {check}
+                      </span>
+                      <span className="font-mono text-[9px] font-bold text-[#0D9488]">
+                        PASS
+                      </span>
+                    </div>
+                  ))}
+
+                  <div className="border-t border-[#E2E8F0] pt-3 mt-2">
+                    <div className="font-mono text-[9px] uppercase text-[#94A3B8] mb-1">
+                      Principal decision
+                    </div>
+                    <div className="text-xs text-[#1E293B] mb-1">
+                      Approved · Content complies with applicable rules
+                    </div>
+                    <div className="font-mono text-[9px] text-[#94A3B8]">
+                      SHA-256: a4f8c2e1… · Append-only · Cannot be altered
+                    </div>
                   </div>
                 </div>
 
-                <div className="border-t border-[#E2E8F0] pt-3 mt-1">
-                  <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#94A3B8] mb-1">
-                    Principal decision
-                  </div>
-                  <div className="text-xs text-[#1E293B] mb-1">
-                    Approved · Content complies with applicable rules
-                  </div>
-                  <div className="font-mono text-[9px] text-[#94A3B8]">
-                    SHA-256: a4f8c2e1… · Append-only · Cannot be altered
-                  </div>
+                <div className="bg-[#F8FAFC] border-t border-[#E2E8F0] px-5 py-3 flex justify-between items-center flex-wrap gap-3">
+                  <span className="font-mono text-[9px] text-[#94A3B8]">
+                    FINRA Rule 3110 · SEC 17a-4 · EU AI Act Art. 50
+                  </span>
+                  <Link
+                    href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
+                    className="font-mono text-[9px] text-[#0D9488] hover:text-[#0F766E] transition-colors"
+                  >
+                    ↓ PDF
+                  </Link>
                 </div>
               </div>
 
-              <div className="bg-[#F8FAFC] border-t border-[#E2E8F0] px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
-                <span className="font-mono text-[9px] text-[#94A3B8]">
-                  FINRA Rule 3110 · SEC 17a-4 · EU AI Act Art. 50
-                </span>
-                <span className="font-mono text-[9px] text-[#4F46E5] cursor-pointer">
-                  ↓ Download PDF
-                </span>
-              </div>
+              <p className="text-xs text-[#1E293B] leading-relaxed mt-3">
+                Every draft produces this record. Named principal. SHA-256
+                locked. The evidence regulators, boards, and clients ask
+                for.
+              </p>
             </div>
+          </div>
+
+          <div className="text-center pt-4 border-t border-[#E2E8F0]">
+            <Link
+              href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
+              className="font-mono text-sm text-[#4F46E5] hover:text-[#4338CA] transition-colors"
+            >
+              See a real communication record →
+            </Link>
           </div>
         </div>
       </section>
@@ -895,7 +840,7 @@ export default function Home() {
             The full product. Live.
           </h2>
 
-          <p className="text-sm text-white/[0.48] mb-10 leading-relaxed max-w-sm mx-auto">
+          <p className="text-sm text-white/[0.65] mb-10 leading-relaxed max-w-sm mx-auto">
             No login required. Set up a rule, check a draft, see the
             communication record.
           </p>
