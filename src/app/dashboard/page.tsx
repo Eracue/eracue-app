@@ -20,6 +20,11 @@ type DraftLite = {
   source_origin: string;
 };
 
+// Minimal lookup row: maps draft_id → status. Used to compute rule
+// effectiveness (how many of the drafts a rule blocked were ultimately
+// overridden by the principal).
+type DraftIdStatus = { id: string; status: string };
+
 type RuleRow = {
   id: string;
   name: string;
@@ -32,6 +37,9 @@ type RuleRow = {
 type VerdictAction = {
   id: string;
   occurred_at: string;
+  // draft_id added so per-rule override counts can join through to the
+  // current status of each draft a rule fired against.
+  draft_id: string;
   payload: {
     verdict?: string;
     primary_match?: { rule_id?: string; rule_name?: string } | null;
@@ -61,6 +69,9 @@ type RulePerf = {
   timesTriggered: number;
   lastTriggered: string | null;
   isActive: boolean;
+  // (matches − overrides) / matches × 100. null when the rule has never
+  // matched a draft (no signal to compute against).
+  effectivenessScore: number | null;
 };
 
 type SpeakerStat = {
@@ -73,10 +84,17 @@ type SpeakerStat = {
   // "Corpus" = approved + overridden — the speaker's published-on-record
   // statements. Drives the consistency-check footprint on the card.
   corpusCount: number;
+  // Risk trend over the last 3-day window vs the prior 3-day window.
+  // 'increasing' when more recent blocks than prior, 'decreasing' the
+  // other way, 'stable' when equal. Demo data lives in a tight window
+  // so we use 3-day windows rather than 7 to surface meaningful trends.
+  trend: "increasing" | "decreasing" | "stable";
+  recentBlocks: number;
 };
 
 type SpeakerJoinRow = {
   status: string;
+  submitted_at: string;
   users: { id: string; name: string; title: string | null } | null;
 };
 
@@ -112,7 +130,7 @@ async function getDashboardData() {
       .order("rule_type"),
     sb
       .from("actions")
-      .select("id, occurred_at, payload")
+      .select("id, occurred_at, draft_id, payload")
       .eq("org_id", DEMO_ORG_ID)
       .eq("action_type", "verdict_issued"),
     sb
@@ -126,7 +144,10 @@ async function getDashboardData() {
       .in("payload->>decision", ["override", "confirm_block", "approve", "reject"])
       .order("occurred_at", { ascending: false })
       .limit(10),
-    sb.from("drafts").select("status, users:speaker_id(id, name, title)").eq("org_id", DEMO_ORG_ID),
+    sb
+      .from("drafts")
+      .select("status, submitted_at, users:speaker_id(id, name, title)")
+      .eq("org_id", DEMO_ORG_ID),
     // Action queue — drafts blocked or escalated, awaiting principal decision.
     sb
       .from("drafts")
@@ -190,6 +211,14 @@ async function getDashboardData() {
   }
   const dedupedRules = Array.from(dedupedRulesByName.values());
 
+  // draft_id → status lookup so rule effectiveness can resolve which of
+  // the drafts a rule fired against ended up as 'overridden' (principal
+  // chose to publish despite the flag).
+  const draftStatusById = new Map<string, string>();
+  for (const d of (draftsRes.data || []) as DraftIdStatus[]) {
+    draftStatusById.set(d.id, d.status);
+  }
+
   const rulesPerf: RulePerf[] = dedupedRules
     .map((rule) => {
       // Match by rule_id if present; fall back to rule_name for legacy seed rows.
@@ -208,6 +237,17 @@ async function getDashboardData() {
       const fromTime = new Date(rule.effective_from).getTime();
       const toTime = rule.effective_to ? new Date(rule.effective_to).getTime() : null;
       const isActive = now >= fromTime && (toTime === null || now <= toTime);
+      // Override count: of the drafts this rule matched, how many ended
+      // up overridden by the principal? Each match has draft_id; status
+      // is looked up via draftStatusById.
+      const overrideCount = matches.filter((m) => {
+        const status = draftStatusById.get(m.draft_id);
+        return status === "overridden";
+      }).length;
+      const effectivenessScore =
+        matches.length > 0
+          ? Math.round(((matches.length - overrideCount) / matches.length) * 100)
+          : null;
       return {
         id: rule.id,
         name: rule.name,
@@ -215,13 +255,19 @@ async function getDashboardData() {
         timesTriggered: matches.length,
         lastTriggered,
         isActive,
+        effectivenessScore,
       };
     })
     .sort((a, b) => b.timesTriggered - a.timesTriggered);
 
   // Speaker exposure — group drafts by speaker name. blocked count includes
   // overridden drafts (they were blocked first); escalated stands alone.
-  const speakerMap = new Map<string, SpeakerStat>();
+  // Trend windows: 3-day recent vs 3-6-day prior. Demo data clusters
+  // tightly so a 7-day window would lump everything together.
+  const recentCutoff = now - 3 * 24 * 60 * 60 * 1000;
+  const priorCutoff = now - 6 * 24 * 60 * 60 * 1000;
+  type SpeakerAccum = SpeakerStat & { _priorBlocks: number };
+  const speakerMap = new Map<string, SpeakerAccum>();
   for (const row of (speakerStatsRes.data || []) as unknown as SpeakerJoinRow[]) {
     const u = row.users;
     if (!u) continue;
@@ -234,6 +280,9 @@ async function getDashboardData() {
         blocked: 0,
         escalated: 0,
         corpusCount: 0,
+        trend: "stable",
+        recentBlocks: 0,
+        _priorBlocks: 0,
       });
     }
     const s = speakerMap.get(u.name)!;
@@ -241,10 +290,28 @@ async function getDashboardData() {
     if (row.status === "blocked" || row.status === "overridden") s.blocked++;
     else if (row.status === "escalated") s.escalated++;
     if (row.status === "approved" || row.status === "overridden") s.corpusCount++;
+    // Trend bucket — only blocked drafts count toward the trend signal.
+    if (row.status === "blocked") {
+      const submittedTs = new Date(row.submitted_at).getTime();
+      if (submittedTs >= recentCutoff) {
+        s.recentBlocks++;
+      } else if (submittedTs >= priorCutoff) {
+        s._priorBlocks++;
+      }
+    }
   }
-  const speakerStats = Array.from(speakerMap.values()).sort(
-    (a, b) => b.blocked - a.blocked
-  );
+  for (const s of speakerMap.values()) {
+    if (s.recentBlocks > s._priorBlocks) s.trend = "increasing";
+    else if (s.recentBlocks < s._priorBlocks) s.trend = "decreasing";
+    else s.trend = "stable";
+  }
+  // Strip the private accumulator field before exposing.
+  const speakerStats: SpeakerStat[] = Array.from(speakerMap.values())
+    .map(({ _priorBlocks: _drop, ...rest }) => {
+      void _drop;
+      return rest;
+    })
+    .sort((a, b) => b.blocked - a.blocked);
 
   // Action queue — deduplicate identical (speaker × draft text) submissions,
   // keep the most recent, attach a duplicate_count so the row can show "×N"
@@ -605,6 +672,21 @@ export default async function DashboardPage() {
                       {s.name}
                     </Link>
                     <div className="text-sm text-[#374151] mt-0.5">{s.title}</div>
+                    {/* Risk trend indicator — only renders when a meaningful
+                        signal exists. Stable is treated as the expected
+                        state and intentionally shows nothing. */}
+                    {s.trend === "increasing" && s.recentBlocks > 0 && (
+                      <div className="font-mono text-[10px] text-[#C2410C] flex items-center gap-1 mt-1">
+                        <span aria-hidden>↑</span>
+                        <span>Risk increasing</span>
+                      </div>
+                    )}
+                    {s.trend === "decreasing" && (
+                      <div className="font-mono text-[10px] text-[#166534] flex items-center gap-1 mt-1">
+                        <span aria-hidden>↓</span>
+                        <span>Risk improving</span>
+                      </div>
+                    )}
                     <div className="flex gap-6 mt-4 flex-wrap">
                       <div>
                         <div className="font-mono text-3xl font-light text-[#0F172A]">{s.totalDrafts}</div>
@@ -680,6 +762,25 @@ export default async function DashboardPage() {
                       <div className="text-right">
                         <div className="font-mono text-xl font-light text-[#0F172A]">{r.timesTriggered}</div>
                         <div className="font-mono text-xs text-[#64748B]">triggers</div>
+                        {/* Effectiveness score — (matches − overrides) / matches.
+                            Green ≥80, slate 50-79, amber <50 with at least
+                            3 matches (avoids noisy 0% signals on 1-trigger
+                            rules). Hidden when the rule has never matched. */}
+                        {r.effectivenessScore !== null && (
+                          r.effectivenessScore >= 80 ? (
+                            <div className="font-mono text-[10px] text-[#166534] mt-0.5">
+                              {r.effectivenessScore}% effective
+                            </div>
+                          ) : r.effectivenessScore < 50 && r.timesTriggered >= 3 ? (
+                            <div className="font-mono text-[10px] text-[#C2410C] mt-0.5">
+                              {r.effectivenessScore}% effective · Consider refining this rule
+                            </div>
+                          ) : (
+                            <div className="font-mono text-[10px] text-[#64748B] mt-0.5">
+                              {r.effectivenessScore}% effective
+                            </div>
+                          )
+                        )}
                       </div>
                       <div className="font-mono text-xs text-[#94A3B8] w-20 text-right">
                         {fmtRelative(r.lastTriggered)}

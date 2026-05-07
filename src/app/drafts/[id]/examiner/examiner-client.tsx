@@ -477,6 +477,20 @@ function SummaryView({
     return `${Math.floor(mins / 60)}h ${mins % 60}m after submission`;
   };
 
+  // Pull the actual review duration off the reviewer_decided payload
+  // when the form recorded one. Falls back to the submission→decision
+  // wall-clock span when the field isn't present (legacy decisions).
+  const reviewDurationSec =
+    typeof decidedAction?.payload?.review_duration_seconds === "number"
+      ? (decidedAction.payload.review_duration_seconds as number)
+      : null;
+  const reviewDurationLabel =
+    reviewDurationSec !== null
+      ? reviewDurationSec < 60
+        ? `${reviewDurationSec}s review`
+        : `${Math.floor(reviewDurationSec / 60)}m ${reviewDurationSec % 60}s review`
+      : null;
+
   const timelineSteps = [
     {
       action: submittedAction,
@@ -500,7 +514,15 @@ function SummaryView({
       action: decidedAction,
       label: decidedAction ? "Decision recorded" : "Awaiting decision",
       actor: decidedAction
-        ? `Sarah Chen · ${approvalDuration !== null ? formatApprovalSpan(approvalDuration) : ""}`.trim()
+        ? [
+            "Sarah Chen",
+            reviewDurationLabel,
+            !reviewDurationLabel && approvalDuration !== null
+              ? formatApprovalSpan(approvalDuration)
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")
         : "No decision yet",
       done: !!decidedAction,
     },
@@ -1061,12 +1083,19 @@ function FullView({
 
             <ul className="space-y-3 text-sm">
               {reviewerDecisions.map((a, idx) => {
-                const payload = a.payload as { decision?: string; reason?: unknown; new_status?: string };
+                const payload = a.payload as { decision?: string; reason?: unknown; new_status?: string; review_duration_seconds?: number };
                 const reason = basisFromReason(payload.reason);
                 const isObj = reason && typeof reason === "object";
                 const reasonObj = isObj ? (reason as { basis?: string; verdict_assessment?: string | null; note?: string }) : null;
                 const reasonStr = !isObj && typeof reason === "string" ? reason : null;
                 const actorLabel = formatActorKind(a, actors);
+                const durSec = typeof payload.review_duration_seconds === "number" ? payload.review_duration_seconds : null;
+                const durLabel =
+                  durSec !== null
+                    ? durSec < 60
+                      ? `${durSec} seconds`
+                      : `${Math.floor(durSec / 60)}m ${durSec % 60}s`
+                    : null;
                 return (
                   <li key={a.id} className="border border-neutral-200 rounded p-3">
                     <div className="flex items-baseline justify-between gap-3 mb-2">
@@ -1076,6 +1105,16 @@ function FullView({
                       </div>
                       <div className="text-xs text-neutral-500 font-mono">{fmtTime(a.occurred_at)}</div>
                     </div>
+                    {durLabel && (
+                      <div className="font-mono text-[10px] text-[#94A3B8] mb-2">
+                        Review duration: {durLabel}
+                      </div>
+                    )}
+                    {durSec !== null && durSec < 10 && (
+                      <div className="font-mono text-[10px] text-[#C2410C] mb-2">
+                        ⚠ Very short review duration — supplemental evidence recommended
+                      </div>
+                    )}
                     <dl className="grid grid-cols-3 gap-y-1 text-xs">
                       <dt className="text-neutral-500">Reviewer</dt>
                       <dd className="col-span-2 text-neutral-900">{actorLabel}</dd>

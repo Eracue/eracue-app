@@ -13,6 +13,10 @@ type DecisionInput = {
   draftId: string;
   decision: "approve" | "reject" | "override" | "confirm_block";
   reason: DecisionReason;
+  // Seconds the reviewer spent on the page before clicking decide.
+  // Stored on the reviewer_decided payload so the examiner record can
+  // surface 'Review duration: 4m 23s' and flag suspiciously fast reviews.
+  reviewDurationSeconds?: number;
 };
 
 type DecisionResult = { success: true; error?: undefined } | { success?: undefined; error: string };
@@ -54,6 +58,9 @@ export async function reviewerDecisionAction(input: DecisionInput): Promise<Deci
       decision: input.decision,
       reason: input.reason,
       new_status: newStatus,
+      ...(typeof input.reviewDurationSeconds === "number"
+        ? { review_duration_seconds: input.reviewDurationSeconds }
+        : {}),
     },
   });
   if (rdErr) return { error: "Failed to record decision: " + rdErr.message };

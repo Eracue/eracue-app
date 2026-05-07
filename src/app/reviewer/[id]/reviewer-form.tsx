@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { reviewerDecisionAction } from "./actions";
 
@@ -38,6 +38,11 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  // would have left them on a record they've already actioned.
  const [decided, setDecided] = useState(false);
 
+ // Page-load timestamp drives the review_duration_seconds field on the
+ // reviewer_decided action — gives the examiner record a sense of how
+ // long the principal actually spent on the page before deciding.
+ const pageLoadTime = useRef<number>(Date.now());
+
  // Determine button options based on current verdict/status
  const isBlocked = currentStatus === "blocked" || verdict === "block";
  const isEscalated = currentStatus === "escalated" || verdict === "escalate";
@@ -56,6 +61,9 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  return;
  }
  setSubmitting(true);
+ const reviewDurationSeconds = Math.round(
+ (Date.now() - pageLoadTime.current) / 1000,
+ );
  try {
  const result = await reviewerDecisionAction({
  draftId,
@@ -65,6 +73,7 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  verdict_assessment: showVerdictAssessment ? verdictAssessment : null,
  note: note.trim(),
  },
+ reviewDurationSeconds,
  });
  if (result.error) {
  setError(result.error);
