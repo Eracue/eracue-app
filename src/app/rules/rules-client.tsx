@@ -27,8 +27,7 @@ const TABS: ReadonlyArray<{ key: ImportMode; label: string }> = [
 // for first-time visitors (or anyone explicitly setting up from
 // scratch); managing is the existing full rules dashboard with stats,
 // filters, and the rules list. The view switch is local React state —
-// no route change — so the "Back to my rules" link keeps the existing
-// rules data hot.
+// no route change — switching views never refetches the rules list.
 type RulesView = "setup" | "managing";
 
 export type RuleRow = {
@@ -102,15 +101,20 @@ const DEMO_RULE_NAMES: ReadonlyArray<string> = [
   "Pricing Claims",
 ];
 
-// Plain-English verdict labels rendered on the rule cards. The badge
-// is mixed-case (no CSS uppercase) so a non-compliance reader gets
-// "Block" / "Route to review" / "Flag" / "Guide" instead of the old
-// SHOUTY all-caps tags.
-const VERDICT_BADGE: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  block:    { bg: "bg-[#FEE2E2]", text: "text-[#B91C1C]", border: "border-[#FECACA]", label: "Block" },
-  escalate: { bg: "bg-[#FFF7ED]", text: "text-[#C2410C]", border: "border-[#FED7AA]", label: "Route to review" },
-  review:   { bg: "bg-[#E8F0FE]", text: "text-[#1A56DB]", border: "border-[#BFDBFE]", label: "Flag" },
-  guide:    { bg: "bg-[#F0FDF4]", text: "text-[#166534]", border: "border-[#BBF7D0]", label: "Guide" },
+// Plain-English verdict labels rendered on the rule cards. Inline
+// styles (instead of bg-/text-/border- Tailwind tokens) so the badge
+// palette stays portable across every consumer — verdict colors
+// describe state, not chrome, and shouldn't be tangled in the
+// Tailwind safelist. Review uses the brand-purple pair so flagged
+// rules read as the page accent rather than a third blue.
+const VERDICT_BADGES: Record<
+  string,
+  { label: string; bg: string; text: string; border: string }
+> = {
+  block:    { label: "Block",            bg: "#FEE2E2", text: "#B91C1C", border: "#FECACA" },
+  escalate: { label: "Route to review",  bg: "#FFF7ED", text: "#C2410C", border: "#FED7AA" },
+  review:   { label: "Flag",             bg: "#EEF2FF", text: "#4338CA", border: "#C7D7FE" },
+  guide:    { label: "Guide",            bg: "#F0FDF4", text: "#166534", border: "#BBF7D0" },
 };
 
 function fmtDate(iso: string | null): string {
@@ -361,11 +365,17 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
     // are dropped automatically because none of the curated names
     // belong to those classifications.
     if (IS_DEMO_MODE) {
-      return classified.filter(
-        ({ rule, classification }) =>
-          classification === "active" &&
-          DEMO_RULE_NAMES.includes(rule.name),
-      );
+      return classified
+        .filter(
+          ({ rule, classification }) =>
+            classification === "active" &&
+            DEMO_RULE_NAMES.includes(rule.name),
+        )
+        .sort(
+          (a, b) =>
+            DEMO_RULE_NAMES.indexOf(a.rule.name) -
+            DEMO_RULE_NAMES.indexOf(b.rule.name),
+        );
     }
     if (tab === "all") return classified;
     return classified.filter((c) => c.classification === tab);
@@ -436,18 +446,6 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
     return (
       <main className="min-h-screen bg-[#F8F9FB]">
         <div className="max-w-[720px] mx-auto px-6 py-10">
-          {/* Back link — only when the org already has live rules; for
-              a fresh org there's nothing to go back to. */}
-          {counts.active > 0 && (
-            <button
-              type="button"
-              onClick={() => setView("managing")}
-              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors mb-6 cursor-pointer"
-            >
-              ← Back to my rules
-            </button>
-          )}
-
           {/* Header */}
           <div className="mb-8">
             <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
@@ -455,7 +453,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
             </div>
             <h1
               style={{ fontFamily: "var(--font-newsreader)" }}
-              className="text-3xl font-light text-[#0F172A] mb-3"
+              className="text-3xl font-light text-[#0D1B2A] mb-3"
             >
               What should ERA CUE enforce?
             </h1>
@@ -470,7 +468,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               template for that firm type so the user never has to
               hunt for a "select all" affordance. */}
           <div className="mb-8">
-            <div className="text-sm font-medium text-[#0F172A] mb-3">
+            <div className="text-sm font-medium text-[#0D1B2A] mb-3">
               My organization is a
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -489,7 +487,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                     className={`px-4 py-2 rounded-sm border text-sm transition-colors cursor-pointer ${
                       selected
                         ? "bg-[#0F172A] border-[#0F172A] text-white"
-                        : "bg-white border-[#E2E8F0] text-[#374151] hover:border-[#94A3B8]"
+                        : "bg-white border-[#E2E8F0] text-[#475569] hover:border-[#94A3B8]"
                     }`}
                   >
                     {ft.label}
@@ -505,7 +503,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               so a first-time visitor doesn't have to map BLOCK /
               ESCALATE / REVIEW onto behaviour. */}
           <div className="mb-6">
-            <div className="text-sm font-medium text-[#0F172A] mb-1">
+            <div className="text-sm font-medium text-[#0D1B2A] mb-1">
               Suggested rules for your organization
             </div>
             <div className="text-sm text-[#64748B] mb-4 leading-relaxed">
@@ -540,7 +538,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                     }}
                     className={`border rounded-sm p-4 cursor-pointer transition-colors ${
                       isChecked
-                        ? "border-[#1A56DB] bg-[#EFF8FF]"
+                        ? "border-[#4F46E5] bg-[#EFF8FF]"
                         : "border-[#E2E8F0] bg-white hover:border-[#94A3B8]"
                     }`}
                   >
@@ -548,7 +546,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                       <div
                         className={`w-4 h-4 rounded border shrink-0 mt-0.5 flex items-center justify-center ${
                           isChecked
-                            ? "bg-[#1A56DB] border-[#1A56DB]"
+                            ? "bg-[#4F46E5] border-[#4F46E5]"
                             : "border-[#D1D5DB] bg-white"
                         }`}
                       >
@@ -572,7 +570,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-sm font-medium text-[#0F172A]">
+                          <span className="text-sm font-medium text-[#0D1B2A]">
                             {rule.name}
                           </span>
                           <span
@@ -600,7 +598,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               so they can pull rules out of their WSP instead of
               hand-picking templates. */}
           <div className="border border-[#E2E8F0] rounded-sm p-4 mb-8 bg-[#F8F9FB]">
-            <div className="text-sm font-medium text-[#0F172A] mb-1">
+            <div className="text-sm font-medium text-[#0D1B2A] mb-1">
               Already have a compliance policy?
             </div>
             <div className="text-sm text-[#64748B] mb-3 leading-relaxed">
@@ -615,7 +613,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                 setShowImport(true);
                 setImportMode("paste");
               }}
-              className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors cursor-pointer"
+              className="font-mono text-xs text-[#4F46E5] hover:text-[#4338CA] transition-colors cursor-pointer"
             >
               Import from an existing policy →
             </button>
@@ -673,16 +671,16 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
           </div>
           <h1
             style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-[#0F172A]"
+            className="text-3xl font-light text-[#0D1B2A]"
           >
             {IS_DEMO_MODE
               ? "Configure your governance rules."
               : `${counts.active} rule${counts.active !== 1 ? "s" : ""} governing your team's communications.`}
           </h1>
-          <p className="text-sm text-[#374151] max-w-xl leading-relaxed mt-2">
+          <p className="text-sm text-[#475569] max-w-xl leading-relaxed mt-2">
             {IS_DEMO_MODE
-              ? "ERA CUE checks every draft your team submits against these rules before publication. Import your existing compliance policies or choose templates below — there is no limit on rules."
-              : "Every draft is checked against these rules before publication."}
+              ? "ERA CUE checks every draft against these rules before publication. These are examples — import your own policies or add rules below."
+              : "Every draft your team submits is checked against these rules before publication."}
           </p>
         </div>
 
@@ -695,7 +693,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
             <button
               type="button"
               onClick={() => setIsAddOpen(true)}
-              className="bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#1447C0] transition-colors flex items-center gap-1.5"
+              className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#4338CA] transition-colors flex items-center gap-1.5"
             >
               <span aria-hidden>+</span>
               Add a rule
@@ -705,8 +703,8 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               onClick={() => setShowImport((o) => !o)}
               className={`font-mono text-xs font-medium px-4 py-2 rounded-sm border transition-colors ${
                 showImport
-                  ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0]"
-                  : "bg-white border-[#E2E8F0] text-[#374151] hover:bg-[#F8F9FB]"
+                  ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#4338CA]"
+                  : "bg-white border-[#E2E8F0] text-[#475569] hover:bg-[#F8F9FB]"
               }`}
             >
               {showImport ? "× Close" : "↑ Import policies"}
@@ -715,7 +713,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
           {counts.active > 0 && (
             <a
               href="/submit"
-              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
+              className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors"
             >
               Check a draft →
             </a>
@@ -745,8 +743,8 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                     }}
                     className={`flex-1 font-mono text-[10px] uppercase tracking-widest py-3 px-4 transition-colors border-b-2 cursor-pointer ${
                       selected
-                        ? "border-[#1A56DB] text-[#1A56DB] bg-white"
-                        : "border-transparent text-[#64748B] hover:text-[#0F172A] bg-transparent"
+                        ? "border-[#4F46E5] text-[#4F46E5] bg-white"
+                        : "border-transparent text-[#64748B] hover:text-[#0D1B2A] bg-transparent"
                     }`}
                   >
                     {t.label}
@@ -788,7 +786,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                             }}
                             className={`font-mono text-xs px-3 py-1.5 rounded-sm border transition-colors cursor-pointer ${
                               selected
-                                ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0] font-medium"
+                                ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#4338CA] font-medium"
                                 : "bg-white border-[#E2E8F0] text-[#64748B] hover:bg-[#F8F9FB]"
                             }`}
                           >
@@ -805,7 +803,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                   {/* Helper text — explains what the cards below are
                       and that authorizing them isn't a final commit
                       (every rule stays editable afterward). */}
-                  <div className="text-sm text-[#374151] mb-3 leading-relaxed">
+                  <div className="text-sm text-[#475569] mb-3 leading-relaxed">
                     Pre-built rules based on your firm type. Each is cited to the regulation
                     it enforces. Review each one and check the ones that apply to your
                     organization. You can customize any rule after authorizing.
@@ -828,7 +826,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               {/* TAB: Paste policy — Claude WSP extraction. */}
               {importMode === "paste" && (
                 <div>
-                  <div className="text-sm text-[#374151] mb-3">
+                  <div className="text-sm text-[#475569] mb-3">
                     Paste any policy text — WSP section, social media policy, email from legal, anything.
                     ERA CUE extracts the rules.
                   </div>
@@ -839,7 +837,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
 
 Example:
 "All associated persons must obtain prior written approval from a registered principal before posting on LinkedIn, Twitter, or any public social media platform. Posts containing performance claims, testimonials, forward-looking statements, or references to specific securities require CCO review and FINRA filing consideration under Rule 2210(b). All approved communications must be retained for 3 years per SEC Rule 17a-4."`}
-                    className="w-full border border-[#BAE6FD] rounded-sm px-3 py-3 text-sm text-[#0F172A] bg-white h-36 resize-none focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+                    className="w-full border border-[#BAE6FD] rounded-sm px-3 py-3 text-sm text-[#0D1B2A] bg-white h-36 resize-none focus:outline-none focus:ring-1 focus:ring-[#4F46E5] placeholder:text-[#94A3B8]"
                   />
                   <div className="font-mono text-[10px] text-[#94A3B8] mt-2 space-y-1">
                     <div>✓ ERA CUE reads any policy format — WSPs, social media policies, legal memos, compliance manuals</div>
@@ -850,7 +848,7 @@ Example:
                     type="button"
                     onClick={() => handleExtract("paste")}
                     disabled={!importText.trim() || extracting}
-                    className="mt-3 bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm disabled:opacity-50 hover:bg-[#1447C0] transition-colors flex items-center gap-2 cursor-pointer"
+                    className="mt-3 bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm disabled:opacity-50 hover:bg-[#4338CA] transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     {extracting ? (
                       <>
@@ -874,7 +872,7 @@ Example:
               {/* TAB: Upload doc — file → readAsText → extract. */}
               {importMode === "upload" && (
                 <div>
-                  <div className="text-sm text-[#374151] mb-3">
+                  <div className="text-sm text-[#475569] mb-3">
                     Upload a PDF or Word document. ERA CUE reads it and extracts your governance rules.
                   </div>
                   <label className="block border-2 border-dashed border-[#BAE6FD] rounded-sm p-8 text-center cursor-pointer hover:bg-white/50 transition-colors">
@@ -889,14 +887,14 @@ Example:
                     />
                     {uploadedFile ? (
                       <div>
-                        <div className="text-sm font-medium text-[#0F172A]">{uploadedFile.name}</div>
+                        <div className="text-sm font-medium text-[#0D1B2A]">{uploadedFile.name}</div>
                         <div className="font-mono text-[10px] text-[#64748B] mt-1">
                           {(uploadedFile.size / 1024).toFixed(0)} KB
                         </div>
                       </div>
                     ) : (
                       <div>
-                        <div className="text-sm font-medium text-[#374151]">
+                        <div className="text-sm font-medium text-[#475569]">
                           Drop a file here or click to browse
                         </div>
                         <div className="font-mono text-[10px] text-[#64748B] mt-1">
@@ -910,7 +908,7 @@ Example:
                       type="button"
                       onClick={() => handleExtract("upload")}
                       disabled={extracting}
-                      className="mt-3 bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm disabled:opacity-50 hover:bg-[#1447C0] transition-colors cursor-pointer"
+                      className="mt-3 bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm disabled:opacity-50 hover:bg-[#4338CA] transition-colors cursor-pointer"
                     >
                       {extracting ? "Extracting..." : "Extract rules →"}
                     </button>
@@ -929,7 +927,7 @@ Example:
               {/* TAB: Type rules manually. */}
               {importMode === "manual" && (
                 <div>
-                  <div className="text-sm text-[#374151] mb-3">
+                  <div className="text-sm text-[#475569] mb-3">
                     Describe your rules in plain English. One rule per line. ERA CUE converts each into a structured governance rule.
                   </div>
                   <textarea
@@ -944,7 +942,7 @@ Flag competitor comparisons for GC review
 Block forward guidance about revenue or growth
 Escalate client testimonials for compliance check
 Block posts mentioning specific fund performance`}
-                    className="w-full border border-[#BAE6FD] rounded-sm px-3 py-3 text-sm text-[#0F172A] bg-white h-36 resize-none font-mono focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+                    className="w-full border border-[#BAE6FD] rounded-sm px-3 py-3 text-sm text-[#0D1B2A] bg-white h-36 resize-none font-mono focus:outline-none focus:ring-1 focus:ring-[#4F46E5] placeholder:text-[#94A3B8]"
                   />
                   <div className="font-mono text-[10px] text-[#94A3B8] mt-2 space-y-1">
                     <div>✓ Write rules in plain English</div>
@@ -994,7 +992,7 @@ Block posts mentioning specific fund performance`}
                               >
                                 {verdict}
                               </span>
-                              <span className="text-xs text-[#374151] leading-relaxed">
+                              <span className="text-xs text-[#475569] leading-relaxed">
                                 {line}
                               </span>
                             </div>
@@ -1007,7 +1005,7 @@ Block posts mentioning specific fund performance`}
                     type="button"
                     onClick={() => handleExtract("manual")}
                     disabled={!manualRules.trim() || extracting}
-                    className="mt-3 bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm disabled:opacity-50 hover:bg-[#1447C0] transition-colors cursor-pointer"
+                    className="mt-3 bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm disabled:opacity-50 hover:bg-[#4338CA] transition-colors cursor-pointer"
                   >
                     {extracting ? "Converting..." : "Convert to rules →"}
                   </button>
@@ -1068,10 +1066,10 @@ Block posts mentioning specific fund performance`}
                   ✓
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-[#0F172A] mb-1">
+                  <div className="text-sm font-semibold text-[#0D1B2A] mb-1">
                     Your governance rules are live.
                   </div>
-                  <div className="text-sm text-[#374151]">
+                  <div className="text-sm text-[#475569]">
                     ERA CUE is now checking every draft your team submits
                     against these rules before publication.
                   </div>
@@ -1089,7 +1087,7 @@ Block posts mentioning specific fund performance`}
             <div className="mt-4 flex items-center gap-3 flex-wrap">
               <a
                 href="/submit"
-                className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#1447C0] transition-colors"
+                className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] transition-colors"
               >
                 Check your first draft →
               </a>
@@ -1099,7 +1097,7 @@ Block posts mentioning specific fund performance`}
                   clearActivated();
                   setView("setup");
                 }}
-                className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+                className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
               >
                 Add more rules
               </button>
@@ -1115,7 +1113,7 @@ Block posts mentioning specific fund performance`}
           <div className="flex items-center justify-between mt-6 mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-5">
               <div className="text-center">
-                <div className="text-2xl font-light font-mono text-[#0F172A]">
+                <div className="text-2xl font-light font-mono text-[#0D1B2A]">
                   {counts.active}
                 </div>
                 <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
@@ -1167,8 +1165,8 @@ Block posts mentioning specific fund performance`}
                   onClick={() => setTab(key)}
                   className={`font-mono text-xs px-4 py-2 transition-colors border-b-2 -mb-px cursor-pointer ${
                     selected
-                      ? "border-[#1A56DB] text-[#1A56DB]"
-                      : "border-transparent text-[#64748B] hover:text-[#0F172A]"
+                      ? "border-[#4F46E5] text-[#4F46E5]"
+                      : "border-transparent text-[#64748B] hover:text-[#0D1B2A]"
                   }`}
                 >
                   {label}
@@ -1182,7 +1180,7 @@ Block posts mentioning specific fund performance`}
             in demo mode. Outside demo, the labeled separator names
             the live enforcement set ("Active rules"). */}
         {IS_DEMO_MODE ? (
-          <div className="font-mono text-[10px] text-[#9CA3AF] mb-4 pb-3 border-b border-[#E5E7EB]">
+          <div className="font-mono text-[10px] text-[#94A3B8] mb-5 pb-4 border-b border-[#E2E8F0]">
             Example rules showing how ERA CUE works. Import your own
             policies above to replace these.
           </div>
@@ -1210,7 +1208,7 @@ Block posts mentioning specific fund performance`}
           ) : (
             filtered.map(({ rule: r, classification }) => {
               const v = (r.verdict || "review").toLowerCase();
-              const badge = VERDICT_BADGE[v] || VERDICT_BADGE.review;
+              const badge = VERDICT_BADGES[v] ?? VERDICT_BADGES.review;
               const triggers = r.trigger_count ?? 0;
               const drift =
                 classification === "active" ? classifyFreshness(r, now) : null;
@@ -1228,11 +1226,16 @@ Block posts mentioning specific fund performance`}
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <span
-                          className={`font-mono text-[9px] font-bold px-2 py-0.5 rounded-sm border shrink-0 ${badge.bg} ${badge.text} ${badge.border}`}
+                          style={{
+                            background: badge.bg,
+                            color: badge.text,
+                            border: `0.5px solid ${badge.border}`,
+                          }}
+                          className="font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm shrink-0"
                         >
                           {badge.label}
                         </span>
-                        <span className="text-sm font-semibold text-[#0F172A] leading-snug">
+                        <span className="text-sm font-semibold text-[#0D1B2A] leading-snug">
                           {r.name}
                         </span>
                       </div>
@@ -1270,7 +1273,7 @@ Block posts mentioning specific fund performance`}
 
                     {/* Row 2 — description */}
                     {r.description && (
-                      <p className="text-sm text-[#374151] leading-relaxed mb-3">
+                      <p className="text-sm text-[#475569] leading-relaxed mb-3">
                         {r.description}
                       </p>
                     )}
@@ -1280,7 +1283,7 @@ Block posts mentioning specific fund performance`}
                         {r.keywords.slice(0, 6).map((kw) => (
                           <span
                             key={kw}
-                            className="font-mono text-[10px] bg-[#F1F5F9] text-[#374151] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
+                            className="font-mono text-[10px] bg-[#F1F5F9] text-[#475569] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
                           >
                             {kw}
                           </span>
@@ -1308,7 +1311,7 @@ Block posts mentioning specific fund performance`}
                       {r.wsp_reference && (
                         <>
                           <span className="text-[#E5E7EB]" aria-hidden>·</span>
-                          <span className="text-[#1A56DB]">{r.wsp_reference}</span>
+                          <span className="text-[#4F46E5]">{r.wsp_reference}</span>
                         </>
                       )}
                       {!IS_DEMO_MODE && r.authorized_by && (
@@ -1424,7 +1427,7 @@ Block posts mentioning specific fund performance`}
                     className="flex items-center justify-between py-2 px-3 bg-white rounded-sm border border-[#FDE68A] gap-3 flex-wrap"
                   >
                     <div>
-                      <span className="text-sm font-medium text-[#0F172A]">
+                      <span className="text-sm font-medium text-[#0D1B2A]">
                         {r.name}
                       </span>
                       <span className="font-mono text-[10px] text-[#92400E] ml-2">
@@ -1456,7 +1459,7 @@ Block posts mentioning specific fund performance`}
                   className="flex items-center justify-between py-2 px-3 bg-white rounded-sm border border-[#FDE68A] gap-3 flex-wrap"
                 >
                   <div>
-                    <span className="text-sm font-medium text-[#0F172A]">
+                    <span className="text-sm font-medium text-[#0D1B2A]">
                       {r.name}
                     </span>
                     <span className="font-mono text-[10px] text-[#92400E] ml-2">
@@ -1490,7 +1493,7 @@ Block posts mentioning specific fund performance`}
             framing on its own and the FINRA-examiner anchor lands
             harder without a glyph competing for attention. */}
         <div className="mt-6 border border-[#E2E8F0] rounded-sm p-4 bg-[#F8F9FB]">
-          <div className="text-sm font-semibold text-[#0F172A] mb-1">
+          <div className="text-sm font-semibold text-[#0D1B2A] mb-1">
             Rules reference your existing compliance policies.
           </div>
           <div className="text-sm text-[#64748B] leading-relaxed">
@@ -1552,7 +1555,7 @@ function CandidateRuleCard({
             else next.delete(index);
             setConfirmed(next);
           }}
-          className="mt-1 w-4 h-4 accent-[#1A56DB] cursor-pointer shrink-0"
+          className="mt-1 w-4 h-4 accent-[#4F46E5] cursor-pointer shrink-0"
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -1569,9 +1572,9 @@ function CandidateRuleCard({
             >
               {rule.rule_type}
             </span>
-            <span className="text-sm font-semibold text-[#0F172A]">{rule.name}</span>
+            <span className="text-sm font-semibold text-[#0D1B2A]">{rule.name}</span>
           </div>
-          <div className="text-sm text-[#374151] mb-2">{rule.description}</div>
+          <div className="text-sm text-[#475569] mb-2">{rule.description}</div>
           {rule.keywords.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-2">
               {rule.keywords.slice(0, 6).map((kw) => (
@@ -1699,7 +1702,7 @@ function EditRulePanel({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
+            className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
           />
         </div>
         <div>
@@ -1733,7 +1736,7 @@ function EditRulePanel({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
-          className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB] resize-none"
+          className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] resize-none"
         />
       </div>
 
@@ -1750,7 +1753,7 @@ function EditRulePanel({
             setTestResult(null);
           }}
           placeholder="keyword one, keyword two, keyword three"
-          className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB] font-mono"
+          className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono"
         />
         {keywordsStr.trim() && (
           <div className="flex flex-wrap gap-1 mt-2">
@@ -1761,7 +1764,7 @@ function EditRulePanel({
               .map((kw, i) => (
                 <span
                   key={`${kw}-${i}`}
-                  className="font-mono text-[10px] bg-white text-[#374151] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
+                  className="font-mono text-[10px] bg-white text-[#475569] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
                 >
                   {kw}
                 </span>
@@ -1781,7 +1784,7 @@ function EditRulePanel({
           type="date"
           value={effectiveTo}
           onChange={(e) => setEffectiveTo(e.target.value)}
-          className="border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB] font-mono"
+          className="border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono"
         />
       </div>
 
@@ -1804,7 +1807,7 @@ function EditRulePanel({
               setTestResult(null);
             }}
             placeholder="Paste a sentence to test..."
-            className="flex-1 border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-[#F8F9FB] focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+            className="flex-1 border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-[#F8F9FB] focus:outline-none focus:ring-1 focus:ring-[#4F46E5] placeholder:text-[#94A3B8]"
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -1850,7 +1853,7 @@ function EditRulePanel({
           type="button"
           onClick={handleSave}
           disabled={saving || !name.trim()}
-          className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#1447C0] disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
+          className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
         >
           {saving ? (
             <>
@@ -1871,7 +1874,7 @@ function EditRulePanel({
         <button
           type="button"
           onClick={onCancel}
-          className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors px-2 py-2.5 cursor-pointer"
+          className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors px-2 py-2.5 cursor-pointer"
         >
           Cancel
         </button>
