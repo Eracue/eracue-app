@@ -6,155 +6,154 @@ export const revalidate = 0;
 // `fetchCache = "force-no-store"` is the third lever that stops Next from
 // memoising fetch() responses inside the route handler. Combined with the
 // CDN-level no-store header in next.config and the page-level dynamic
-// directive, this makes the route fully uncacheable end-to-end. Required
-// because Vercel's ISR was serving a months-old prerender of this page.
+// directive, this makes the route fully uncacheable end-to-end.
 export const fetchCache = "force-no-store";
 
-// Live communication record id used by the Communication Record section
-// "see a real record" link. Kept as a constant so the demo data id is
-// changeable in one place.
+// Live communication record id used by the COMM RECORD section's
+// "see a real record" link. Kept as a constant so the demo data id
+// is changeable in one place.
 const CCO_EXAMINER_DRAFT_ID = "afe14696-5336-4336-a0b7-c3410477ec31";
 
-// ---------- Page ----------------------------------------------------------
+// ---------- Page ---------------------------------------------------------
 
-// Final homepage. Strict three-tone alternation (dark / white / grey)
-// across seven background bands; the Hero+Badges and Campaign+Who-it's-for
-// pairs share a band each, separated by a hairline border. Every headline
-// uses Newsreader serif at text-3xl–text-5xl; body copy is text-sm or
-// smaller; eyebrows and labels are font-mono text-[10px] uppercase. No
-// section is allowed to break those rules.
+// Final homepage. Fixed three-tone palette across the section bands:
+//   #0D1B2A (dark)   — nav, hero, badges, regulatory, campaign + roles, CTA
+//   #FAFAFA (light)  — how it works
+//   #FFFFFF (white)  — communication record
+//   #EDE9FF (lavender) — built different
+// All headlines are Newsreader serif (font-light), text-3xl–text-5xl;
+// body copy is text-sm or smaller; eyebrows / labels are font-mono
+// text-[10px] uppercase; status colors (red / amber / green / lavender)
+// only on functional verdicts, never on ornament.
 export default function Home() {
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-[#0D1B2A] min-h-screen">
       <SiteHeader />
 
       {/* ============================================================
           SECTION 2 — HERO (dark)
-          Two-column. Left: eyebrow / headline / two subheads / workflow
-          strip / two CTAs / hint. Right: CLEAR verdict mockup so the
-          opening visual mirrors the everyday case (most drafts pass).
+          Two-column. Left: eyebrow / italic-tail headline / prose sub /
+          flow strip / two CTAs. Right: a BLOCK verdict mockup so the
+          opening visual reads as "ERA CUE caught something" — more
+          demonstrative than a CLEAR card.
          ============================================================ */}
-      <section className="bg-[#0A0F1E] py-16 md:py-20 px-6 md:px-12">
+      <section className="bg-[#0D1B2A] py-16 md:py-20 px-6 md:px-12">
         <div className="max-w-[1100px] mx-auto grid grid-cols-1 md:grid-cols-5 gap-12 items-center">
           {/* LEFT — copy + CTAs */}
           <div className="md:col-span-3">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-white/30 mb-8">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#A5B4FC] mb-5">
               Human oversight · AI 2026
             </div>
 
             <h1
-              className="font-light leading-[1.1] tracking-tight text-white text-4xl md:text-5xl mb-6 max-w-2xl"
+              className="font-light text-4xl md:text-5xl text-white leading-[1.1] mb-4"
               style={{ fontFamily: "var(--font-newsreader)" }}
             >
-              Every executive
+              Every executive communication.
               <br />
-              communication.
-              <br />
-              Checked. Approved.
-              <br />
-              On record.
+              <em className="italic text-white/[0.42]">
+                Checked. Approved. On record.
+              </em>
             </h1>
 
-            <p className="text-sm text-white/70 max-w-lg mb-3 leading-relaxed">
-              AI is drafting your team&apos;s communications. Agents are posting without human review. Nobody has a record that a person actually approved it.
+            <p className="text-sm text-white/55 leading-relaxed mb-6 max-w-md">
+              AI is drafting your team&apos;s communications. Agents are posting
+              without human review. Nobody has a record that a person approved
+              it.
             </p>
 
-            <p className="font-mono text-sm text-white/40 max-w-lg mb-10 leading-relaxed">
-              ERA CUE is the human checkpoint between AI and publication — where rules fire, principals decide, and records are created.
-            </p>
-
-            {/* Workflow strip — first scan answers "what's the loop?"
-                without prose. Each label is the verb the role thinks
-                in. */}
-            <div className="flex items-center gap-4 flex-wrap mb-10">
-              <span className="font-mono text-[10px] text-white/30 uppercase tracking-widest">
-                01 Configure rules
-              </span>
-              <span className="text-white/15 font-mono" aria-hidden>
-                →
-              </span>
-              <span className="font-mono text-[10px] text-white/30 uppercase tracking-widest">
-                02 Check every draft
-              </span>
-              <span className="text-white/15 font-mono" aria-hidden>
-                →
-              </span>
-              <span className="font-mono text-[10px] text-white/30 uppercase tracking-widest">
-                03 Record who approved
-              </span>
+            <div className="flex items-center gap-2 flex-wrap mb-6">
+              {[
+                "01 Set rules",
+                "02 Check drafts",
+                "03 Record approved",
+              ].map((label, i) => (
+                <span key={label} className="flex items-center gap-2">
+                  {i > 0 && (
+                    <span className="font-mono text-white/15" aria-hidden>
+                      →
+                    </span>
+                  )}
+                  <span className="font-mono text-[10px] text-white/[0.28] uppercase tracking-[0.08em]">
+                    {label}
+                  </span>
+                </span>
+              ))}
             </div>
 
             <div className="flex gap-3 flex-wrap">
-              <a
+              <Link
                 href="/rules"
-                className="bg-[#1A56DB] text-white font-mono text-xs font-medium px-6 py-3 rounded-sm hover:bg-[#1447C0] transition-colors"
+                className="bg-[#1A56DB] text-white font-mono text-[11px] font-medium px-5 py-2.5 rounded-sm hover:bg-[#1447C0] hover:shadow-[0_0_0_3px_rgba(26,86,219,0.25)] transition-all"
               >
                 Set up your rules →
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/submit"
-                className="bg-white/8 text-white/80 border border-white/15 font-mono text-xs font-medium px-6 py-3 rounded-sm hover:bg-white/15 transition-colors"
+                className="bg-white/[0.07] text-white border border-white/[0.12] font-mono text-[11px] font-medium px-5 py-2.5 rounded-sm hover:bg-white/[0.12] transition-colors"
               >
                 See it working →
-              </a>
-            </div>
-
-            <div className="font-mono text-[10px] text-white/20 mt-4">
-              Rules configure once · checks run on every draft · records are permanent
+              </Link>
             </div>
           </div>
 
-          {/* RIGHT — coded CLEAR verdict mockup, hidden on mobile so the
-              hero stays compact. Mirrors the production verdict card so
-              the prospect sees what they'll see at /submit. CLEAR (not
-              BLOCK) so the opening visual reads as "the everyday case." */}
+          {/* RIGHT — BLOCK verdict mockup. Hidden on mobile so the hero
+              stays compact. The body mirrors what /submit renders for a
+              real BLOCK — same plain-English label, same five-check
+              chain, same keyword + regulatory citation in the footer. */}
           <div className="md:col-span-2 hidden md:block">
-            <div className="bg-white rounded-sm shadow-2xl shadow-black/50 p-5 max-w-xs border border-white/5 mx-auto">
+            <div className="bg-white rounded-lg p-5 shadow-[0_4px_24px_rgba(0,0,0,0.15)]">
               <div className="flex items-center justify-between mb-3">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+                <div className="font-mono text-[9px] text-[#94A3B8] uppercase tracking-[0.12em]">
                   Communication check
                 </div>
-                <div className="font-mono text-[10px] text-[#94A3B8]">
+                <div className="font-mono text-[9px] text-[#94A3B8]">
                   Verdict in seconds
                 </div>
               </div>
 
-              <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-3 text-xs italic text-[#374151] leading-relaxed mb-4">
-                &ldquo;Customer trust is everything — building for the long term.&rdquo;
+              <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded p-3 text-[11px] italic text-[#374151] mb-3 leading-relaxed">
+                &ldquo;Our portfolio has generated guaranteed returns with no
+                risk to principal.&rdquo;
               </div>
 
-              <div className="flex items-center gap-2 mb-4">
-                <span className="bg-[#F0FDF4] text-[#166534] border-[#BBF7D0] font-mono text-xs font-bold uppercase px-2.5 py-1 rounded-sm border">
-                  CLEAR
+              <div className="flex items-center gap-2 mb-3">
+                <span className="bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA] font-mono text-[10px] font-bold uppercase px-2.5 py-1 rounded">
+                  Blocked
                 </span>
-                <span className="text-sm text-[#374151] ml-1">All checks passed</span>
+                <span className="text-[12px] font-medium text-[#0D1B2A]">
+                  Performance Projections
+                </span>
               </div>
 
-              <div className="space-y-1.5 mb-4">
+              <div className="space-y-1 mb-3">
                 {[
-                  "Rule Check",
-                  "Quiet Period",
-                  "Consistency",
-                  "Alignment",
-                  "Agent Origin",
-                ].map((name) => (
-                  <div key={name} className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] text-[#64748B]">{name}</span>
-                    <span className="font-mono text-[10px] font-bold text-[#166534]">
-                      PASS
+                  { name: "Rule check", result: "FAIL", color: "#DC2626" },
+                  { name: "Quiet period", result: "PASS", color: "#16A34A" },
+                  { name: "Consistency", result: "PASS", color: "#16A34A" },
+                  { name: "Alignment", result: "FLAG", color: "#D97706" },
+                  { name: "Agent origin", result: "PASS", color: "#16A34A" },
+                ].map((row) => (
+                  <div
+                    key={row.name}
+                    className="flex justify-between px-1 py-1 rounded hover:bg-[#F8FAFF] cursor-default transition-colors"
+                  >
+                    <span className="font-mono text-[10px] text-[#374151]">
+                      {row.name}
+                    </span>
+                    <span
+                      className="font-mono text-[10px] font-bold"
+                      style={{ color: row.color }}
+                    >
+                      {row.result}
                     </span>
                   </div>
                 ))}
               </div>
 
-              <div className="border-t border-[#E2E8F0] pt-3 space-y-1">
-                <div className="font-mono text-[10px] text-[#64748B] flex justify-between">
-                  <span>Principal approved</span>
-                  <span>✓ Cleared</span>
-                </div>
-                <div className="font-mono text-[10px] text-[#94A3B8]">
-                  SHA-256 locked · cannot be altered
-                </div>
+              <div className="border-t border-[#E5E7EB] pt-2.5 flex justify-between font-mono text-[9px] text-[#94A3B8]">
+                <span>Keyword: guaranteed returns</span>
+                <span>FINRA 2210(d)</span>
               </div>
             </div>
           </div>
@@ -162,321 +161,348 @@ export default function Home() {
       </section>
 
       {/* ============================================================
-          SECTION 3 — BADGES (dark, continues hero band)
-          A row of firm-type chips so a prospect sees "yes, this is for
-          my organization" before scrolling. No border-t — reads as a
-          continuation of the hero, with extra breathing room above.
+          SECTION 3 — BADGES (dark, seamless)
+          Single muted strip. Continues the hero band — the hairline
+          border on top is the only visual break.
          ============================================================ */}
-      <section className="bg-[#0A0F1E] pb-12 md:pb-16 px-6 md:px-12">
-        <div className="max-w-[1100px] mx-auto">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-white/30 mb-4 text-center">
+      <section className="bg-[#0D1B2A] border-t border-white/[0.06] py-3 px-6 md:px-12">
+        <div className="max-w-[1100px] mx-auto flex items-center justify-center gap-2 flex-wrap">
+          <span className="font-mono text-[9px] text-white/[0.22] uppercase tracking-[0.1em] mr-2">
             Built for
-          </div>
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            {[
-              "Broker-Dealers",
-              "RIAs",
-              "Public companies",
-              "Investment banks",
-              "PE firms",
-              "PR agencies",
-            ].map((label) => (
-              <span
-                key={label}
-                className="font-mono text-[10px] uppercase tracking-widest text-white/55 bg-white/[0.04] border border-white/[0.08] px-3 py-1.5 rounded-sm"
-              >
-                {label}
-              </span>
-            ))}
-          </div>
+          </span>
+          {[
+            "Broker-dealers",
+            "RIAs",
+            "Public companies",
+            "Investment banks",
+            "PR agencies",
+            "Executive teams",
+          ].map((label) => (
+            <span
+              key={label}
+              className="font-mono text-[9px] text-white/40 px-2.5 py-1 border border-white/[0.10] rounded-sm"
+            >
+              {label}
+            </span>
+          ))}
         </div>
       </section>
 
       {/* ============================================================
-          SECTION 4 — REGULATORY REALITY (white)
-          Three named enforcement actions, each rendered as a panel
-          with a header strip (badge + rule + penalty) and a body
-          that splits into "what happened" / "the rule" / "with ERA
-          CUE". Citations live next to the claim they support — not
-          in a page-bottom footnote list.
+          SECTION 4 — REGULATORY REALITY (dark, white cards)
+          Three named enforcement actions. Each card uses indigo for
+          the headline number (the fine) — red is reserved for active
+          violation states only.
          ============================================================ */}
-      <section className="bg-white py-16 md:py-20 px-6 md:px-12 border-t border-[#E2E8F0]">
+      <section className="bg-[#0D1B2A] py-16 md:py-20 px-6 md:px-12 border-t border-white/[0.06]">
         <div className="max-w-[1100px] mx-auto">
-          {/* Section header */}
           <div className="mb-10">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#A5B4FC] mb-3">
               The regulatory reality
             </div>
             <h2
+              className="text-3xl md:text-4xl font-light text-white mb-3 leading-tight max-w-2xl"
               style={{ fontFamily: "var(--font-newsreader)" }}
-              className="text-3xl font-light text-[#0F172A] mb-3 leading-tight max-w-2xl"
             >
               Three regulations. Real consequences.
             </h2>
-            <p className="text-sm text-[#64748B] max-w-xl leading-relaxed">
-              Real cases. Last 18 months. No communication was reviewed before it was published.
+            <p className="text-sm text-white/50 leading-relaxed max-w-xl">
+              Each of these enforcement actions happened in the last 18
+              months. Each involved communications that were not reviewed
+              before publication.
             </p>
           </div>
 
-          {/* Three panels — uniform structure, panel-specific palette
-              on the badge / fine / right column. Each panel body is a
-              60/40 split: the case sits next to its resolution, no
-              middle "the rule" column to reread on the way through. */}
-          <div className="space-y-3">
-            {/* Panel 1 — DraftKings / Reg FD */}
-            <div className="border border-[#E2E8F0] rounded-sm overflow-hidden">
-              <div className="bg-[#F8F9FB] px-5 py-2.5 border-b border-[#E2E8F0] flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA]">
-                    Public company
-                  </span>
-                  <span className="font-mono text-[10px] text-[#64748B]">
-                    SEC Regulation FD
-                  </span>
-                </div>
-                <span className="font-mono text-[10px] font-bold text-[#B91C1C]">
-                  $200,000 fine
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
-                <div className="md:col-span-3 p-5 md:border-r border-[#E2E8F0]">
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#94A3B8] mb-3">
-                    What happened
-                  </div>
-                  <p className="text-sm text-[#374151] leading-relaxed">
-                    DraftKings&apos; PR firm posted on the CEO&apos;s LinkedIn during an earnings quiet period — disclosing revenue growth data before Q2 results. Posts were live 30 minutes. The firm&apos;s own policy required prior written approval.
-                  </p>
-                  <div className="font-mono text-[9px] text-[#94A3B8] mt-3">
-                    SEC Release 34-101130 · Sep 26, 2024
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 p-5 bg-[#F0FDF4]">
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#166534] mb-3">
-                    With ERA CUE
-                  </div>
-                  <p className="text-sm text-[#374151] leading-relaxed">
-                    The quiet period rule fires on submission. The draft is blocked before it reaches LinkedIn — and the principal&apos;s decision is on record.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Panel 2 — FINRA / Broker-Dealer */}
-            <div className="border border-[#E2E8F0] rounded-sm overflow-hidden">
-              <div className="bg-[#F8F9FB] px-5 py-2.5 border-b border-[#E2E8F0] flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA]">
-                    Broker-dealer
-                  </span>
-                  <span className="font-mono text-[10px] text-[#64748B]">
-                    FINRA Rules 2210(b) + 3110
-                  </span>
-                </div>
-                <span className="font-mono text-[10px] font-bold text-[#C2410C]">
-                  $850,000 fine
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
-                <div className="md:col-span-3 p-5 md:border-r border-[#E2E8F0]">
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#94A3B8] mb-3">
-                    What happened
-                  </div>
-                  <p className="text-sm text-[#374151] leading-relaxed">
-                    A broker-dealer paid social media influencers to promote the firm. No registered principal reviewed any post before publication. No records were maintained.
-                  </p>
-                  <div className="font-mono text-[9px] text-[#94A3B8] mt-3">
-                    FINRA Enforcement · March 18, 2024
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 p-5 bg-[#F0FDF4]">
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#166534] mb-3">
-                    With ERA CUE
-                  </div>
-                  <p className="text-sm text-[#374151] leading-relaxed">
-                    Every influencer or agency submits through ERA CUE before posting. A registered principal approves — and the named review record satisfies Rule 3110.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Panel 3 — EU AI Act */}
-            <div className="border border-[#E2E8F0] rounded-sm overflow-hidden">
-              <div className="bg-[#F8F9FB] px-5 py-2.5 border-b border-[#E2E8F0] flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm bg-[#F5F3FF] text-[#7C3AED] border border-[#DDD6FE]">
-                    All organizations
-                  </span>
-                  <span className="font-mono text-[10px] text-[#64748B]">
-                    EU AI Act Article 50
-                  </span>
-                </div>
-                <span className="font-mono text-[10px] font-bold text-[#7C3AED]">
-                  Effective August 2026
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
-                <div className="md:col-span-3 p-5 md:border-r border-[#E2E8F0]">
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#94A3B8] mb-3">
-                    The gap
-                  </div>
-                  <p className="text-sm text-[#374151] leading-relaxed">
-                    AI drafts content. Executives post it. There is no record that a human reviewed it before publication — and Article 50 requires one.
-                  </p>
-                  <div className="font-mono text-[9px] text-[#94A3B8] mt-3">
-                    EU AI Act Art. 50 · Aug 2, 2026
-                  </div>
-                </div>
-
-                <div className="md:col-span-2 p-5 bg-[#F0FDF4]">
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#166534] mb-3">
-                    With ERA CUE
-                  </div>
-                  <p className="text-sm text-[#374151] leading-relaxed">
-                    ERA CUE records AI origin, documents the human review decision, and produces the disclosure trail Article 50 requires — for every governed draft.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom line — single sentence framing the three panels
-              as one shared problem ERA CUE solves. */}
-          <div className="text-center mt-6">
-            <p className="font-mono text-xs text-[#64748B] max-w-xl mx-auto leading-relaxed">
-              ERA CUE is the pre-publication checkpoint that produces the evidence each of these regulations requires.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ============================================================
-          SECTION 5 — HOW IT WORKS (grey)
-          Three steps mapping to real product surfaces (rules / submit
-          / examiner). Each step links to that surface so a curious
-          prospect can jump straight to the relevant page.
-         ============================================================ */}
-      <section className="bg-[#F8F9FB] py-16 md:py-20 px-6 md:px-12 border-t border-[#E2E8F0]">
-        <div className="max-w-[1100px] mx-auto">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3 text-center">
-            HOW IT WORKS
-          </div>
-          <h2
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-[#0F172A] mb-12 text-center leading-tight"
-          >
-            Three steps. Every draft.
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               {
-                step: "01",
-                title: "Configure your governance",
-                desc: "The CCO sets governance rules once — from regulatory templates, existing WSPs, or from scratch. Authorized by a named principal before anything is governed.",
-                detail: "WSP import · FINRA templates · AI-assisted creation",
-                color: "text-[#1A56DB]",
+                amount: "$200,000",
+                amountLabel: "civil penalty",
+                type: "Public company · September 2024",
+                rule: "SEC Regulation FD",
+                bodyLabel: "What happened",
+                body: "DraftKings’ PR firm posted on the CEO’s LinkedIn during an earnings quiet period — disclosing revenue growth data before Q2 results were released. Posts were live 30 minutes.",
+                citation: "SEC Release 34-101130",
+                eraText:
+                  "The quiet period rule fires on submission. The draft is blocked before it reaches LinkedIn — and the principal’s decision is on record.",
               },
               {
-                step: "02",
-                title: "Check before you publish",
-                desc: "Any executive — or AI agent acting on their behalf — submits a draft. ERA CUE checks it against active rules and prior approved statements. Verdict in seconds.",
-                detail: "Five checks · Verdict in seconds · Principal review if needed",
-                color: "text-[#C2410C]",
+                amount: "$850,000",
+                amountLabel: "FINRA fine",
+                type: "Broker-dealer · March 2024",
+                rule: "FINRA Rules 2210(b) + 3110",
+                bodyLabel: "What happened",
+                body: "M1 Finance paid social media influencers to promote the firm. No registered principal reviewed any post before publication. No records were maintained.",
+                citation: "FINRA Enforcement",
+                eraText:
+                  "Every influencer or agency submits through ERA CUE before posting. A registered principal approves — and the named review record satisfies Rule 3110.",
               },
               {
-                step: "03",
-                title: "Record who approved",
-                desc: "ERA CUE generates an immutable communication record — named principal, structured decision, SHA-256 locked. Ready for any regulator, board, or client.",
-                detail: "SHA-256 locked · Append-only · FINRA Rule 3110",
-                color: "text-[#166534]",
+                amount: "Aug 2026",
+                amountLabel: "enforceable",
+                type: "All organizations",
+                rule: "EU AI Act Article 50",
+                bodyLabel: "The gap",
+                body: "AI drafts content. Executives post it. There is no record that a human reviewed it before publication — and Article 50 requires one.",
+                citation: "EU AI Act Art. 50",
+                eraText:
+                  "ERA CUE records AI origin, documents the human review decision, and produces the disclosure trail Article 50 requires — for every governed draft.",
               },
-            ].map((item) => (
-              <div key={item.step}>
-                <div className={`font-mono text-3xl font-bold mb-3 ${item.color}`}>
-                  {item.step}
+            ].map((card) => (
+              <div
+                key={card.amount}
+                className="bg-white rounded-lg overflow-hidden border-t-[3px] border-t-[#1A56DB] shadow-[0_2px_16px_rgba(0,0,0,0.2)] hover:shadow-[0_8px_32px_rgba(0,0,0,0.28)] hover:-translate-y-[3px] transition-all duration-200"
+              >
+                <div className="p-5">
+                  <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#6B7280] mb-2">
+                    {card.type}
+                  </div>
+                  <div
+                    className="font-mono text-[26px] font-bold text-[#1A56DB] leading-none mb-1"
+                    style={{ letterSpacing: "-0.02em" }}
+                  >
+                    {card.amount}
+                  </div>
+                  <div className="font-mono text-[9px] text-[#9CA3AF]">
+                    {card.amountLabel}
+                  </div>
                 </div>
-                <div className="text-base font-semibold text-[#0F172A] mb-3 leading-snug">
-                  {item.title}
+
+                <div className="h-px bg-[#E5E7EB] mx-5" />
+
+                <div className="p-5">
+                  <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#9CA3AF] mb-2">
+                    {card.bodyLabel}
+                  </div>
+                  <div className="font-mono text-[9px] text-[#1A56DB] mb-2">
+                    {card.rule}
+                  </div>
+                  <p className="text-[12px] text-[#374151] leading-relaxed mb-2">
+                    {card.body}
+                  </p>
+                  <div className="font-mono text-[9px] text-[#9CA3AF]">
+                    {card.citation}
+                  </div>
                 </div>
-                <div className="text-sm text-[#374151] leading-relaxed mb-3">
-                  {item.desc}
-                </div>
-                <div className="font-mono text-[10px] text-[#94A3B8]">
-                  {item.detail}
+
+                <div className="bg-[#EDE9FF] border-t border-[#DDD6FE] p-4">
+                  <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#7C6FCD] mb-1.5">
+                    With ERA CUE
+                  </div>
+                  <p className="text-[12px] text-[#3730A3] leading-relaxed">
+                    {card.eraText}
+                  </p>
                 </div>
               </div>
             ))}
           </div>
+
+          <div className="text-center mt-7">
+            <p className="font-mono text-[10px] text-white/30 max-w-xl mx-auto leading-relaxed">
+              ERA CUE is the pre-publication checkpoint that produces the
+              evidence each of these regulations requires.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* ============================================================
-          SECTION 6 — CAMPAIGN GOVERNANCE (dark)
-          Two-column. Left: a campaign-record card showing four named
-          speakers with channel + topic + status + review timing. Right:
-          a clean role list — PR / CCO / FINRA examiner — naming the
-          slice of the record each audience actually reads. Replaces a
-          three-card stack whose identical "Who sees what" labels read
-          as a duplicate-render bug.
+          SECTION 5 — HOW IT WORKS (light)
+          Three step cards + a flow diagram. The diagram makes the
+          decision tree explicit so a CCO doesn't have to read prose
+          to see how a draft routes.
          ============================================================ */}
-      <section className="bg-[#0A0F1E] py-16 md:py-20 px-6 md:px-12">
+      <section className="bg-[#FAFAFA] py-16 md:py-20 px-6 md:px-12">
         <div className="max-w-[1100px] mx-auto">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-white/30 mb-3">
-            Campaign governance
+          <div className="mb-10 text-center">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#7C6FCD] mb-3">
+              HOW IT WORKS
+            </div>
+            <h2
+              className="text-3xl md:text-4xl font-light text-[#0D1B2A] mb-3 leading-tight"
+              style={{ fontFamily: "var(--font-newsreader)" }}
+            >
+              Three steps. Every draft.
+            </h2>
+            <p className="text-sm text-[#374151] leading-relaxed max-w-xl mx-auto">
+              Configure the governance once. Every draft your team submits
+              afterwards routes through it.
+            </p>
           </div>
-          <h2
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-white mb-3 leading-tight max-w-2xl"
-          >
-            Every executive. One view.
-          </h2>
-          <p className="text-sm text-white/40 mb-10 max-w-xl leading-relaxed">
-            See your whole team&apos;s communications at once — who approved, who&apos;s pending, and how long each review took.
-          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            {[
+              {
+                label: "01 — Configure",
+                title: "Configure your governance",
+                body: "The CCO sets governance rules once — from regulatory templates, existing WSPs, or from scratch. Authorized by a named principal before anything is governed.",
+                tag: "WSP import · FINRA templates · AI-assisted creation",
+              },
+              {
+                label: "02 — Check",
+                title: "Check before you publish",
+                body: "Any executive — or AI agent acting on their behalf — submits a draft. ERA CUE checks it against active rules and prior approved statements. Verdict in seconds.",
+                tag: "Five checks · Verdict in seconds · Principal review if needed",
+              },
+              {
+                label: "03 — Record",
+                title: "Record who approved",
+                body: "ERA CUE generates an immutable communication record — named principal, structured decision, SHA-256 locked. Ready for any regulator, board, or client.",
+                tag: "SHA-256 locked · Append-only · FINRA Rule 3110",
+              },
+            ].map((step) => (
+              <div
+                key={step.label}
+                className="bg-white border border-[#E5E7EB] rounded-lg p-6 border-l-[3px] border-l-[#1A56DB] hover:border-l-[#7C6FCD] hover:shadow-[0_4px_20px_rgba(124,111,205,0.12)] transition-all duration-200"
+              >
+                <div className="font-mono text-[10px] font-bold text-[#1A56DB] mb-3">
+                  {step.label}
+                </div>
+                <div className="text-[14px] font-medium text-[#0D1B2A] mb-2 leading-snug">
+                  {step.title}
+                </div>
+                <p className="text-[12px] text-[#374151] leading-[1.7] mb-3">
+                  {step.body}
+                </p>
+                <div className="font-mono text-[9px] text-[#6B7280]">
+                  {step.tag}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Decision flow diagram — three input nodes feeding three
+              verdict chips. Renders the routing logic visually so a CCO
+              doesn't have to read prose to see what BLOCK / ESCALATED /
+              CLEARED actually mean. */}
+          <div className="bg-white border border-[#E5E7EB] rounded-lg p-5">
+            <div className="font-mono text-[9px] uppercase tracking-[0.13em] text-[#9CA3AF] mb-4">
+              Decision flow — every draft routes through this
+            </div>
+            <div className="flex items-center gap-0 flex-wrap">
+              <div className="flex-1 text-center min-w-[120px]">
+                <div className="font-mono text-[10px] font-medium text-[#374151]">
+                  Draft
+                </div>
+                <div className="font-mono text-[9px] text-[#9CA3AF] mt-1">
+                  Executive or agent
+                </div>
+              </div>
+              <span
+                className="font-mono text-[14px] text-[#D1D5DB] px-3 flex-shrink-0"
+                aria-hidden
+              >
+                →
+              </span>
+              <div className="flex-1 text-center min-w-[120px]">
+                <div className="font-mono text-[10px] font-medium text-[#374151]">
+                  Five checks
+                </div>
+                <div className="font-mono text-[9px] text-[#9CA3AF] mt-1">
+                  Rules + corpus + context
+                </div>
+              </div>
+              <span
+                className="font-mono text-[14px] text-[#D1D5DB] px-3 flex-shrink-0"
+                aria-hidden
+              >
+                →
+              </span>
+              <div className="flex flex-col gap-1.5 flex-[1.4] min-w-[180px]">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded border border-[#FECACA] bg-[#FEE2E2]">
+                  <span className="font-mono text-[10px] font-bold text-[#DC2626]">
+                    Blocked
+                  </span>
+                  <span className="font-mono text-[9px] text-[#9CA3AF]">
+                    rule violation
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded border border-[#FDE68A] bg-[#FEF3C7]">
+                  <span className="font-mono text-[10px] font-bold text-[#D97706]">
+                    Escalated
+                  </span>
+                  <span className="font-mono text-[9px] text-[#9CA3AF]">
+                    routes to review
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded border border-[#BBF7D0] bg-[#DCFCE7]">
+                  <span className="font-mono text-[10px] font-bold text-[#16A34A]">
+                    Cleared
+                  </span>
+                  <span className="font-mono text-[9px] text-[#9CA3AF]">
+                    publishable, recorded
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          SECTION 6 + 7 — CAMPAIGN GOVERNANCE + ROLE CARDS (dark)
+          Two-column campaign card + "who uses" list at the top, role
+          cards below in the same band. The hairline border on top
+          separates this from the light steps section above.
+         ============================================================ */}
+      <section className="bg-[#0D1B2A] py-16 md:py-20 px-6 md:px-12">
+        <div className="max-w-[1100px] mx-auto">
+          <div className="mb-10">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#A5B4FC] mb-3">
+              Campaign governance
+            </div>
+            <h2
+              className="text-3xl md:text-4xl font-light text-white mb-3 leading-tight max-w-2xl"
+              style={{ fontFamily: "var(--font-newsreader)" }}
+            >
+              Every executive. One view.
+            </h2>
+            <p className="text-sm text-white/50 leading-relaxed max-w-xl">
+              See your whole team&apos;s communications at once — who
+              approved, who&apos;s pending, and how long each review took.
+            </p>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
             {/* LEFT — campaign card */}
-            <div className="bg-white/[0.04] border border-white/[0.08] rounded-sm overflow-hidden">
-              {/* Header — name + meta on the left, three stats on the
-                  right. Stats are absolute counts for the whole campaign
-                  window, not the visible four rows. */}
+            <div className="bg-white/[0.05] border border-white/[0.10] rounded-lg overflow-hidden">
               <div className="px-5 py-3.5 border-b border-white/[0.08] flex items-center justify-between flex-wrap gap-3">
                 <div>
                   <div className="text-sm font-semibold text-white">
                     Q3 product launch
                   </div>
-                  <div className="font-mono text-[10px] text-white/25 mt-0.5">
+                  <div className="font-mono text-[10px] text-white/[0.25] mt-0.5">
                     Apr 1–Jun 30, 2026 · GC
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-center">
-                    <div className="font-mono text-sm font-bold text-[#4ADE80]">8</div>
-                    <div className="font-mono text-[9px] uppercase tracking-widest text-white/30">
+                    <div className="font-mono text-sm font-bold text-[#16A34A]">
+                      8
+                    </div>
+                    <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/30">
                       Approved
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="font-mono text-sm font-bold text-[#FCD34D]">2</div>
-                    <div className="font-mono text-[9px] uppercase tracking-widest text-white/30">
+                    <div className="font-mono text-sm font-bold text-[#D97706]">
+                      2
+                    </div>
+                    <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/30">
                       Pending
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="font-mono text-sm font-bold text-[#FCA5A5]">1</div>
-                    <div className="font-mono text-[9px] uppercase tracking-widest text-white/30">
+                    <div className="font-mono text-sm font-bold text-[#DC2626]">
+                      1
+                    </div>
+                    <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/30">
                       Blocked
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Speaker rows — name + role + channel + topic + status. */}
               <div className="divide-y divide-white/[0.05]">
                 {[
                   {
@@ -485,7 +511,7 @@ export default function Home() {
                     channel: "LinkedIn",
                     topic: "Series B messaging",
                     status: "Approved · 2h 14m review",
-                    pending: false,
+                    color: "#16A34A",
                   },
                   {
                     name: "Lena Brooks",
@@ -493,7 +519,7 @@ export default function Home() {
                     channel: "Press release",
                     topic: "Q3 launch",
                     status: "Approved · 47m review",
-                    pending: false,
+                    color: "#16A34A",
                   },
                   {
                     name: "James Kim",
@@ -501,7 +527,7 @@ export default function Home() {
                     channel: "LinkedIn",
                     topic: "Price claim flagged",
                     status: "Pending review · 11:42 AM",
-                    pending: true,
+                    color: "#D97706",
                   },
                   {
                     name: "Priya Patel",
@@ -509,28 +535,27 @@ export default function Home() {
                     channel: "Twitter",
                     topic: "Campaign messaging",
                     status: "Approved · 1h 8m review",
-                    pending: false,
+                    color: "#16A34A",
                   },
                 ].map((s) => (
                   <div
                     key={s.name}
-                    className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap"
+                    className="px-5 py-3 flex items-center justify-between gap-3 flex-wrap hover:bg-white/[0.04] transition-colors"
                   >
                     <div>
                       <div className="text-sm text-white/75">
                         {s.name}{" "}
-                        <span className="font-mono text-[10px] text-white/22 ml-1">
+                        <span className="font-mono text-[10px] text-white/[0.22] ml-1">
                           · {s.role}
                         </span>
                       </div>
-                      <div className="font-mono text-[10px] text-white/22 mt-0.5">
+                      <div className="font-mono text-[10px] text-white/[0.22] mt-0.5">
                         {s.channel} · {s.topic}
                       </div>
                     </div>
                     <span
-                      className={`font-mono text-[10px] ${
-                        s.pending ? "text-[#FCD34D]" : "text-[#4ADE80]"
-                      }`}
+                      className="font-mono text-[10px]"
+                      style={{ color: s.color }}
                     >
                       {s.status}
                     </span>
@@ -538,27 +563,22 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* Footer */}
               <div className="px-5 py-3 border-t border-white/[0.08] flex items-center justify-between gap-3 flex-wrap">
                 <span className="font-mono text-[10px] text-white/30">
                   Every speaker. Every channel. One record.
                 </span>
                 <Link
                   href="/campaigns/Q3%20Product%20Launch"
-                  className="font-mono text-xs text-[#60A5FA] hover:text-white transition-colors"
+                  className="font-mono text-xs text-[#A5B4FC] hover:text-white transition-colors"
                 >
                   View campaign record →
                 </Link>
               </div>
             </div>
 
-            {/* RIGHT — role list. One header, three rows: role on the
-                left in the column gutter, use case on the right. Same
-                content as the old three-card stack, without the
-                duplicated "Who sees what" label that made the stack
-                read as a render bug. */}
+            {/* RIGHT — role list. One header, three rows. */}
             <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-white/30 mb-4">
+              <div className="font-mono text-[10px] uppercase tracking-[0.13em] text-white/30 mb-4">
                 Who uses the campaign record
               </div>
               <div className="space-y-3">
@@ -577,10 +597,10 @@ export default function Home() {
                   },
                 ].map((item) => (
                   <div key={item.role} className="flex gap-3">
-                    <div className="font-mono text-xs font-medium text-white/60 w-24 shrink-0 pt-0.5">
+                    <div className="font-mono text-[11px] font-medium text-[#A5B4FC] w-28 shrink-0 pt-0.5">
                       {item.role}
                     </div>
-                    <div className="text-sm text-white/40 leading-relaxed">
+                    <div className="text-[12px] text-white/45 leading-relaxed">
                       {item.use}
                     </div>
                   </div>
@@ -588,96 +608,76 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* ============================================================
-          SECTION 7 — WHO IT'S FOR (dark, same band)
-          Same dark band as Campaign — separated by a hairline border
-          rather than a section break. Five role cards in a 2-col grid;
-          card 5 spans both columns. No links inside any card.
-         ============================================================ */}
-      <section className="bg-[#0A0F1E] pt-16 md:pt-20 pb-16 md:pb-20 px-6 md:px-12 border-t border-white/[0.06]">
-        <div className="max-w-[1100px] mx-auto">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-white/30 mb-3">
-            Built for every role
-          </div>
-          <h2
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-white mb-3 leading-tight max-w-2xl"
-          >
-            From the executive drafting to the examiner reviewing.
-          </h2>
-          <p className="text-sm text-white/40 mb-10 max-w-xl leading-relaxed">
-            ERA CUE serves every person in the communication governance workflow.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* CARD 01 — Executive · amber accent */}
-            <div className="bg-white/[0.04] border border-white/[0.08] border-l-4 border-l-[#D97706] rounded-sm p-5 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#FCD34D] mb-3">
-                EXECUTIVE · FOUNDER · CEO
-              </div>
-              <div className="text-base font-semibold text-white mb-2 leading-snug">
-                Know before you post.
-              </div>
-              <p className="text-sm text-white/60 leading-relaxed flex-1">
-                ERA CUE checks your draft against your organization&apos;s active rules before anyone sees it. Know exactly what&apos;s wrong — before it reaches anyone.
-              </p>
+          {/* ROLE CARDS — same dark band, separated by a hairline border
+              and a wider top margin so the two halves read as related
+              but distinct. NO links inside any card. */}
+          <div className="border-t border-white/[0.06] mt-12 pt-12">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#A5B4FC] mb-3">
+              Built for every role
             </div>
+            <h2
+              className="text-3xl md:text-4xl font-light text-white mb-3 leading-tight max-w-2xl"
+              style={{ fontFamily: "var(--font-newsreader)" }}
+            >
+              From the executive drafting to the examiner reviewing.
+            </h2>
+            <p className="text-sm text-white/50 leading-relaxed mb-8 max-w-xl">
+              ERA CUE serves every person in the communication governance
+              workflow.
+            </p>
 
-            {/* CARD 02 — CMO / Comms / Brand · violet accent */}
-            <div className="bg-white/[0.04] border border-white/[0.08] border-l-4 border-l-[#7C3AED] rounded-sm p-5 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#C4B5FD] mb-3">
-                CMO · VP COMMS · PR AGENCY
-              </div>
-              <div className="text-base font-semibold text-white mb-2 leading-snug">
-                See your whole team at once.
-              </div>
-              <p className="text-sm text-white/60 leading-relaxed flex-1">
-                Every executive. Every campaign. ERA CUE surfaces contradictions before they go public — and shows who approved what, when, and how long it took.
-              </p>
-            </div>
-
-            {/* CARD 03 — CCO / GC / RIA / Broker-dealer · ERA CUE blue */}
-            <div className="bg-white/[0.04] border border-white/[0.08] border-l-4 border-l-[#1A56DB] rounded-sm p-5 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#93C5FD] mb-3">
-                CCO · GENERAL COUNSEL · RIA · BROKER-DEALER
-              </div>
-              <div className="text-base font-semibold text-white mb-2 leading-snug">
-                The supervisory record examiners ask for.
-              </div>
-              <p className="text-sm text-white/60 leading-relaxed flex-1">
-                ERA CUE produces the supervisory evidence FINRA Rule 3110 and Rule 2210(b) require — named principal review, structured decision basis, immutable audit trail.
-              </p>
-            </div>
-
-            {/* CARD 04 — IR / GC / Public Co · teal accent. The body
-                names "a company" rather than DraftKings — the named
-                case lives in Section 4. */}
-            <div className="bg-white/[0.04] border border-white/[0.08] border-l-4 border-l-[#0D9488] rounded-sm p-5 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#5EEAD4] mb-3">
-                IR · GC · PUBLIC COMPANY
-              </div>
-              <div className="text-base font-semibold text-white mb-2 leading-snug">
-                Reg FD documented before publication.
-              </div>
-              <p className="text-sm text-white/60 leading-relaxed flex-1">
-                In 2024, the SEC charged a company $200,000 after its CEO&apos;s account posted material information during a quiet period. ERA CUE checks for these violations before any executive communicates.
-              </p>
-            </div>
-
-            {/* CARD 05 — Investment bank / PE / Hedge fund · slate · full width */}
-            <div className="md:col-span-2 bg-white/[0.06] border border-white/[0.10] border-l-4 border-l-[#94A3B8] rounded-sm p-5 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#CBD5E1] mb-3">
-                INVESTMENT BANK · PRIVATE EQUITY · HEDGE FUND
-              </div>
-              <div className="text-base font-semibold text-white mb-2 leading-snug">
-                Deal-specific quiet periods. Every person. Every platform.
-              </div>
-              <p className="text-sm text-white/60 leading-relaxed flex-1">
-                Every deal, fundraise, and exit creates a window where the wrong post creates real exposure. ERA CUE applies deal-specific quiet periods across your team — partners, associates, portfolio companies — before anything goes out.
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {[
+                {
+                  eyebrow: "EXECUTIVE · FOUNDER · CEO",
+                  title: "Know before you post.",
+                  body: "ERA CUE checks your draft against your organization’s active rules before anyone sees it. Know exactly what’s wrong — before it reaches anyone.",
+                  full: false,
+                },
+                {
+                  eyebrow: "CMO · VP COMMS · PR AGENCY",
+                  title: "See your whole team at once.",
+                  body: "Every executive. Every campaign. ERA CUE surfaces contradictions before they go public — and shows who approved what, when, and how long it took.",
+                  full: false,
+                },
+                {
+                  eyebrow: "CCO · GENERAL COUNSEL · RIA · BROKER-DEALER",
+                  title: "The supervisory record examiners ask for.",
+                  body: "ERA CUE produces the supervisory evidence FINRA Rule 3110 and Rule 2210(b) require — named principal review, structured decision basis, immutable audit trail.",
+                  full: false,
+                },
+                {
+                  eyebrow: "IR · GC · PUBLIC COMPANY",
+                  title: "Reg FD documented before publication.",
+                  body: "In 2024, the SEC charged a company $200,000 after its CEO’s account posted material information during a quiet period. ERA CUE checks for these violations before any executive communicates.",
+                  full: false,
+                },
+                {
+                  eyebrow: "INVESTMENT BANK · PRIVATE EQUITY · HEDGE FUND",
+                  title: "Deal-specific quiet periods. Every person. Every platform.",
+                  body: "Every deal, fundraise, and exit creates a window where the wrong post creates real exposure. ERA CUE applies deal-specific quiet periods across your team — partners, associates, portfolio companies — before anything goes out.",
+                  full: true,
+                },
+              ].map((card) => (
+                <div
+                  key={card.eyebrow}
+                  className={`bg-white/[0.04] border border-white/[0.08] rounded-lg p-5 border-l-[3px] hover:bg-white/[0.07] hover:border-l-[#7C6FCD] transition-all ${
+                    card.full ? "md:col-span-2" : ""
+                  }`}
+                  style={{ borderLeftColor: "rgba(124,111,205,0.45)" }}
+                >
+                  <div className="font-mono text-[9px] uppercase tracking-[0.13em] text-white/[0.28] mb-3">
+                    {card.eyebrow}
+                  </div>
+                  <div className="text-[13px] font-medium text-white mb-2 leading-snug">
+                    {card.title}
+                  </div>
+                  <p className="text-[12px] text-white/45 leading-relaxed">
+                    {card.body}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -685,132 +685,166 @@ export default function Home() {
 
       {/* ============================================================
           SECTION 8 — COMMUNICATION RECORD (white)
-          Two-column. Left: four audience callouts (executive / CCO /
-          CMO / examiner) — each a colored dot + framing line of what
-          that audience needs from the same record. Right: a CLEAR
-          mockup including a principal-decision row.
+          Two-column. Left: four colored-dot audience callouts. Right:
+          a record mockup with a lavender header accent (not the dark
+          slab we had before).
          ============================================================ */}
-      <section className="bg-white py-16 md:py-20 px-6 md:px-12 border-t border-[#E2E8F0]">
+      <section className="bg-white py-16 md:py-20 px-6 md:px-12 border-t border-[#E5E7EB]">
         <div className="max-w-[1100px] mx-auto">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
-            The output
+          <div className="mb-10">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#7C6FCD] mb-3">
+              The output
+            </div>
+            <h2
+              className="text-3xl md:text-4xl font-light text-[#0D1B2A] mb-3 leading-tight max-w-2xl"
+              style={{ fontFamily: "var(--font-newsreader)" }}
+            >
+              One record. Four audiences.
+            </h2>
+            <p className="text-sm text-[#374151] leading-relaxed max-w-xl">
+              ERA CUE generates a communication record for every governed
+              draft. The same record serves the speaker, the CCO, the PR
+              agency, and the regulator — each seeing exactly what they
+              need.
+            </p>
           </div>
-          <h2
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-[#0F172A] mb-3 leading-tight max-w-2xl"
-          >
-            One record. Four audiences.
-          </h2>
-          <p className="text-sm text-[#64748B] mb-10 max-w-xl leading-relaxed">
-            ERA CUE generates a communication record for every governed draft. The same record serves the speaker, the CCO, the PR agency, and the regulator — each seeing exactly what they need.
-          </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
-            {/* LEFT — four audience callouts */}
-            <div className="space-y-6">
+            <div>
               {[
                 {
-                  dot: "bg-[#D97706]",
-                  title: "The executive",
-                  body: "Was my draft approved? Can I publish it now?",
+                  dot: "#D97706",
+                  who: "The executive",
+                  what: "Was my draft approved? Can I publish it now?",
                 },
                 {
-                  dot: "bg-[#1A56DB]",
-                  title: "The CCO or GC",
-                  body: "Named principal review on record. Structured decision with basis. SHA-256 locked. FINRA-ready.",
+                  dot: "#1A56DB",
+                  who: "The CCO or GC",
+                  what: "Named principal review on record. Structured decision with basis. SHA-256 locked. FINRA-ready.",
                 },
                 {
-                  dot: "bg-[#7C3AED]",
-                  title: "The CMO or PR agency",
-                  body: "Who approved what, when, across the campaign. Campaign record exportable as a client deliverable.",
+                  dot: "#7C6FCD",
+                  who: "The CMO or PR agency",
+                  what: "Who approved what, when, across the campaign. Campaign record exportable as a client deliverable.",
                 },
                 {
-                  dot: "bg-[#0D9488]",
-                  title: "The regulator or examiner",
-                  body: "Complete supervisory evidence. Every check recorded. Every decision documented. Downloadable as PDF.",
+                  dot: "#16A34A",
+                  who: "The regulator or examiner",
+                  what: "Complete supervisory evidence. Every check recorded. Every decision documented. Downloadable as PDF.",
                 },
               ].map((row) => (
-                <div key={row.title} className="flex items-start gap-3">
+                <div key={row.who} className="flex gap-3 mb-4">
                   <span
-                    className={`shrink-0 mt-2 w-2 h-2 rounded-full ${row.dot}`}
+                    className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
+                    style={{ backgroundColor: row.dot }}
                     aria-hidden
                   />
                   <div>
-                    <div className="text-sm font-semibold text-[#0F172A] mb-1">
-                      {row.title}
+                    <div className="text-[13px] font-medium text-[#0D1B2A]">
+                      {row.who}
                     </div>
-                    <div className="text-sm text-[#374151] leading-relaxed">
-                      {row.body}
+                    <div className="text-[12px] text-[#374151] leading-relaxed">
+                      {row.what}
                     </div>
                   </div>
                 </div>
               ))}
 
-              <a
+              <Link
                 href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
-                className="inline-block mt-2 font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+                className="font-mono text-[11px] text-[#1A56DB] hover:text-[#1447C0] mt-5 block transition-colors"
               >
                 See a real communication record →
-              </a>
+              </Link>
             </div>
 
-            {/* RIGHT — record mockup, CLEAR verdict with principal row */}
-            <div>
-              <div className="bg-white border border-[#E2E8F0] rounded-sm shadow-lg shadow-black/5 overflow-hidden">
-                <div className="bg-[#0A0F1E] px-5 py-3 flex items-center justify-between">
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-white/50">
-                    Communication record
+            <div className="border border-[#E5E7EB] rounded-lg overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+              <div className="bg-[#0D1B2A] p-4 border-l-[4px] border-l-[#7C6FCD]">
+                <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/30 mb-1">
+                  Communication record
+                </div>
+                <div className="text-[14px] font-medium text-white">
+                  Q3 product launch — pricing announcement
+                </div>
+                <div className="font-mono text-[9px] text-white/30 mt-1">
+                  Draft 7f3c… · cleared 2026-05-04
+                </div>
+              </div>
+
+              <div className="p-4">
+                <div className="grid grid-cols-2 gap-3 mb-4 pb-3 border-b border-[#E5E7EB]">
+                  <div>
+                    <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#9CA3AF] mb-1">
+                      Speaker
+                    </div>
+                    <div className="text-[12px] text-[#374151]">
+                      Marcus Rivera, CEO
+                    </div>
                   </div>
-                  <div className="font-mono text-[10px] text-white/30">
-                    Draft 7f3c…
+                  <div>
+                    <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#9CA3AF] mb-1">
+                      Campaign
+                    </div>
+                    <div className="text-[12px] text-[#1A56DB]">
+                      Q3 Product Launch
+                    </div>
                   </div>
                 </div>
-                <div className="p-5">
-                  <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-3 text-xs italic text-[#374151] leading-relaxed mb-4">
-                    &ldquo;Customer trust is everything — we&apos;re building for the long term.&rdquo;
-                  </div>
 
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="bg-[#F0FDF4] text-[#166534] border-[#BBF7D0] font-mono text-xs font-bold uppercase px-2.5 py-1 rounded-sm border">
-                      CLEAR
+                <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded p-3 text-[11px] italic text-[#374151] mb-4 leading-relaxed">
+                  &ldquo;Our enterprise tier delivers measurable productivity
+                  gains — customers report meaningful improvements within
+                  the first quarter.&rdquo;
+                </div>
+
+                <div className="space-y-1.5 mb-4">
+                  {[
+                    "Rule check",
+                    "Quiet period",
+                    "Consistency",
+                    "Alignment",
+                    "Agent origin",
+                  ].map((name) => (
+                    <div
+                      key={name}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="font-mono text-[10px] text-[#6B7280]">
+                        {name}
+                      </span>
+                      <span className="font-mono text-[10px] font-bold text-[#16A34A]">
+                        PASS
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-t border-[#E5E7EB] pt-3">
+                  <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#6B7280] mb-1">
+                    Principal decision
+                  </div>
+                  <div className="text-[12px] text-[#0D1B2A] mb-1">
+                    <span className="font-medium">Aiden Park</span>
+                    <span className="text-[#6B7280]">
+                      {" "}· General Counsel · approved
                     </span>
-                    <span className="text-sm text-[#374151] ml-1">All checks passed</span>
                   </div>
-
-                  <div className="space-y-1.5 mb-4">
-                    {[
-                      "Rule Check",
-                      "Quiet Period",
-                      "Consistency",
-                      "Alignment",
-                      "Agent Origin",
-                    ].map((name) => (
-                      <div key={name} className="flex items-center justify-between">
-                        <span className="font-mono text-[10px] text-[#64748B]">{name}</span>
-                        <span className="font-mono text-[10px] font-bold text-[#166534]">
-                          PASS
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="border-t border-[#E2E8F0] pt-3 mb-3">
-                    <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
-                      Principal decision
-                    </div>
-                    <div className="text-xs text-[#0F172A] mb-1">
-                      <span className="font-semibold">Sarah Chen</span>
-                      <span className="text-[#64748B]"> · General Counsel · approved</span>
-                    </div>
-                    <div className="font-mono text-[10px] text-[#94A3B8]">
-                      Basis: aligns with approved messaging · 1m 47s review
-                    </div>
-                  </div>
-
-                  <div className="font-mono text-[10px] text-[#94A3B8] border-t border-[#E2E8F0] pt-3">
-                    SHA-256 locked · append-only · cannot be altered
+                  <div className="font-mono text-[9px] text-[#9CA3AF]">
+                    Basis: aligns with approved messaging · 1m 47s review
                   </div>
                 </div>
+              </div>
+
+              <div className="bg-[#FAFAFA] border-t border-[#E5E7EB] p-3 flex items-center justify-between gap-3 flex-wrap">
+                <span className="font-mono text-[9px] text-[#9CA3AF]">
+                  SHA-256 locked · FINRA Rule 3110 · Rule 2210(b)
+                </span>
+                <Link
+                  href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
+                  className="font-mono text-[10px] text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+                >
+                  Download PDF →
+                </Link>
               </div>
             </div>
           </div>
@@ -818,114 +852,119 @@ export default function Home() {
       </section>
 
       {/* ============================================================
-          SECTION 9 — BUILT DIFFERENT (grey)
-          Three icon cards — corpus, audit trail, calibration. Each
-          card states one structural property of the system that's
-          provable in the database, not a marketing claim.
+          SECTION 9 — BUILT DIFFERENT (lavender)
+          Three icon cards on a lavender tint — corpus, audit trail,
+          calibration. Each card states one structural property of the
+          system that's provable in the database, not a marketing
+          claim.
          ============================================================ */}
-      <section className="bg-[#F8F9FB] py-16 md:py-20 px-6 md:px-12 border-t border-[#E2E8F0]">
+      <section className="bg-[#EDE9FF] py-16 md:py-20 px-6 md:px-12 border-t border-[#DDD6FE]">
         <div className="max-w-[1100px] mx-auto">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
-            Built different
+          <div className="mb-10">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#7C6FCD] mb-3">
+              Built different
+            </div>
+            <h2
+              className="text-3xl md:text-4xl font-light text-[#0D1B2A] mb-3 leading-tight"
+              style={{ fontFamily: "var(--font-newsreader)" }}
+            >
+              Every claim is provable.
+            </h2>
+            <p className="text-sm text-[#374151] leading-relaxed max-w-xl">
+              Three structural properties that come from how the database
+              is built, not from a marketing statement.
+            </p>
           </div>
-          <h2
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-[#0F172A] mb-10 leading-tight"
-          >
-            Every claim is provable.
-          </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
-              <div className="text-3xl text-[#1A56DB] mb-3" aria-hidden>
-                ◎
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              {
+                icon: "◎",
+                title: "Principal-approved corpus",
+                body: "Every communication approved through ERA CUE enters a governance corpus. Every new draft is checked against it — catching contradictions before they reach the public. Only principal-approved content enters.",
+                tag: "Builds automatically · Principal-approved only",
+              },
+              {
+                icon: "⬡",
+                title: "SHA-256 locked audit trail",
+                body: "Every governance decision is cryptographically hashed at the moment it is created. The database refuses UPDATE and DELETE — not just the application. The record cannot be altered.",
+                tag: "Append-only · Database-enforced · Not a policy",
+              },
+              {
+                icon: "◈",
+                title: "Behavioral calibration",
+                body: "Every reviewer decision — override, escalation, approval — teaches ERA CUE what this organization tolerates. Rules with high override rates get flagged for refinement.",
+                tag: "Organization-specific · Learns over time · Reduces false positives",
+              },
+            ].map((card) => (
+              <div
+                key={card.title}
+                className="bg-white border border-[#DDD6FE] rounded-lg p-6 border-t-[3px] border-t-[#7C6FCD] hover:shadow-[0_4px_20px_rgba(124,111,205,0.15)] hover:-translate-y-[2px] transition-all duration-200"
+              >
+                <div className="text-[16px] text-[#7C6FCD] mb-3" aria-hidden>
+                  {card.icon}
+                </div>
+                <div className="text-[13px] font-medium text-[#0D1B2A] mb-2 leading-snug">
+                  {card.title}
+                </div>
+                <p className="text-[12px] text-[#374151] leading-relaxed mb-3">
+                  {card.body}
+                </p>
+                <div className="font-mono text-[9px] text-[#7C6FCD]">
+                  {card.tag}
+                </div>
               </div>
-              <div className="text-base font-semibold text-[#0F172A] mb-2">
-                Principal-approved corpus
-              </div>
-              <p className="text-sm text-[#374151] leading-relaxed mb-3">
-                Every communication approved through ERA CUE enters a governance corpus. Every new draft is checked against it — catching contradictions before they reach the public. The corpus contains only principal-approved content. No unreviewed statements enter.
-              </p>
-              <div className="font-mono text-[10px] text-[#94A3B8]">
-                Builds automatically · Principal-approved only
-              </div>
-            </div>
-
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
-              <div className="text-3xl text-[#166534] mb-3" aria-hidden>
-                ⬡
-              </div>
-              <div className="text-base font-semibold text-[#0F172A] mb-2">
-                SHA-256 locked audit trail
-              </div>
-              <p className="text-sm text-[#374151] leading-relaxed mb-3">
-                Every governance decision is cryptographically hashed at the moment it is created. The database refuses UPDATE and DELETE — not just the application. The record cannot be altered. Not by the user. Not by ERA CUE. Not by anyone.
-              </p>
-              <div className="font-mono text-[10px] text-[#94A3B8]">
-                Append-only · Database-enforced · Not a policy
-              </div>
-            </div>
-
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6">
-              <div className="text-3xl text-[#7C3AED] mb-3" aria-hidden>
-                ◈
-              </div>
-              <div className="text-base font-semibold text-[#0F172A] mb-2">
-                Behavioral calibration
-              </div>
-              <p className="text-sm text-[#374151] leading-relaxed mb-3">
-                Every reviewer decision — override, escalation, approval — teaches ERA CUE what this organization actually tolerates. Rules that generate too many false positives get flagged for refinement. Governance improves with every decision.
-              </p>
-              <div className="font-mono text-[10px] text-[#94A3B8]">
-                Organization-specific · Gets smarter over time · Reduces false positives
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* ============================================================
           SECTION 10 — BOTTOM CTA (dark)
-          Hero-mirror dark band. "Set up your rules" leads (correct
-          flow); "Request access" mailto for regulated firms. Closes
-          with a small legal disclaimer that cites the three
-          enforcement actions named in Section 4 and disclaims legal
-          advice / compliance guarantees.
+          Closes the page. Two CTAs + email line + the small legal
+          disclaimer that names the three enforcement actions and
+          disclaims legal advice / compliance guarantees in one
+          paragraph.
          ============================================================ */}
-      <section className="bg-[#0A0F1E] py-16 md:py-20 px-6 md:px-12 text-center">
+      <section className="bg-[#0D1B2A] py-20 px-6 text-center">
         <div className="max-w-[600px] mx-auto">
           <h2
+            className="text-3xl md:text-4xl font-light text-white mb-3 leading-tight"
             style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-white mb-3 leading-tight"
           >
-            Try it in 60 seconds.
+            The full product. Live.
           </h2>
 
-          <p className="text-sm text-white/50 mb-8 max-w-md mx-auto leading-relaxed">
-            No login required. Configure a rule, check a draft, see the communication record. The full product, live, in under two minutes.
+          <p className="text-[13px] text-white/45 leading-relaxed mb-8 max-w-sm mx-auto">
+            No login required. Set up a rule, check a draft, see the
+            communication record.
           </p>
 
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            <a
+          <div className="flex justify-center items-center gap-3 flex-wrap">
+            <Link
               href="/rules"
-              className="bg-[#1A56DB] text-white font-mono text-xs font-medium px-6 py-3 rounded-sm hover:bg-[#1447C0] transition-colors"
+              className="bg-[#1A56DB] text-white font-mono text-[11px] font-medium px-5 py-2.5 rounded-sm hover:bg-[#1447C0] hover:shadow-[0_0_0_3px_rgba(26,86,219,0.25)] transition-all"
             >
               Set up your rules →
-            </a>
+            </Link>
             <a
               href="mailto:hello@eracue.com?subject=ERA%20CUE%20Access%20Request"
-              className="bg-white/10 text-white border border-white/20 font-mono text-xs font-medium px-6 py-3 rounded-sm hover:bg-white/20 transition-colors"
+              className="bg-white/[0.07] text-white border border-white/[0.12] font-mono text-[11px] font-medium px-5 py-2.5 rounded-sm hover:bg-white/[0.12] transition-colors"
             >
               Request access →
             </a>
           </div>
 
-          <div className="font-mono text-[10px] text-white/20 mt-3">
+          <div className="font-mono text-[10px] text-white/[0.18] mt-3">
             or email hello@eracue.com
           </div>
 
-          <p className="font-mono text-[9px] text-white/12 mt-8 max-w-2xl mx-auto leading-relaxed text-center">
-            Enforcement actions cited: SEC v. DraftKings Inc., Release No. 34-101130 (Sept. 26, 2024) · FINRA v. M1 Finance LLC (March 18, 2024) · EU AI Act Article 50, effective August 2, 2026. ERA CUE produces supervisory records and governance evidence. ERA CUE does not provide legal advice or guarantee regulatory compliance.
+          <p className="font-mono text-[10px] text-white/15 mt-6 max-w-2xl mx-auto leading-relaxed">
+            SEC v. DraftKings Inc., Release No. 34-101130 (Sept. 26, 2024)
+            · FINRA v. M1 Finance LLC (March 18, 2024) · EU AI Act Art. 50,
+            effective August 2, 2026. ERA CUE produces supervisory records
+            and governance evidence. ERA CUE does not provide legal advice
+            or guarantee regulatory compliance.
           </p>
         </div>
       </section>
@@ -935,23 +974,22 @@ export default function Home() {
           Demo disclaimer + the "· demo · May 2026" wordmark suffix
           render only when NEXT_PUBLIC_DEMO_MODE === "true".
          ============================================================ */}
-      <footer className="border-t border-[#E2E8F0] bg-[#F8F9FB]">
+      <footer className="bg-[#0D1B2A] border-t border-white/[0.06]">
         <div className="max-w-[1100px] mx-auto px-6 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div className="text-xs text-[#64748B] flex items-center gap-2">
-            <span
-              style={{ fontFamily: "var(--font-newsreader)" }}
-              className="text-base tracking-tight"
-            >
-              <span className="text-[#1A56DB] font-bold">ERA</span>
-              <span className="text-[#1A56DB] italic font-normal"> CUE</span>
+          <div className="text-xs text-white/40 flex items-center gap-2">
+            <span className="font-mono text-[13px] tracking-[0.06em] text-white">
+              <span className="font-bold">ERA</span>
+              <span className="italic font-light text-[#A5B4FC]"> CUE</span>
             </span>
             {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
               <span className="font-mono">· demo · May 2026</span>
             )}
           </div>
           {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
-            <div className="text-xs text-[#64748B] md:text-center">
-              Demo data only. No live customer information. The append-only audit trail and tamper-evident records shown are real database constraints — not simulated.
+            <div className="text-xs text-white/40 md:text-center">
+              Demo data only. No live customer information. The append-only
+              audit trail and tamper-evident records shown are real database
+              constraints — not simulated.
             </div>
           )}
         </div>
