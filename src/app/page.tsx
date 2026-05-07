@@ -78,24 +78,9 @@ export default function Home() {
          ============================================================ */}
       <section className="bg-[#0F172A] min-h-[90vh] flex flex-col justify-center py-32 md:py-40">
         <div className="max-w-[1100px] mx-auto px-6 w-full">
-          <div className="flex flex-wrap items-center gap-2 mb-6">
-            {/* Badge 1 — Governance Infrastructure */}
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-white/10 text-white/60 border-white/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-white/60 inline-block shrink-0"></span>
-              Governance Infrastructure
-            </span>
-            {/* Badge 2 — FINRA Rule 3110 */}
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-white/10 text-white/60 border-white/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block shrink-0"></span>
-              FINRA Rule 3110
-            </span>
-            {/* Badge 3 — EU AI Act */}
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-white/10 text-white/60 border-white/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] inline-block shrink-0"></span>
-              EU AI Act Art. 50
-            </span>
-          </div>
-
+          {/* Top badge row removed pre-launch — the six colored
+              regulatory pills below the CTA carry the trust signal
+              without doubling up above the headline. */}
           <h1
             className="font-light leading-tight tracking-tight text-white text-5xl md:text-7xl max-w-4xl mb-6"
             style={{ fontFamily: "var(--font-newsreader)" }}
@@ -142,11 +127,9 @@ export default function Home() {
             </span>
           </div>
 
-          <p className="text-sm text-white/50 mt-4 max-w-md leading-relaxed">
-            Paste any executive communication. ERA CUE checks it against your
-            governance rules, flags violations, and routes it to your designated
-            principal — before it reaches the public.
-          </p>
+          {/* Explanatory paragraph removed pre-launch — the scenario card
+              in Section 2 demonstrates this end-to-end, no need to
+              describe it twice. */}
         </div>
       </section>
 

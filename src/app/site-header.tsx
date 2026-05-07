@@ -4,15 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createBrowserClient } from "@/lib/supabase-client";
 
+// Authed users get the full app nav. Unauthed users see no nav links at
+// all in the pre-launch demo — only the "Check a draft →" CTA + a quiet
+// "Request access" mailto sit on the right of the header.
 const NAV_LINKS_AUTHED = [
   { href: "/dashboard", label: "Review" },
   { href: "/rules", label: "Rules" },
   { href: "/drafts", label: "Archive" },
-] as const;
-
-const NAV_LINKS_UNAUTHED = [
-  { href: "/how-it-works", label: "How it works" },
-  { href: "/pricing", label: "Pricing" },
 ] as const;
 
 type Member = {
@@ -97,7 +95,10 @@ export function SiteHeader() {
   }, [menuOpen]);
 
   const userInitial = (member?.display_name || email || "?").charAt(0).toUpperCase();
-  const navLinks = authed ? NAV_LINKS_AUTHED : NAV_LINKS_UNAUTHED;
+  // Only authed users get a nav-links list. Unauthed users see no
+  // navigation links in the header — the right-hand CTAs are the only
+  // way through the page.
+  const navLinks = authed ? NAV_LINKS_AUTHED : [];
 
   return (
     <header className="relative bg-white border-b border-[#E2E8F0] shadow-sm print:hidden">
@@ -114,7 +115,7 @@ export function SiteHeader() {
           ) : (
             // The "demo" pill only renders when the deployment is
             // explicitly in demo mode. A production tenant on this same
-            // codebase but unauthenticated (e.g. visiting /pricing while
+            // codebase but unauthenticated (e.g. landing on / while
             // logged out) sees no pill at all — cleaner than tagging
             // every public page with a demo label.
             IS_DEMO_MODE && (
@@ -125,9 +126,13 @@ export function SiteHeader() {
           )}
         </Link>
 
-        {/* Desktop nav — hidden below md, where the hamburger takes over. */}
+        {/* Desktop nav — hidden below md, where the hamburger takes over.
+            "Check a draft →" renders for everyone (the middleware bounces
+            unauthed users to /auth/login when they click). Unauthed
+            visitors get a quiet "Request access" mailto next to it; no
+            other links in the pre-launch header. */}
         <nav className="hidden md:flex items-center gap-6">
-          {authed === true && (
+          {authed !== null && (
             <Link
               href="/submit"
               className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-xs font-medium px-3 py-1.5 rounded-sm hover:bg-[#1447C0] transition-colors whitespace-nowrap"
@@ -145,26 +150,17 @@ export function SiteHeader() {
             </Link>
           ))}
 
-          {/* Authed: user menu. Unauthed: Sign in + Request access. Public
-              self-serve signup is disabled pre-launch — access is
-              provisioned via invitation. The authed === null case (still
-              hydrating) renders nothing on this side so we don't flash
-              unauthed state for logged-in users. */}
+          {/* Unauthed → ghost Request access. Authed → user menu (below).
+              The authed === null case (still hydrating) renders nothing
+              on this side so we don't flash unauthed state for logged-in
+              users. */}
           {authed === false && (
-            <>
-              <Link
-                href="/auth/login"
-                className="font-mono text-sm text-[#64748B] hover:text-[#0F172A] transition-colors"
-              >
-                Sign in
-              </Link>
-              <a
-                href="mailto:hello@eracue.com?subject=ERA%20CUE%20Access%20Request"
-                className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-sm font-medium px-4 py-1.5 rounded-sm hover:bg-[#1447C0] transition-colors whitespace-nowrap"
-              >
-                Request access →
-              </a>
-            </>
+            <a
+              href="mailto:hello@eracue.com?subject=ERA%20CUE%20Access%20Request"
+              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors whitespace-nowrap"
+            >
+              Request access
+            </a>
           )}
           {authed === true && (
             <div className="relative" ref={menuRef}>
@@ -252,11 +248,14 @@ export function SiteHeader() {
       </div>
 
       {/* Mobile dropdown — anchored to the header's relative wrapper so it
-          spans the full width below the row. Each tap closes it. */}
+          spans the full width below the row. Each tap closes it.
+          Pre-launch surface: "Check a draft" (blue) for everyone +
+          "Request access" (ghost) for unauthed users + the authed app
+          nav and Sign out for authed users. */}
       {open && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-[#E2E8F0] shadow-sm z-50 py-3 px-6">
           <div className="flex flex-col gap-1">
-            {authed === true && (
+            {authed !== null && (
               <Link
                 href="/submit"
                 onClick={() => setOpen(false)}
@@ -276,22 +275,13 @@ export function SiteHeader() {
               </Link>
             ))}
             {authed === false && (
-              <div className="flex flex-col gap-2 mt-3">
-                <Link
-                  href="/auth/login"
-                  onClick={() => setOpen(false)}
-                  className="font-mono text-sm text-[#64748B] hover:text-[#0F172A] transition-colors text-center py-2"
-                >
-                  Sign in
-                </Link>
-                <a
-                  href="mailto:hello@eracue.com?subject=ERA%20CUE%20Access%20Request"
-                  onClick={() => setOpen(false)}
-                  className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-4 py-3 rounded-sm text-center hover:bg-[#1447C0] transition-colors"
-                >
-                  Request access →
-                </a>
-              </div>
+              <a
+                href="mailto:hello@eracue.com?subject=ERA%20CUE%20Access%20Request"
+                onClick={() => setOpen(false)}
+                className="font-mono text-sm text-[#64748B] hover:text-[#0F172A] transition-colors text-center py-2 mt-2"
+              >
+                Request access
+              </a>
             )}
             {authed === true && (
               <form action="/auth/signout" method="post" className="mt-3">
