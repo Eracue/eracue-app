@@ -29,11 +29,15 @@ type VerdictAction = {
   payload: { primary_match?: { rule_id?: string; rule_name?: string } | null };
 };
 
-async function getRulesData(): Promise<{ rules: RuleRow[]; corpusCount: number }> {
+async function getRulesData(): Promise<{
+  rules: RuleRow[];
+  corpusCount: number;
+  firmType: string | null;
+}> {
   const sb = getSupabaseAdmin();
   const orgId = await resolveOrgId();
 
-  const [rulesRes, actionsRes, corpusRes] = await Promise.all([
+  const [rulesRes, actionsRes, corpusRes, orgRes] = await Promise.all([
     sb
       .from("rules")
       // PostgREST aliases:  alias_name:column_name. Surface DB columns under
@@ -56,11 +60,17 @@ async function getRulesData(): Promise<{ rules: RuleRow[]; corpusCount: number }
       .select("*", { count: "exact", head: true })
       .eq("org_id", orgId)
       .eq("status", "approved"),
+    // firm_type drives which Templates the import panel shows. Wrapped in
+    // its own query (not a join on rules) because rules can outlive the
+    // firm_type that authored them.
+    sb.from("orgs").select("firm_type").eq("id", orgId).maybeSingle(),
   ]);
 
   if (rulesRes.error) throw new Error("rules: " + rulesRes.error.message);
   if (actionsRes.error) throw new Error("verdicts: " + actionsRes.error.message);
   if (corpusRes.error) throw new Error("corpus: " + corpusRes.error.message);
+  // orgRes errors are tolerated — firmType just falls back to null and
+  // the panel uses the default broker_dealer template set.
 
   const rules = (rulesRes.data || []) as unknown as RawRuleRow[];
   const verdicts = (actionsRes.data || []) as VerdictAction[];
@@ -86,15 +96,18 @@ async function getRulesData(): Promise<{ rules: RuleRow[]; corpusCount: number }
     };
   });
 
-  return { rules: rulesWithCounts, corpusCount: corpusRes.count ?? 0 };
+  const firmType =
+    (orgRes.data as { firm_type?: string | null } | null)?.firm_type ?? null;
+
+  return { rules: rulesWithCounts, corpusCount: corpusRes.count ?? 0, firmType };
 }
 
 export default async function RulesPage() {
-  const { rules, corpusCount } = await getRulesData();
+  const { rules, corpusCount, firmType } = await getRulesData();
   return (
     <>
       <SiteHeader />
-      <RulesClient rules={rules} corpusCount={corpusCount} />
+      <RulesClient rules={rules} corpusCount={corpusCount} firmType={firmType} />
     </>
   );
 }

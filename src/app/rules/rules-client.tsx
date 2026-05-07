@@ -4,11 +4,156 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AddRulePanel } from "./add-rule-panel";
 import { deactivateRuleAction } from "./actions";
+import { extractRulesFromWsp } from "./wsp-import-action";
 import {
-  extractRulesFromWsp,
-  authorizeSuggestedRulesAction,
-  type SuggestedRule,
-} from "./wsp-import-action";
+  createRulesFromImport,
+  type CandidateRuleInput,
+} from "./create-rules-action";
+
+// CandidateRule is the union shape every tab feeds into the same review
+// list — `source` records where the rule came from so the audit trail can
+// later distinguish template-authored rules from extracted ones.
+type CandidateRule = CandidateRuleInput;
+type ImportMode = "templates" | "paste" | "upload" | "manual";
+
+const TABS: ReadonlyArray<{ key: ImportMode; label: string }> = [
+  { key: "templates", label: "Templates" },
+  { key: "paste", label: "Paste policy" },
+  { key: "upload", label: "Upload doc" },
+  { key: "manual", label: "Type rules" },
+];
+
+// Pre-built starter rules per firm type. The Templates tab shows these
+// directly (no Claude call). Keys correspond to firm_type values written
+// by the onboarding firm setup form.
+const TEMPLATES: Record<string, CandidateRule[]> = {
+  broker_dealer: [
+    {
+      name: "Performance Projections",
+      rule_type: "block",
+      description:
+        "Projected or guaranteed performance claims are prohibited in retail communications.",
+      keywords: [
+        "guaranteed return",
+        "guaranteed yield",
+        "will return",
+        "no risk",
+        "risk-free return",
+        "assured return",
+        "projected return of",
+        "target return of",
+      ],
+      wsp_reference: "Section 4.2 — Performance Communications",
+      regulatory_basis: "FINRA Rule 2210(d)(1)(F)",
+      source: "template",
+    },
+    {
+      name: "Testimonials Without Disclosure",
+      rule_type: "escalate",
+      description:
+        "Client testimonials require specific disclosures.",
+      keywords: [
+        "my client said",
+        "client testimonial",
+        "client endorses",
+        "client recommends",
+        "as my client put it",
+      ],
+      wsp_reference: "Section 4.5 — Testimonials",
+      regulatory_basis: "FINRA Rule 2210(d)(6)",
+      source: "template",
+    },
+    {
+      name: "Social Media Pre-Approval",
+      rule_type: "escalate",
+      description:
+        "All social media posts by registered persons require principal review.",
+      keywords: [],
+      wsp_reference: "Section 3.1 — Social Media Supervision",
+      regulatory_basis: "FINRA Rule 3110 · Rule 2210(b)",
+      source: "template",
+    },
+  ],
+  // The onboarding form writes "rIA" as the firm_type for Registered
+  // Investment Advisers; alias both keys so the panel resolves either.
+  ria: [
+    {
+      name: "Marketing Rule — Performance",
+      rule_type: "block",
+      description:
+        "Hypothetical performance requires specific disclosures under the SEC Marketing Rule.",
+      keywords: [
+        "hypothetical performance",
+        "back-tested",
+        "would have returned",
+        "simulated results",
+      ],
+      wsp_reference: "Section 5.1 — Marketing Compliance",
+      regulatory_basis: "SEC Rule 206(4)-1",
+      source: "template",
+    },
+    {
+      name: "Testimonials and Endorsements",
+      rule_type: "escalate",
+      description:
+        "Testimonials and endorsements require disclosure of compensation and conflicts.",
+      keywords: [
+        "client said",
+        "testimonial",
+        "endorses",
+        "recommends us",
+        "five stars",
+        "review",
+      ],
+      wsp_reference: "Section 5.3 — Testimonials",
+      regulatory_basis: "SEC Marketing Rule 206(4)-1(b)(1)",
+      source: "template",
+    },
+  ],
+  public_company: [
+    {
+      name: "Reg FD — Material Information",
+      rule_type: "block",
+      description:
+        "Material nonpublic information cannot be selectively disclosed.",
+      keywords: [
+        "revenue guidance",
+        "earnings guidance",
+        "material announcement",
+        "non-public",
+        "before we announce",
+      ],
+      wsp_reference: "Section 6.1 — Reg FD Policy",
+      regulatory_basis: "SEC Regulation FD",
+      source: "template",
+    },
+  ],
+  investment_bank: [
+    {
+      name: "Deal Quiet Period",
+      rule_type: "block",
+      description:
+        "No communications about active deals during quiet periods.",
+      keywords: [
+        "the deal",
+        "our transaction",
+        "the acquisition",
+        "we are acquiring",
+        "we are selling",
+      ],
+      wsp_reference: "Section 2.1 — Deal Communications",
+      regulatory_basis: "SEC Rule 10b-5 · FINRA Rule 2210",
+      source: "template",
+    },
+  ],
+};
+
+function templatesFor(firmType: string | null | undefined): CandidateRule[] {
+  if (!firmType) return TEMPLATES.broker_dealer;
+  // Onboarding writes "rIA" (camelCase); accept both casings.
+  const key = firmType === "rIA" ? "ria" : firmType;
+  return TEMPLATES[key] ?? TEMPLATES.broker_dealer;
+}
 
 export type RuleRow = {
   id: string;
@@ -91,68 +236,117 @@ function buildFooterText(r: RuleRow, classification: "active" | "expired" | "dea
   return `${prefix} · Authorized by Sarah Chen, GC · Applies to: ${scopeLabel(r.scope)} · Rule 2210(d)`;
 }
 
-type Props = { rules: RuleRow[]; corpusCount?: number };
+type Props = {
+  rules: RuleRow[];
+  corpusCount?: number;
+  // Drives which Templates the import panel surfaces. Defaults to the
+  // broker_dealer set when null/unknown.
+  firmType?: string | null;
+};
 
-export function RulesClient({ rules, corpusCount = 0 }: Props) {
+export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("active");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // WSP import state. The panel toggles open from the header; once
-  // suggested rules come back the user picks which to authorize via the
-  // checkbox set, then the action inserts the curated subset in one shot.
-  const [wspOpen, setWspOpen] = useState(false);
-  const [wspText, setWspText] = useState("");
-  const [importing, setImporting] = useState(false);
-  const [wspError, setWspError] = useState<string | null>(null);
-  const [suggestedRules, setSuggestedRules] = useState<SuggestedRule[]>([]);
-  const [selectedRules, setSelectedRules] = useState<Set<number>>(new Set());
+  // Import panel state. The panel collapses by default; once expanded
+  // the user picks one of four input modes, hits extract/convert (for
+  // paste/upload/manual) or authorize directly (templates), and the
+  // selected subset gets inserted via createRulesFromImport.
+  const [showImport, setShowImport] = useState(false);
+  const [importMode, setImportMode] = useState<ImportMode>("templates");
+  const [importText, setImportText] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [manualRules, setManualRules] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [candidates, setCandidates] = useState<CandidateRule[]>([]);
+  const [confirmed, setConfirmed] = useState<Set<number>>(new Set());
   const [authorizing, setAuthorizing] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
-  async function handleWspImport() {
-    if (!wspText.trim() || importing) return;
-    setImporting(true);
-    setWspError(null);
-    setSuggestedRules([]);
-    setSelectedRules(new Set());
-    try {
-      const result = await extractRulesFromWsp(wspText);
-      if (!result.ok) {
-        setWspError(result.error);
+  const templateRules = useMemo(() => templatesFor(firmType), [firmType]);
+
+  async function handleExtract(mode: ImportMode) {
+    setImportError(null);
+    setCandidates([]);
+    setConfirmed(new Set());
+
+    let textToAnalyze = "";
+    if (mode === "paste") textToAnalyze = importText;
+    else if (mode === "manual") textToAnalyze = manualRules;
+    else if (mode === "upload" && uploadedFile) {
+      // FileReader.readAsText handles plain-text and most UTF-8 files
+      // cleanly. Binary PDF/Word will arrive as garbled bytes — Claude
+      // tolerates the noise but extraction quality drops. A future
+      // enhancement could route binary uploads through a server-side
+      // parser before the model call.
+      try {
+        textToAnalyze = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve((e.target?.result as string) ?? "");
+          reader.onerror = () => reject(reader.error ?? new Error("File read failed"));
+          reader.readAsText(uploadedFile);
+        });
+      } catch (e) {
+        setImportError(e instanceof Error ? e.message : "Could not read file.");
         return;
       }
-      setSuggestedRules(result.suggested_rules);
-      // Default: every extracted rule selected — the user opts out of any
-      // they don't want rather than opting in.
-      setSelectedRules(new Set(result.suggested_rules.map((_, i) => i)));
+    }
+
+    if (!textToAnalyze.trim()) {
+      setImportError("Nothing to analyze.");
+      return;
+    }
+
+    setExtracting(true);
+    try {
+      const result = await extractRulesFromWsp(textToAnalyze, mode === "manual");
+      if (!result.ok) {
+        setImportError(result.error);
+        return;
+      }
+      // Map the extracted rows into CandidateRule shape — every imported
+      // rule carries a `source` so the user can see whether it came from
+      // a paste, upload, or manual entry on the review cards.
+      const sourceLabel = mode === "paste" ? "paste" : mode === "upload" ? "upload" : "manual";
+      const next: CandidateRule[] = result.suggested_rules.map((r) => ({
+        ...r,
+        source: sourceLabel,
+      }));
+      setCandidates(next);
+      // Auto-confirm all by default — user opts out instead of opting in.
+      setConfirmed(new Set(next.map((_, i) => i)));
     } catch (e) {
-      setWspError(e instanceof Error ? e.message : "Import failed.");
+      setImportError(e instanceof Error ? e.message : "Extraction failed.");
     } finally {
-      setImporting(false);
+      setExtracting(false);
     }
   }
 
-  async function handleAuthorizeSelected() {
-    if (selectedRules.size === 0 || authorizing) return;
-    const picks = suggestedRules.filter((_, i) => selectedRules.has(i));
+  async function handleConfirmRules() {
+    setImportError(null);
+    const pool: CandidateRule[] = importMode === "templates" ? templateRules : candidates;
+    const picks = pool.filter((_, i) => confirmed.has(i));
+    if (picks.length === 0) return;
     setAuthorizing(true);
-    setWspError(null);
     try {
-      const result = await authorizeSuggestedRulesAction(picks);
+      const result = await createRulesFromImport(picks);
       if (!result.ok) {
-        setWspError(result.error);
+        setImportError(result.error);
         return;
       }
-      // Reset and close the panel; refresh so the new rules appear.
-      setWspText("");
-      setSuggestedRules([]);
-      setSelectedRules(new Set());
-      setWspOpen(false);
+      // Reset all import state on success and close the panel.
+      setCandidates([]);
+      setConfirmed(new Set());
+      setImportText("");
+      setManualRules("");
+      setUploadedFile(null);
+      setShowImport(false);
       router.refresh();
     } catch (e) {
-      setWspError(e instanceof Error ? e.message : "Authorization failed.");
+      setImportError(e instanceof Error ? e.message : "Authorization failed.");
     } finally {
       setAuthorizing(false);
     }
@@ -264,138 +458,250 @@ export function RulesClient({ rules, corpusCount = 0 }: Props) {
             </button>
             <button
               type="button"
-              onClick={() => setWspOpen((o) => !o)}
+              onClick={() => setShowImport((o) => !o)}
               className="bg-white border border-[#E2E8F0] text-[#0F172A] text-sm px-4 py-2 rounded-sm hover:bg-[#F8F9FB] transition cursor-pointer"
             >
-              Import from WSP
+              {showImport ? "Close import" : "Import existing policies"}
             </button>
           </div>
         </div>
 
-        {/* WSP import panel — collapsible. Lives between the header and
-            the stats strip so the extraction UI sits in front of the rule
-            cards while it's open. */}
-        {wspOpen && (
-          <div className="bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm p-5 mb-6 mt-6">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#1A56DB] mb-2">
-              Import rules from your WSPs
+        {/* Import existing policies — four-tab panel. Templates fires
+            without an extraction round-trip; the other three tabs run
+            text through extractRulesFromWsp before showing candidate
+            cards. Sits between the header and the stats strip so the
+            review surface sits above the live rule list. */}
+        <div className="bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm mb-6 mt-6">
+          {/* Header — always visible so the user can re-collapse without
+              losing scroll position. */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#BAE6FD]">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#1A56DB] mb-0.5">
+                Import existing policies
+              </div>
+              <div className="text-sm text-[#374151]">
+                ERA CUE converts your existing compliance policies into active governance rules.
+              </div>
             </div>
-
-            <div className="text-sm text-[#374151] mb-4 leading-relaxed">
-              Paste your Written Supervisory Procedures section on communications supervision.
-              ERA CUE will suggest rules based on your existing compliance procedures.
-            </div>
-
-            <textarea
-              value={wspText}
-              onChange={(e) => setWspText(e.target.value)}
-              placeholder={`Paste your WSP section here...
-
-Example: 'All associated persons must submit social media posts for principal review 24 hours before publication. Posts containing performance claims, testimonials, or forward-looking statements require CCO approval...'`}
-              className="w-full border border-[#BAE6FD] rounded-sm px-3 py-3 text-sm text-[#0F172A] bg-white h-32 focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8] resize-none"
-            />
-
             <button
               type="button"
-              onClick={handleWspImport}
-              disabled={!wspText.trim() || importing}
-              className="mt-3 bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#1447C0] disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
+              onClick={() => setShowImport((o) => !o)}
+              className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors cursor-pointer"
             >
-              {importing ? (
-                <>
-                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden>
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                  Analyzing WSP...
-                </>
-              ) : (
-                "Extract rules from WSP →"
-              )}
+              {showImport ? "Close ×" : "Open →"}
             </button>
+          </div>
 
-            {wspError && (
-              <div className="font-mono text-xs text-[#B91C1C] mt-3">{wspError}</div>
-            )}
-
-            {suggestedRules.length > 0 && (
-              <div className="mt-5 pt-5 border-t border-[#BAE6FD]">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#1A56DB] mb-3">
-                  Suggested rules · {suggestedRules.length} found
-                </div>
-                {suggestedRules.map((rule, i) => (
-                  <div
-                    key={`${rule.name}-${i}`}
-                    className="bg-white border border-[#E2E8F0] rounded-sm p-4 mb-2 flex items-start gap-3"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedRules.has(i)}
-                      onChange={(e) => {
-                        const next = new Set(selectedRules);
-                        if (e.target.checked) next.add(i);
-                        else next.delete(i);
-                        setSelectedRules(next);
+          {showImport && (
+            <div className="px-5 py-4">
+              {/* Four tabs */}
+              <div className="flex gap-1 mb-4 bg-[#DBEAFE] p-1 rounded-sm">
+                {TABS.map((t) => {
+                  const selected = importMode === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => {
+                        setImportMode(t.key);
+                        // Reset extraction state on tab change so stale
+                        // candidates from another tab don't render.
+                        setCandidates([]);
+                        setConfirmed(new Set());
+                        setImportError(null);
                       }}
-                      className="mt-1 w-4 h-4 accent-[#1A56DB] cursor-pointer"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span
-                          className={`font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm border ${
-                            rule.rule_type === "block"
-                              ? "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]"
-                              : rule.rule_type === "escalate"
-                                ? "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]"
-                                : rule.rule_type === "guide"
-                                  ? "bg-[#F5F3FF] text-[#6D28D9] border-[#DDD6FE]"
-                                  : "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]"
-                          }`}
-                        >
-                          {rule.rule_type}
-                        </span>
-                        <span className="text-sm font-semibold text-[#0F172A]">{rule.name}</span>
-                      </div>
-                      <div className="text-sm text-[#374151] mb-1">{rule.description}</div>
-                      <div className="font-mono text-[10px] text-[#94A3B8]">
-                        {rule.wsp_reference}
-                        {rule.wsp_reference && rule.regulatory_basis ? " · " : ""}
-                        {rule.regulatory_basis}
-                      </div>
-                      {rule.keywords.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {rule.keywords.map((kw) => (
-                            <span
-                              key={kw}
-                              className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
-                            >
-                              {kw}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                      className={`flex-1 font-mono text-[10px] py-1.5 rounded-sm transition-colors cursor-pointer ${
+                        selected
+                          ? "bg-white text-[#0F172A] shadow-sm"
+                          : "text-[#1A56DB] hover:bg-white/50"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
 
+              {importError && (
+                <div
+                  className="bg-[#FEF2F2] border border-[#FECACA] text-[#B91C1C] text-xs font-mono rounded-sm px-3 py-2 mb-3"
+                  role="alert"
+                >
+                  {importError}
+                </div>
+              )}
+
+              {/* TAB: Templates — pre-built rules per firm type. */}
+              {importMode === "templates" && (
+                <div>
+                  <div className="text-sm text-[#374151] mb-3">
+                    Pre-built rules for your firm type. Review and confirm which ones apply.
+                  </div>
+                  {templateRules.map((rule, i) => (
+                    <CandidateRuleCard
+                      key={`${rule.name}-${i}`}
+                      rule={rule}
+                      index={i}
+                      confirmed={confirmed}
+                      setConfirmed={setConfirmed}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* TAB: Paste policy — Claude WSP extraction. */}
+              {importMode === "paste" && (
+                <div>
+                  <div className="text-sm text-[#374151] mb-3">
+                    Paste any policy text — WSP section, social media policy, email from legal, anything.
+                    ERA CUE extracts the rules.
+                  </div>
+                  <textarea
+                    value={importText}
+                    onChange={(e) => setImportText(e.target.value)}
+                    placeholder={`Example:\n\n"All registered representatives must submit LinkedIn posts for CCO review 48 hours before publication. Posts containing performance data or forward-looking statements require written CCO approval..."`}
+                    className="w-full border border-[#BAE6FD] rounded-sm px-3 py-3 text-sm text-[#0F172A] bg-white h-36 resize-none focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleExtract("paste")}
+                    disabled={!importText.trim() || extracting}
+                    className="mt-3 bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm disabled:opacity-50 hover:bg-[#1447C0] transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    {extracting ? (
+                      <>
+                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden>
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                        Extracting rules...
+                      </>
+                    ) : (
+                      "Extract rules →"
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* TAB: Upload doc — file → readAsText → extract. */}
+              {importMode === "upload" && (
+                <div>
+                  <div className="text-sm text-[#374151] mb-3">
+                    Upload a PDF or Word document. ERA CUE reads it and extracts your governance rules.
+                  </div>
+                  <label className="block border-2 border-dashed border-[#BAE6FD] rounded-sm p-8 text-center cursor-pointer hover:bg-white/50 transition-colors">
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) setUploadedFile(f);
+                      }}
+                      className="hidden"
+                    />
+                    {uploadedFile ? (
+                      <div>
+                        <div className="text-sm font-medium text-[#0F172A]">{uploadedFile.name}</div>
+                        <div className="font-mono text-[10px] text-[#64748B] mt-1">
+                          {(uploadedFile.size / 1024).toFixed(0)} KB
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="text-sm font-medium text-[#374151]">
+                          Drop a file here or click to browse
+                        </div>
+                        <div className="font-mono text-[10px] text-[#64748B] mt-1">
+                          PDF · Word · Text
+                        </div>
+                      </div>
+                    )}
+                  </label>
+                  {uploadedFile && (
+                    <button
+                      type="button"
+                      onClick={() => handleExtract("upload")}
+                      disabled={extracting}
+                      className="mt-3 bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm disabled:opacity-50 hover:bg-[#1447C0] transition-colors cursor-pointer"
+                    >
+                      {extracting ? "Extracting..." : "Extract rules →"}
+                    </button>
+                  )}
+                  {/* Best-effort note: binary PDFs/Word docs read as text
+                      yield noisy results; the placeholder still works for
+                      plain-text uploads. */}
+                  <div className="font-mono text-[10px] text-[#94A3B8] mt-3 leading-relaxed">
+                    Best results with plain-text uploads. PDF/Word are read as text — extraction quality may vary.
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: Type rules manually. */}
+              {importMode === "manual" && (
+                <div>
+                  <div className="text-sm text-[#374151] mb-3">
+                    Describe your rules in plain English. One rule per line. ERA CUE converts each into a structured governance rule.
+                  </div>
+                  <textarea
+                    value={manualRules}
+                    onChange={(e) => setManualRules(e.target.value)}
+                    placeholder={`Block any post mentioning specific return percentages\nEscalate client testimonials for GC review\nFlag competitor comparisons for compliance check\nBlock forward guidance during earnings quiet period`}
+                    className="w-full border border-[#BAE6FD] rounded-sm px-3 py-3 text-sm text-[#0F172A] bg-white h-36 resize-none font-mono focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleExtract("manual")}
+                    disabled={!manualRules.trim() || extracting}
+                    className="mt-3 bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm disabled:opacity-50 hover:bg-[#1447C0] transition-colors cursor-pointer"
+                  >
+                    {extracting ? "Converting..." : "Convert to rules →"}
+                  </button>
+                </div>
+              )}
+
+              {/* Candidate review list — paste / upload / manual. */}
+              {candidates.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-[#BAE6FD]">
+                  <div className="text-sm font-medium text-[#0F172A] mb-3">
+                    ERA CUE found {candidates.length} rule
+                    {candidates.length !== 1 ? "s" : ""}. Review and confirm which to add.
+                  </div>
+                  {candidates.map((rule, i) => (
+                    <CandidateRuleCard
+                      key={`${rule.name}-${i}`}
+                      rule={rule}
+                      index={i}
+                      confirmed={confirmed}
+                      setConfirmed={setConfirmed}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Authorize button — appears whenever there's something to
+                  authorize. The condition splits cleanly: candidates-driven
+                  modes show it when a candidate exists; templates mode
+                  shows it once at least one card is checked. */}
+              {(candidates.length > 0 ||
+                (importMode === "templates" && confirmed.size > 0)) && (
                 <button
                   type="button"
-                  onClick={handleAuthorizeSelected}
-                  disabled={selectedRules.size === 0 || authorizing}
-                  className="w-full bg-[#0F172A] text-white font-mono text-sm font-medium py-3 rounded-sm hover:bg-[#1E293B] disabled:opacity-50 transition-colors cursor-pointer mt-2"
+                  onClick={handleConfirmRules}
+                  disabled={confirmed.size === 0 || authorizing}
+                  className="w-full mt-4 bg-[#0F172A] text-white font-mono text-sm font-medium py-3 rounded-sm disabled:opacity-40 hover:bg-[#1E293B] transition-colors cursor-pointer"
                 >
                   {authorizing
                     ? "Authorizing..."
-                    : `Authorize ${selectedRules.size} selected rule${selectedRules.size !== 1 ? "s" : ""} →`}
+                    : `Authorize ${confirmed.size} rule${confirmed.size !== 1 ? "s" : ""} →`}
                 </button>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Stats strip — Total dropped because it included deactivated rules
             (misleading); Active is now the primary stat. Deactivated lives at
@@ -647,5 +953,90 @@ Example: 'All associated persons must submit social media posts for principal re
         }}
       />
     </main>
+  );
+}
+
+// ---------- CandidateRuleCard ---------------------------------------------
+
+/**
+ * Review card used by every tab in the import panel. Confirmed cards
+ * flip to the green palette so the user can scan which rules will be
+ * authorized at a glance. Keywords are clipped to 6 chips with a
+ * "+N more" hint so a long keyword set doesn't take over the layout.
+ */
+function CandidateRuleCard({
+  rule,
+  index,
+  confirmed,
+  setConfirmed,
+}: {
+  rule: CandidateRule;
+  index: number;
+  confirmed: Set<number>;
+  setConfirmed: (s: Set<number>) => void;
+}) {
+  const isConfirmed = confirmed.has(index);
+
+  return (
+    <div
+      className={`border rounded-sm p-4 mb-2 transition-colors ${
+        isConfirmed ? "bg-[#F0FDF4] border-[#BBF7D0]" : "bg-white border-[#E2E8F0]"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          checked={isConfirmed}
+          onChange={(e) => {
+            const next = new Set(confirmed);
+            if (e.target.checked) next.add(index);
+            else next.delete(index);
+            setConfirmed(next);
+          }}
+          className="mt-1 w-4 h-4 accent-[#1A56DB] cursor-pointer shrink-0"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span
+              className={`font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm border ${
+                rule.rule_type === "block"
+                  ? "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]"
+                  : rule.rule_type === "escalate"
+                    ? "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]"
+                    : rule.rule_type === "review"
+                      ? "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]"
+                      : "bg-[#F1F5F9] text-[#64748B] border-[#E2E8F0]"
+              }`}
+            >
+              {rule.rule_type}
+            </span>
+            <span className="text-sm font-semibold text-[#0F172A]">{rule.name}</span>
+          </div>
+          <div className="text-sm text-[#374151] mb-2">{rule.description}</div>
+          {rule.keywords.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              {rule.keywords.slice(0, 6).map((kw) => (
+                <span
+                  key={kw}
+                  className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
+                >
+                  {kw}
+                </span>
+              ))}
+              {rule.keywords.length > 6 && (
+                <span className="font-mono text-[10px] text-[#94A3B8]">
+                  +{rule.keywords.length - 6} more
+                </span>
+              )}
+            </div>
+          )}
+          <div className="font-mono text-[10px] text-[#94A3B8]">
+            {rule.regulatory_basis}
+            {rule.regulatory_basis && rule.wsp_reference ? " · " : ""}
+            {rule.wsp_reference}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

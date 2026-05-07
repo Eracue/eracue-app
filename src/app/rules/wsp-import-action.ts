@@ -18,7 +18,7 @@ export type ExtractRulesResult =
   | { ok: true; suggested_rules: SuggestedRule[] }
   | { ok: false; error: string };
 
-const SYSTEM_PROMPT = `You are a FINRA compliance expert. Extract governance rules from Written Supervisory Procedures text.
+const SYSTEM_PROMPT_WSP = `You are a FINRA compliance expert. Extract governance rules from Written Supervisory Procedures text.
 
 For each rule identified, specify:
 - name: short rule name
@@ -33,6 +33,30 @@ Be conservative with rule_type:
 - "escalate" for required principal review
 - "review" for items needing attention
 - "guide" for best practice reminders
+
+Respond with JSON only:
+{
+  "suggested_rules": [...]
+}`;
+
+// Manual mode — user typed plain-English rules, one per line. We don't
+// expect WSP-style headers, so the prompt focuses on faithful conversion
+// rather than extraction.
+const SYSTEM_PROMPT_MANUAL = `Convert each line into a structured governance rule. Each line is one rule description. Extract keywords from the description. Be precise.
+
+For each line, produce:
+- name: short rule name (5 words max)
+- rule_type: "block" | "escalate" | "review" | "guide"
+- description: one sentence explaining what this governs
+- keywords: 3-10 specific trigger words/phrases drawn from the description
+- wsp_reference: leave empty string ""
+- regulatory_basis: best-fit FINRA/SEC citation, or empty string if none
+
+Verdict mapping:
+- "block" when the line says "block", "prohibit", "forbid", "no"
+- "escalate" when the line says "escalate", "review by", "needs approval"
+- "review" when the line says "flag", "consistency", "check"
+- "guide" otherwise
 
 Respond with JSON only:
 {
@@ -71,22 +95,36 @@ function parseSuggested(text: string): SuggestedRule[] {
 }
 
 /**
- * Ask Claude to read a section of WSP text and extract candidate
- * compliance rules. The user reviews the extracted set in the UI before
- * any rule is written to the database (see authorizeSuggestedRulesAction).
+ * Ask Claude to read a section of WSP text (or a list of plain-English
+ * rule descriptions in manual mode) and extract structured governance
+ * rules. The user reviews the result in the UI before anything is
+ * written to the database — see createRulesFromImport.
+ *
+ * `isManual` toggles between the WSP-extraction prompt (treats input as
+ * a policy document) and the manual prompt (treats each line as one
+ * rule). Defaults to false so the existing single-arg call sites keep
+ * working without change.
  */
 export async function extractRulesFromWsp(
   wspText: string,
+  isManual = false,
 ): Promise<ExtractRulesResult> {
-  if (!wspText.trim()) return { ok: false, error: "WSP text required." };
+  if (!wspText.trim()) {
+    return { ok: false, error: isManual ? "Rule text required." : "WSP text required." };
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return {
       ok: false,
-      error: "ANTHROPIC_API_KEY not configured — WSP extraction unavailable in this environment.",
+      error: "ANTHROPIC_API_KEY not configured — extraction unavailable in this environment.",
     };
   }
+
+  const systemPrompt = isManual ? SYSTEM_PROMPT_MANUAL : SYSTEM_PROMPT_WSP;
+  const userIntro = isManual
+    ? "Convert each of these plain-English rules into structured form (one per line):"
+    : "Extract compliance rules from this WSP section:";
 
   let response: Response;
   try {
@@ -100,11 +138,11 @@ export async function extractRulesFromWsp(
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 2000,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         messages: [
           {
             role: "user",
-            content: `Extract compliance rules from this WSP section:\n\n${wspText}`,
+            content: `${userIntro}\n\n${wspText}`,
           },
         ],
       }),
