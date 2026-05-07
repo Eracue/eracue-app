@@ -5,16 +5,15 @@ import { useRouter } from "next/navigation";
 import { AddRulePanel } from "./add-rule-panel";
 import { deactivateRuleAction } from "./actions";
 import { extractRulesFromWsp } from "./wsp-import-action";
-import {
-  createRulesFromImport,
-  type CandidateRuleInput,
-} from "./create-rules-action";
+import { createRulesFromImport } from "./create-rules-action";
 import { saveRuleUpdates, type RuleUpdates } from "./update-rule-action";
+import {
+  TEMPLATES,
+  FIRM_TYPE_BUTTONS,
+  templatesFor,
+  type CandidateRule,
+} from "./templates";
 
-// CandidateRule is the union shape every tab feeds into the same review
-// list — `source` records where the rule came from so the audit trail can
-// later distinguish template-authored rules from extracted ones.
-type CandidateRule = CandidateRuleInput;
 type ImportMode = "templates" | "paste" | "upload" | "manual";
 
 const TABS: ReadonlyArray<{ key: ImportMode; label: string }> = [
@@ -24,150 +23,13 @@ const TABS: ReadonlyArray<{ key: ImportMode; label: string }> = [
   { key: "upload", label: "Upload doc" },
 ];
 
-// Six firm types the Templates tab cycles through. Each maps to a
-// templatesFor() bucket via the same alias rules — `pr_agency` and
-// `executive_team` fall back to the broker_dealer set since their
-// starter governance overlaps heavily with retail communications.
-const FIRM_TYPE_BUTTONS: ReadonlyArray<{ key: string; label: string }> = [
-  { key: "broker_dealer", label: "Broker-Dealer" },
-  { key: "ria", label: "RIA" },
-  { key: "public_company", label: "Public Company" },
-  { key: "pr_agency", label: "PR Agency" },
-  { key: "executive_team", label: "Executive Team" },
-  { key: "investment_bank", label: "Investment Bank / PE" },
-];
-
-// Pre-built starter rules per firm type. The Templates tab shows these
-// directly (no Claude call). Keys correspond to firm_type values written
-// by the onboarding firm setup form.
-const TEMPLATES: Record<string, CandidateRule[]> = {
-  broker_dealer: [
-    {
-      name: "Performance Projections",
-      rule_type: "block",
-      description:
-        "Projected or guaranteed performance claims are prohibited in retail communications.",
-      keywords: [
-        "guaranteed return",
-        "guaranteed yield",
-        "will return",
-        "no risk",
-        "risk-free return",
-        "assured return",
-        "projected return of",
-        "target return of",
-      ],
-      wsp_reference: "Section 4.2 — Performance Communications",
-      regulatory_basis: "FINRA Rule 2210(d)(1)(F)",
-      source: "template",
-    },
-    {
-      name: "Testimonials Without Disclosure",
-      rule_type: "escalate",
-      description:
-        "Client testimonials require specific disclosures.",
-      keywords: [
-        "my client said",
-        "client testimonial",
-        "client endorses",
-        "client recommends",
-        "as my client put it",
-      ],
-      wsp_reference: "Section 4.5 — Testimonials",
-      regulatory_basis: "FINRA Rule 2210(d)(6)",
-      source: "template",
-    },
-    {
-      name: "Social Media Pre-Approval",
-      rule_type: "escalate",
-      description:
-        "All social media posts by registered persons require principal review.",
-      keywords: [],
-      wsp_reference: "Section 3.1 — Social Media Supervision",
-      regulatory_basis: "FINRA Rule 3110 · Rule 2210(b)",
-      source: "template",
-    },
-  ],
-  // The onboarding form writes "rIA" as the firm_type for Registered
-  // Investment Advisers; alias both keys so the panel resolves either.
-  ria: [
-    {
-      name: "Marketing Rule — Performance",
-      rule_type: "block",
-      description:
-        "Hypothetical performance requires specific disclosures under the SEC Marketing Rule.",
-      keywords: [
-        "hypothetical performance",
-        "back-tested",
-        "would have returned",
-        "simulated results",
-      ],
-      wsp_reference: "Section 5.1 — Marketing Compliance",
-      regulatory_basis: "SEC Rule 206(4)-1",
-      source: "template",
-    },
-    {
-      name: "Testimonials and Endorsements",
-      rule_type: "escalate",
-      description:
-        "Testimonials and endorsements require disclosure of compensation and conflicts.",
-      keywords: [
-        "client said",
-        "testimonial",
-        "endorses",
-        "recommends us",
-        "five stars",
-        "review",
-      ],
-      wsp_reference: "Section 5.3 — Testimonials",
-      regulatory_basis: "SEC Marketing Rule 206(4)-1(b)(1)",
-      source: "template",
-    },
-  ],
-  public_company: [
-    {
-      name: "Reg FD — Material Information",
-      rule_type: "block",
-      description:
-        "Material nonpublic information cannot be selectively disclosed.",
-      keywords: [
-        "revenue guidance",
-        "earnings guidance",
-        "material announcement",
-        "non-public",
-        "before we announce",
-      ],
-      wsp_reference: "Section 6.1 — Reg FD Policy",
-      regulatory_basis: "SEC Regulation FD",
-      source: "template",
-    },
-  ],
-  investment_bank: [
-    {
-      name: "Deal Quiet Period",
-      rule_type: "block",
-      description:
-        "No communications about active deals during quiet periods.",
-      keywords: [
-        "the deal",
-        "our transaction",
-        "the acquisition",
-        "we are acquiring",
-        "we are selling",
-      ],
-      wsp_reference: "Section 2.1 — Deal Communications",
-      regulatory_basis: "SEC Rule 10b-5 · FINRA Rule 2210",
-      source: "template",
-    },
-  ],
-};
-
-function templatesFor(firmType: string | null | undefined): CandidateRule[] {
-  if (!firmType) return TEMPLATES.broker_dealer;
-  // Onboarding writes "rIA" (camelCase); accept both casings.
-  const key = firmType === "rIA" ? "ria" : firmType;
-  return TEMPLATES[key] ?? TEMPLATES.broker_dealer;
-}
+// Two top-level rules experiences. Setup is a focused one-page picker
+// for first-time visitors (or anyone explicitly setting up from
+// scratch); managing is the existing full rules dashboard with stats,
+// filters, and the rules list. The view switch is local React state —
+// no route change — so the "Back to my rules" link keeps the existing
+// rules data hot.
+type RulesView = "setup" | "managing";
 
 export type RuleRow = {
   id: string;
@@ -296,6 +158,17 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // Initial view — managing if the org already has live rules, setup
+  // otherwise. Computed from the rules prop (not the useMemo counts
+  // below) because it runs once at mount and doesn't need to react to
+  // subsequent count changes.
+  const initialActiveCount = rules.filter(
+    (r) => r.rule_status !== "deactivated",
+  ).length;
+  const [view, setView] = useState<RulesView>(
+    initialActiveCount > 0 ? "managing" : "setup",
+  );
+
   // Import panel state. In demo mode the panel opens by default so the
   // first thing a visitor sees is HOW to add rules, not someone else's
   // authorized rules. Outside demo mode it stays collapsed until the
@@ -307,7 +180,15 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   const [manualRules, setManualRules] = useState("");
   const [extracting, setExtracting] = useState(false);
   const [candidates, setCandidates] = useState<CandidateRule[]>([]);
-  const [confirmed, setConfirmed] = useState<Set<number>>(new Set());
+  // Pre-fill confirmed with all templates for the resolved firm type so
+  // the setup view's suggested-rules cards land already checked. The
+  // managing-view import panel resets this to an empty Set when the user
+  // switches firm types inside the Templates tab, so the auto-fill only
+  // affects the first encounter.
+  const [confirmed, setConfirmed] = useState<Set<number>>(() => {
+    const defaults = templatesFor(firmType);
+    return new Set(defaults.map((_, i) => i));
+  });
   const [authorizing, setAuthorizing] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   // Post-authorization success state. Set on the next tick after the
@@ -317,9 +198,10 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   const [authorizedCount, setAuthorizedCount] = useState(0);
   // Templates tab now lets the user switch firm-type buckets without
   // leaving the page (defaults to whatever the org was created with).
-  const [firmTypeFilter, setFirmTypeFilter] = useState<string>(
-    firmType ?? "broker_dealer",
-  );
+  const [firmTypeFilter, setFirmTypeFilter] = useState<string>(() => {
+    const raw = firmType ?? "broker_dealer";
+    return raw === "rIA" ? "ria" : raw;
+  });
   // Inline rule editing — when set, the matching rule card expands to
   // show the EditRulePanel instead of opening the side AddRulePanel.
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
@@ -501,6 +383,245 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
     });
   }
 
+  // Setup view — first-time picker. The user picks a firm type, the
+  // suggested templates auto-check, and clicking "Review and confirm"
+  // navigates to /rules/confirm with the firm + selected indices in
+  // the URL so the next page can rebuild the pending list. The
+  // "Import from an existing policy" link drops the user into the
+  // managing view with the import panel pre-opened on the Paste tab.
+  if (view === "setup") {
+    const setupTemplates =
+      TEMPLATES[firmTypeFilter] ?? TEMPLATES.broker_dealer;
+    const firmLabel =
+      FIRM_TYPE_BUTTONS.find((f) => f.key === firmTypeFilter)?.label ??
+      "your firm type";
+    return (
+      <main className="min-h-screen bg-[#F8F9FB]">
+        <div className="max-w-[720px] mx-auto px-6 py-10">
+          {/* Back link — only when the org already has live rules; for
+              a fresh org there's nothing to go back to. */}
+          {counts.active > 0 && (
+            <button
+              type="button"
+              onClick={() => setView("managing")}
+              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors mb-6 cursor-pointer"
+            >
+              ← Back to my rules
+            </button>
+          )}
+
+          {/* Header */}
+          <div className="mb-8">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+              Step 1 of 2 — Set your rules
+            </div>
+            <h1
+              style={{ fontFamily: "var(--font-newsreader)" }}
+              className="text-3xl font-light text-[#0F172A] mb-3"
+            >
+              What should ERA CUE enforce?
+            </h1>
+            <p className="text-sm text-[#64748B] leading-relaxed max-w-lg">
+              ERA CUE checks every draft your team submits against these
+              rules before publication. Choose the rules that apply to
+              your organization — you can edit or add more any time.
+            </p>
+          </div>
+
+          {/* Firm type selector. Clicking a chip auto-checks every
+              template for that firm type so the user never has to
+              hunt for a "select all" affordance. */}
+          <div className="mb-8">
+            <div className="text-sm font-medium text-[#0F172A] mb-3">
+              My organization is a
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {FIRM_TYPE_BUTTONS.map((ft) => {
+                const selected = firmTypeFilter === ft.key;
+                return (
+                  <button
+                    key={ft.key}
+                    type="button"
+                    onClick={() => {
+                      setFirmTypeFilter(ft.key);
+                      const tpls =
+                        TEMPLATES[ft.key] ?? TEMPLATES.broker_dealer;
+                      setConfirmed(new Set(tpls.map((_, i) => i)));
+                    }}
+                    className={`px-4 py-2 rounded-sm border text-sm transition-colors cursor-pointer ${
+                      selected
+                        ? "bg-[#0F172A] border-[#0F172A] text-white"
+                        : "bg-white border-[#E2E8F0] text-[#374151] hover:border-[#94A3B8]"
+                    }`}
+                  >
+                    {ft.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Suggested rules — same data the import panel surfaces, but
+              rendered as a focused checklist with plain-English verdict
+              labels ("Will block" / "Routes to review" / "Will flag")
+              so a first-time visitor doesn't have to map BLOCK /
+              ESCALATE / REVIEW onto behaviour. */}
+          <div className="mb-6">
+            <div className="text-sm font-medium text-[#0F172A] mb-1">
+              Suggested rules for your organization
+            </div>
+            <div className="text-sm text-[#64748B] mb-4 leading-relaxed">
+              These are based on common regulatory requirements for{" "}
+              {firmLabel}. Review each one — you&apos;ll confirm and
+              edit them on the next screen.
+            </div>
+
+            <div className="space-y-2">
+              {setupTemplates.map((rule, i) => {
+                const isChecked = confirmed.has(i);
+                const verdictLabel =
+                  rule.rule_type === "block"
+                    ? "Will block"
+                    : rule.rule_type === "escalate"
+                      ? "Routes to review"
+                      : "Will flag";
+                const verdictClass =
+                  rule.rule_type === "block"
+                    ? "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]"
+                    : rule.rule_type === "escalate"
+                      ? "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]"
+                      : "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]";
+                return (
+                  <div
+                    key={`${rule.name}-${i}`}
+                    onClick={() => {
+                      const next = new Set(confirmed);
+                      if (next.has(i)) next.delete(i);
+                      else next.add(i);
+                      setConfirmed(next);
+                    }}
+                    className={`border rounded-sm p-4 cursor-pointer transition-colors ${
+                      isChecked
+                        ? "border-[#1A56DB] bg-[#EFF8FF]"
+                        : "border-[#E2E8F0] bg-white hover:border-[#94A3B8]"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`w-4 h-4 rounded border shrink-0 mt-0.5 flex items-center justify-center ${
+                          isChecked
+                            ? "bg-[#1A56DB] border-[#1A56DB]"
+                            : "border-[#D1D5DB] bg-white"
+                        }`}
+                      >
+                        {isChecked && (
+                          <svg
+                            className="w-3 h-3 text-white"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            aria-hidden
+                          >
+                            <path
+                              d="M2 6l3 3 5-5"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-sm font-medium text-[#0F172A]">
+                            {rule.name}
+                          </span>
+                          <span
+                            className={`font-mono text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm border ${verdictClass}`}
+                          >
+                            {verdictLabel}
+                          </span>
+                        </div>
+                        <p className="text-sm text-[#64748B] leading-relaxed mb-2">
+                          {rule.description}
+                        </p>
+                        <div className="font-mono text-[9px] text-[#94A3B8]">
+                          {rule.regulatory_basis}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Existing-policy escape hatch. Drops the user into the
+              managing view with the import panel open on the Paste tab
+              so they can pull rules out of their WSP instead of
+              hand-picking templates. */}
+          <div className="border border-[#E2E8F0] rounded-sm p-4 mb-8 bg-[#F8F9FB]">
+            <div className="text-sm font-medium text-[#0F172A] mb-1">
+              Already have a compliance policy?
+            </div>
+            <div className="text-sm text-[#64748B] mb-3 leading-relaxed">
+              Paste your existing Written Supervisory Procedures (WSP),
+              social media policy, or any compliance document. ERA CUE
+              will extract your rules automatically.
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setView("managing");
+                setShowImport(true);
+                setImportMode("paste");
+              }}
+              className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors cursor-pointer"
+            >
+              Import from an existing policy →
+            </button>
+          </div>
+
+          {/* Action footer — count message on the left, primary action
+              on the right. Disabled when nothing is selected so the
+              user can't navigate to a confirm page with an empty list. */}
+          <div className="flex items-center justify-between pt-4 border-t border-[#E2E8F0] flex-wrap gap-3">
+            <div className="text-sm text-[#94A3B8]">
+              {confirmed.size === 0
+                ? "Select at least one rule to continue"
+                : `${confirmed.size} rule${confirmed.size !== 1 ? "s" : ""} selected`}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const ids = Array.from(confirmed)
+                  .sort((a, b) => a - b)
+                  .join(",");
+                router.push(
+                  `/rules/confirm?firm=${encodeURIComponent(firmTypeFilter)}&ids=${ids}`,
+                );
+              }}
+              disabled={confirmed.size === 0}
+              className="bg-[#0F172A] text-white font-mono text-sm font-medium px-6 py-2.5 rounded-sm hover:bg-[#1E293B] disabled:opacity-40 transition-colors cursor-pointer"
+            >
+              Review and confirm →
+            </button>
+          </div>
+        </div>
+
+        <AddRulePanel
+          isOpen={isAddOpen || editingRule !== null}
+          initialRule={editingRule}
+          onClose={() => {
+            setIsAddOpen(false);
+            setEditingRule(null);
+          }}
+        />
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[#F8F9FB]">
       <div className="max-w-[1100px] mx-auto px-6 pt-10 pb-6">
@@ -523,7 +644,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
           <p className="text-sm text-[#64748B] max-w-2xl leading-relaxed mt-2">
             {IS_DEMO_MODE
               ? "ERA CUE checks every draft your team submits against these rules before publication. Import your existing policies or add rules below — there's no limit."
-              : "Every draft your team submits is checked against these rules before publication."}
+              : "Every draft is checked against these rules before publication."}
           </p>
         </div>
 
@@ -553,14 +674,23 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               {showImport ? "× Close" : "↑ Import policies"}
             </button>
           </div>
-          {counts.active > 0 && (
-            <a
-              href="/submit"
-              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
+          <div className="flex items-center gap-4 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setView("setup")}
+              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
             >
-              Check a draft →
-            </a>
-          )}
+              Set up rules from scratch →
+            </button>
+            {counts.active > 0 && (
+              <a
+                href="/submit"
+                className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
+              >
+                Check a draft →
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Import existing policies — four-tab panel. The wrapper drops
@@ -1320,26 +1450,20 @@ Block posts mentioning specific fund performance`}
         )}
 
         {/* WSP callout — closes the page by reframing the rules above
-            as enforcement of the firm's existing supervisory procedures,
-            not a parallel layer. Sits below governance health so it reads
-            as a foundation note rather than a coming-soon teaser. */}
-        <div className="mt-6 border border-[#E2E8F0] rounded-sm p-4 flex items-start gap-3 bg-[#F8F9FB]">
-          {/* Document indicator — three horizontal lines reads as a
-              page of supervisory procedures more cleanly than the
-              dotted-square glyph it replaces. */}
-          <div className="shrink-0 mt-0.5 font-mono text-[#64748B] text-base" aria-hidden>
-            ≡
+            as enforcement of the firm's existing supervisory
+            procedures. The icon was dropped; the title carries the
+            framing on its own and the FINRA-examiner anchor lands
+            harder without a glyph competing for attention. */}
+        <div className="mt-6 border border-[#E2E8F0] rounded-sm p-4 bg-[#F8F9FB]">
+          <div className="text-sm font-semibold text-[#0F172A] mb-1">
+            Rules reference your existing compliance policies.
           </div>
-          <div>
-            <div className="text-sm font-semibold text-[#0F172A] mb-1">
-              Rules reference your WSPs.
-            </div>
-            <div className="text-sm text-[#64748B] leading-relaxed">
-              ERA CUE is the enforcement layer for your existing supervisory
-              procedures. When creating or editing a rule, add the WSP section
-              it implements — this creates an auditable link between your
-              documented policies and ERA CUE&apos;s governance checks.
-            </div>
+          <div className="text-sm text-[#64748B] leading-relaxed">
+            When you add or edit a rule, include the section of your Written
+            Supervisory Procedures (WSP) or compliance manual that it
+            enforces. This creates an auditable link between your documented
+            policies and ERA CUE&apos;s enforcement — exactly what FINRA
+            examiners look for.
           </div>
         </div>
       </div>
