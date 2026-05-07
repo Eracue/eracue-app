@@ -1,44 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { submitDraftAction } from "./actions";
-import type { CheckEntry, CommunicationCategory } from "@/lib/checks";
+import type { CheckEntry } from "@/lib/checks";
 
-// ---------- Constants ----------------------------------------------------
+// ---------- Types --------------------------------------------------------
 
-const DEMO_DRAFT =
-  "We're aggressively hiring across engineering and sales — excited to share more about our growth plans soon.";
+export type SubmitFlow = "demo" | "new_user" | "returning";
 
-const SPEAKERS = [
-  { name: "Marcus Rivera", role: "CEO" },
-  { name: "Lena Brooks",   role: "VP Comms" },
-  { name: "James Kim",     role: "VP Sales" },
-  { name: "Priya Patel",   role: "CMO" },
-  { name: "Sarah Chen",    role: "GC" },
-] as const;
+export type SpeakerInfo = {
+  id: string;
+  display_name: string;
+  title: string | null;
+  role: string | null;
+  is_current_user: boolean;
+};
 
-const CHANNELS = [
-  { value: "linkedin",      label: "LinkedIn",      limit: 3000 as number | null },
-  { value: "twitter",       label: "X / Twitter",   limit: 280  as number | null },
-  { value: "blog",          label: "Blog",          limit: null as number | null },
-  { value: "press_release", label: "Press Release", limit: null as number | null },
-  { value: "email",         label: "Email",         limit: null as number | null },
-  { value: "other",         label: "Other",         limit: null as number | null },
-] as const;
-
-const CAMPAIGNS = [
-  { value: "",                   label: "None" },
-  { value: "Q3 Product Launch",  label: "Q3 Product Launch" },
-  { value: "Series B Announce",  label: "Series B Announce" },
-] as const;
-
-const VERDICT_STYLES: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  block:    { bg: "bg-[#FEF2F2]", text: "text-[#B91C1C]", border: "border-[#FECACA]", label: "BLOCK" },
-  escalate: { bg: "bg-[#FFF7ED]", text: "text-[#C2410C]", border: "border-[#FED7AA]", label: "ESCALATE" },
-  clear:    { bg: "bg-[#F0FDF4]", text: "text-[#166534]", border: "border-[#BBF7D0]", label: "CLEAR" },
-  review:   { bg: "bg-[#EFF6FF]", text: "text-[#1D4ED8]", border: "border-[#BFDBFE]", label: "REVIEW" },
-  guide:    { bg: "bg-[#F5F3FF]", text: "text-[#6D28D9]", border: "border-[#DDD6FE]", label: "GUIDE" },
+type Props = {
+  flow: SubmitFlow;
+  fromRules: boolean;
+  activatedCount: number;
+  firmType: string;
+  speakers: SpeakerInfo[];
+  ruleCount: number;
+  corpusCount: number;
+  currentUserName: string | null;
+  isDemoMode: boolean;
 };
 
 type VerdictData = {
@@ -47,85 +34,168 @@ type VerdictData = {
   matchedKeyword?: string;
   draftId?: string;
   checks?: CheckEntry[];
-  // Surfaced by the action so the post-verdict panel can show
-  // governance signals without fishing through the checks array.
-  consistencyResult?: {
-    corpusSize: number;
-    result: "pass" | "fail" | "warn";
-  };
-  ruleMatch?: {
-    name: string;
-    effectiveness: number | null;
-  } | null;
+};
+
+// Channels offered in the pill row. Keeps the labels short and
+// matching the actions.ts auto-categorisation buckets (linkedin /
+// twitter / blog / press_release → retail; email → correspondence;
+// other → falls back to retail).
+const CHANNELS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: "linkedin", label: "LinkedIn" },
+  { key: "twitter", label: "Twitter / X" },
+  { key: "press_release", label: "Press release" },
+  { key: "blog", label: "Blog" },
+  { key: "email", label: "Email" },
+  { key: "other", label: "Other" },
+];
+
+// Example drafts surfaced behind the "Try an example →" link in demo
+// mode. Each is a representative violation of the firm's most likely
+// starter rule, so a demo visitor sees the engine fire on copy that
+// reads as their actual firm's communications.
+const EXAMPLE_DRAFTS: Record<string, string> = {
+  broker_dealer:
+    "Our portfolio has delivered guaranteed returns of 12% annually over the past 3 years with no risk to principal. Investors can expect similar performance going forward.",
+  ria: "A client recently told me how thrilled she is with her portfolio — up over 18% this year. We love hearing success stories like this from our clients.",
+  public_company:
+    "Exciting times ahead — we're seeing really strong revenue growth and expect a significant beat on our Q3 numbers next week.",
+  pr_agency:
+    "Our client is the industry leader with the most competitive offering available — no one else comes close to what they offer at this point.",
+  executive_team:
+    "We're aggressively hiring across engineering and sales — exciting times ahead as we scale toward our $10M ARR target this quarter.",
+  default:
+    "We're aggressively hiring across engineering and sales — exciting times ahead for the team as we continue to grow.",
+};
+
+// Plain-English verdict labels and palette. Rendered on the verdict
+// header so a non-compliance reader doesn't have to map BLOCK /
+// ESCALATE / REVIEW / GUIDE / CLEAR onto behaviour.
+const VERDICT_META: Record<
+  string,
+  { label: string; headerBg: string; headerBorder: string; badgeBg: string }
+> = {
+  block: {
+    label: "Blocked",
+    headerBg: "bg-[#FEF2F2]",
+    headerBorder: "border-[#FECACA]",
+    badgeBg: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]",
+  },
+  escalate: {
+    label: "Needs review",
+    headerBg: "bg-[#FFF7ED]",
+    headerBorder: "border-[#FED7AA]",
+    badgeBg: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]",
+  },
+  review: {
+    label: "Flagged",
+    headerBg: "bg-[#EFF6FF]",
+    headerBorder: "border-[#BFDBFE]",
+    badgeBg: "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]",
+  },
+  guide: {
+    label: "Note",
+    headerBg: "bg-[#F5F3FF]",
+    headerBorder: "border-[#DDD6FE]",
+    badgeBg: "bg-[#F5F3FF] text-[#6D28D9] border-[#DDD6FE]",
+  },
+  clear: {
+    label: "Cleared",
+    headerBg: "bg-[#F0FDF4]",
+    headerBorder: "border-[#BBF7D0]",
+    badgeBg: "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]",
+  },
 };
 
 // ---------- Form ---------------------------------------------------------
 
-export function SubmitForm() {
-  const [draftText, setDraftText]           = useState(DEMO_DRAFT);
-  const [speaker, setSpeaker]               = useState("Marcus Rivera");
-  const [channel, setChannel]               = useState("linkedin");
-  // FINRA Rule 2210 communication category — drives whether a hard BLOCK
-  // applies (retail) or relaxes to ESCALATE (correspondence + institutional
-  // are subject to supervision but not principal pre-approval).
-  const [commCategory, setCommCategory]     = useState<CommunicationCategory>("retail");
-  const [submissionType, setSubmissionType] = useState<"human" | "agent">("human");
-  const [aiDeclaration, setAiDeclaration]   = useState(true);
-  const [promptUsed, setPromptUsed]         = useState("");
-  const [campaign, setCampaign]             = useState("Series B Announce");
-  const [charCount, setCharCount]           = useState(DEMO_DRAFT.length);
-  const [submitting, setSubmitting]         = useState(false);
-  const [error, setError]                   = useState<string | null>(null);
-  const [verdict, setVerdict]               = useState<string | null>(null);
-  const [verdictData, setVerdictData]       = useState<VerdictData | null>(null);
+export function SubmitForm({
+  flow,
+  fromRules,
+  activatedCount,
+  firmType,
+  speakers,
+  ruleCount,
+  corpusCount,
+  currentUserName,
+  isDemoMode,
+}: Props) {
+  // Initial speaker — preference order:
+  //   1. The current user (if they exist as a speaker)
+  //   2. The first speaker in the list
+  //   3. null (new-user flow with no speakers)
+  const initialSpeaker: SpeakerInfo | null =
+    speakers.find((s) => s.is_current_user) ?? speakers[0] ?? null;
 
-  const currentChannel = CHANNELS.find((c) => c.value === channel);
-  const charLimit = currentChannel?.limit ?? null;
-  const overLimit = charLimit !== null && charCount > charLimit;
+  const [selectedSpeakerId, setSelectedSpeakerId] = useState<string | null>(
+    initialSpeaker?.id ?? null,
+  );
+  const [showAllSpeakers, setShowAllSpeakers] = useState(false);
+  const [channel, setChannel] = useState<string>("linkedin");
+  const [draftText, setDraftText] = useState("");
+  const [campaign, setCampaign] = useState("");
+  const [showCampaign, setShowCampaign] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkingStage, setCheckingStage] = useState<0 | 1 | 2>(0);
+  const [error, setError] = useState<string | null>(null);
+  const [verdict, setVerdict] = useState<string | null>(null);
+  const [verdictData, setVerdictData] = useState<VerdictData | null>(null);
 
-  // Auto-set the FINRA category based on channel selection. Public
-  // channels (linkedin/twitter/blog/press_release) reach a retail
-  // audience by definition; email defaults to correspondence (≤25 retail
-  // investors is the typical case). Users can still override manually
-  // after the auto-set fires.
-  useEffect(() => {
-    if (["linkedin", "twitter", "blog", "press_release"].includes(channel)) {
-      setCommCategory("retail");
-    } else if (channel === "email") {
-      setCommCategory("correspondence");
-    }
-  }, [channel]);
+  const exampleDraft = EXAMPLE_DRAFTS[firmType] ?? EXAMPLE_DRAFTS.default;
+
+  // For new-user with zero speakers — we still render a "Yourself"
+  // card in the speaker section, but submission against the action
+  // requires a matching `users.name` row. Submit is gated server-
+  // side; we keep the button enabled and surface the error inline
+  // if the lookup fails.
+  const selectedSpeaker =
+    speakers.find((s) => s.id === selectedSpeakerId) ?? null;
+
+  const speakerNameForSubmit =
+    selectedSpeaker?.display_name ?? currentUserName ?? "";
+
+  // Speakers visible in the grid before the user clicks "+ N more".
+  // For more than six speakers we collapse the grid to the first
+  // six so the page doesn't scroll on a normal viewport.
+  const displaySpeakers =
+    showAllSpeakers || speakers.length <= 6
+      ? speakers
+      : speakers.slice(0, 6);
 
   async function handleSubmit() {
     if (!draftText.trim()) {
       setError("Please enter a draft.");
       return;
     }
-    setSubmitting(true);
+    if (!speakerNameForSubmit) {
+      setError("Add a speaker before submitting a draft.");
+      return;
+    }
     setError(null);
+    setChecking(true);
+    setCheckingStage(0);
     setVerdict(null);
     setVerdictData(null);
+
+    // Stage advance — purely visual, runs on its own clock so the
+    // three rows light up sequentially even when the underlying
+    // submitDraftAction returns sub-second.
+    const stage1 = setTimeout(() => setCheckingStage(1), 900);
+    const stage2 = setTimeout(() => setCheckingStage(2), 2200);
 
     try {
       const result = await submitDraftAction({
         draftText,
-        speakerName: speaker,
+        speakerName: speakerNameForSubmit,
         channel,
-        sourceOrigin: aiDeclaration ? "ai_assisted" : "human",
-        submissionType,
-        campaignName: campaign || null,
-        // Only meaningful when AI is declared; the action ignores empty values.
-        promptUsed: aiDeclaration ? promptUsed : undefined,
-        // Drives the verdict adjustment (Stage 3) in the rule check.
-        communicationCategory: commCategory,
+        sourceOrigin: "human",
+        submissionType: "human",
+        campaignName: campaign.trim() || null,
       });
 
       if ("error" in result && result.error) {
         setError(result.error);
         return;
       }
-
-      // Narrow to the success branch (the only branch with verdict/draftId).
       if (!("verdict" in result)) {
         setError("Submission failed. Please try again.");
         return;
@@ -138,755 +208,723 @@ export function SubmitForm() {
         matchedKeyword: result.matchedKeyword,
         draftId: result.draftId,
         checks: result.checks,
-        consistencyResult: result.consistencyResult,
-        ruleMatch: result.ruleMatch,
       });
     } catch {
       setError("Submission failed. Please try again.");
     } finally {
-      setSubmitting(false);
+      clearTimeout(stage1);
+      clearTimeout(stage2);
+      setChecking(false);
     }
   }
 
-  function checkAnother() {
+  function handleReset() {
     setVerdict(null);
     setVerdictData(null);
     setDraftText("");
-    setCharCount(0);
+    setCampaign("");
+    setShowCampaign(false);
     setError(null);
   }
 
   const verdictLower = verdict?.toLowerCase() ?? null;
-  const verdictStyle = verdictLower ? VERDICT_STYLES[verdictLower] ?? VERDICT_STYLES.clear : null;
-  const isBlockOrEscalate = verdictLower === "block" || verdictLower === "escalate";
-  const checksToShow: CheckEntry[] = verdictData?.checks ?? [];
+  const verdictMeta = verdictLower
+    ? (VERDICT_META[verdictLower] ?? VERDICT_META.review)
+    : null;
+  const isBlockOrEscalate =
+    verdictLower === "block" || verdictLower === "escalate";
 
-  // Verdict-specific next-step link
-  function nextStepLink(): { href: string; label: string; tone: "indigo" | "green" } | null {
-    if (!verdictLower || !verdictData?.draftId) return null;
-    const id = verdictData.draftId;
-    if (verdictLower === "block")    return { href: `/reviewer/${id}`,         label: "View review →",                tone: "indigo" };
-    if (verdictLower === "escalate") return { href: `/reviewer/${id}`,         label: "Open review →",                tone: "indigo" };
-    if (verdictLower === "clear")    return { href: `/drafts/${id}/examiner`,  label: "Download approval record →",   tone: "green"  };
-    return                                  { href: `/drafts/${id}`,           label: "View details →",               tone: "indigo" };
-  }
-  const nextStep = nextStepLink();
+  // Ghost button for the post-verdict action row. Demo + returning
+  // share "Go to review queue", new_user gets the speaker invite link.
+  const ghostButton =
+    flow === "new_user"
+      ? { href: "/onboarding/speakers", label: "Invite your team to submit drafts" }
+      : { href: "/dashboard", label: "Go to review queue" };
 
   return (
-    <div className="max-w-[1100px] mx-auto px-6 pb-16">
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-        {/* DRAFT WORKSPACE — desktop col-span-3, mobile second */}
-        <div className="lg:col-span-3 order-2 lg:order-1">
-          <div
-            className={`bg-white border rounded-sm transition-all duration-300 ${
-              submitting
-                ? "border-[#1A56DB] shadow-[0_0_0_3px_rgba(26,86,219,0.1)]"
-                : "border-[#E2E8F0]"
-            }`}
-          >
-            <div className="p-5 border-b border-[#E2E8F0]">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
-                DRAFT TEXT
-              </div>
-              <textarea
-                value={draftText}
-                onChange={(e) => {
-                  setDraftText(e.target.value);
-                  setCharCount(e.target.value.length);
-                }}
-                rows={8}
-                placeholder="Paste the exact draft text that will be published..."
-                className="w-full min-h-[260px] bg-transparent border-none resize-none text-[#0F172A] text-base leading-relaxed focus:outline-none placeholder:text-[#94A3B8]"
-              />
+    <div className="max-w-[720px] mx-auto px-6 py-10">
+      {/* ─── Context bar — flow-specific ────────────────────────────── */}
+      {flow === "demo" && fromRules && (
+        <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-4 mb-6 flex items-start gap-3">
+          <span className="text-[#166534] shrink-0 text-base mt-0.5" aria-hidden>
+            ✓
+          </span>
+          <div className="flex-1">
+            <div className="text-sm font-medium text-[#0F172A] mb-0.5">
+              {activatedCount > 0
+                ? `${activatedCount} governance rules are active.`
+                : "Your governance rules are active."}
             </div>
-            <div className="px-5 py-3 flex justify-between items-center">
-              <span className={`font-mono text-sm ${overLimit ? "text-[#B91C1C]" : "text-[#64748B]"}`}>
-                {charCount} characters
-              </span>
-              {charLimit !== null ? (
-                <span className={`font-mono text-sm ${overLimit ? "text-[#B91C1C]" : "text-[#64748B]"}`}>
-                  / {charLimit.toLocaleString()} {currentChannel?.label}
-                </span>
-              ) : (
-                <span className="font-mono text-sm text-[#94A3B8]">
-                  No limit · {currentChannel?.label}
-                </span>
+            <div className="text-sm text-[#64748B]">
+              ERA CUE will check every draft against them. Try the example
+              below to see a rule fire.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {flow === "demo" && !fromRules && (
+        <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-3 mb-6 flex items-center gap-3 flex-wrap">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8]">
+            Demo
+          </span>
+          <span className="text-sm text-[#64748B]">
+            Checking against ERA CUE&apos;s example governance rules.
+            <a
+              href="/rules"
+              className="text-[#1A56DB] hover:text-[#1447C0] ml-1 transition-colors"
+            >
+              Configure your own →
+            </a>
+          </span>
+        </div>
+      )}
+
+      {flow === "new_user" && (
+        <div className="bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm p-4 mb-6 flex items-start gap-3">
+          <span className="text-[#1A56DB] shrink-0 text-base mt-0.5" aria-hidden>
+            →
+          </span>
+          <div>
+            <div className="text-sm font-medium text-[#0F172A] mb-0.5">
+              {ruleCount > 0
+                ? `${ruleCount} rule${ruleCount !== 1 ? "s" : ""} are active.`
+                : "No rules configured yet."}
+            </div>
+            <div className="text-sm text-[#64748B]">
+              {ruleCount > 0
+                ? "ERA CUE will check this draft against your active rules."
+                : "ERA CUE will run its standard checks. Set up governance rules to add your own policies."}
+              {ruleCount === 0 && (
+                <a
+                  href="/rules"
+                  className="text-[#1A56DB] hover:text-[#1447C0] ml-1 transition-colors"
+                >
+                  Set up rules →
+                </a>
               )}
             </div>
           </div>
+        </div>
+      )}
 
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting || overLimit}
-            className="bg-[#0F172A] text-white text-base font-semibold w-full py-3.5 rounded-sm mt-3 hover:bg-[#1E293B] disabled:opacity-50 transition"
-          >
-            {submitting ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg
-                  className="animate-spin h-4 w-4 text-white shrink-0"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>
-                Checking...
-              </span>
-            ) : (
-              "Check this draft →"
-            )}
-          </button>
+      {/* ─── Page header — step indicator + title + flow-aware sub ──── */}
+      <div className="mb-6">
+        {fromRules && (
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            Step 2 of 3 — Check a draft
+          </div>
+        )}
+        <h1
+          style={{ fontFamily: "var(--font-newsreader)" }}
+          className="text-3xl font-light text-[#0F172A] mb-2"
+        >
+          Check a draft before it goes live.
+        </h1>
+        <p className="text-sm text-[#64748B] leading-relaxed max-w-lg">
+          {flow === "demo"
+            ? "ERA CUE checks it against active governance rules and prior approved statements. Verdict in seconds."
+            : flow === "new_user"
+              ? "ERA CUE runs five checks on every draft. Set up rules to add your organization’s specific policies."
+              : `ERA CUE checks against your ${ruleCount} active rule${ruleCount !== 1 ? "s" : ""} and prior approved statements.`}
+        </p>
+      </div>
 
-          {error && (
-            <div className="font-mono text-xs text-[#B91C1C] mt-2">{error}</div>
-          )}
+      {/* ─── Body — three modes (form / checking / verdict) ─────────── */}
+      {checking ? (
+        <CheckingState
+          stage={checkingStage}
+          ruleCount={ruleCount}
+          corpusCount={corpusCount}
+        />
+      ) : verdictLower && verdictMeta ? (
+        <VerdictView
+          verdictKey={verdictLower}
+          meta={verdictMeta}
+          data={verdictData}
+          isBlockOrEscalate={isBlockOrEscalate}
+          flow={flow}
+          ghostButton={ghostButton}
+          onReset={handleReset}
+        />
+      ) : (
+        <FormBody
+          flow={flow}
+          speakers={speakers}
+          displaySpeakers={displaySpeakers}
+          showAllSpeakers={showAllSpeakers}
+          setShowAllSpeakers={setShowAllSpeakers}
+          selectedSpeakerId={selectedSpeakerId}
+          setSelectedSpeakerId={setSelectedSpeakerId}
+          currentUserName={currentUserName}
+          channel={channel}
+          setChannel={setChannel}
+          draftText={draftText}
+          setDraftText={setDraftText}
+          campaign={campaign}
+          setCampaign={setCampaign}
+          showCampaign={showCampaign}
+          setShowCampaign={setShowCampaign}
+          isDemoMode={isDemoMode}
+          exampleDraft={exampleDraft}
+          ruleCount={ruleCount}
+          checking={checking}
+          error={error}
+          onSubmit={handleSubmit}
+        />
+      )}
+    </div>
+  );
+}
 
-          {/* Verdict reveal */}
-          {verdictLower && verdictStyle && (
-            <div className="mt-4 bg-white border border-[#E2E8F0] rounded-sm p-6 transition-all duration-300">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
-                    SYSTEM VERDICT
-                  </div>
-                  <span
-                    className={`font-mono text-sm font-bold px-4 py-2 rounded-sm border uppercase tracking-widest inline-flex ${verdictStyle.bg} ${verdictStyle.text} ${verdictStyle.border}`}
-                  >
-                    {verdictStyle.label}
-                  </span>
+// ---------- FormBody -----------------------------------------------------
+
+function FormBody({
+  flow,
+  speakers,
+  displaySpeakers,
+  showAllSpeakers,
+  setShowAllSpeakers,
+  selectedSpeakerId,
+  setSelectedSpeakerId,
+  currentUserName,
+  channel,
+  setChannel,
+  draftText,
+  setDraftText,
+  campaign,
+  setCampaign,
+  showCampaign,
+  setShowCampaign,
+  isDemoMode,
+  exampleDraft,
+  ruleCount,
+  checking,
+  error,
+  onSubmit,
+}: {
+  flow: SubmitFlow;
+  speakers: SpeakerInfo[];
+  displaySpeakers: SpeakerInfo[];
+  showAllSpeakers: boolean;
+  setShowAllSpeakers: (v: boolean) => void;
+  selectedSpeakerId: string | null;
+  setSelectedSpeakerId: (id: string) => void;
+  currentUserName: string | null;
+  channel: string;
+  setChannel: (v: string) => void;
+  draftText: string;
+  setDraftText: (v: string) => void;
+  campaign: string;
+  setCampaign: (v: string) => void;
+  showCampaign: boolean;
+  setShowCampaign: (v: boolean) => void;
+  isDemoMode: boolean;
+  exampleDraft: string;
+  ruleCount: number;
+  checking: boolean;
+  error: string | null;
+  onSubmit: () => void;
+}) {
+  const submitDisabled =
+    !draftText.trim() ||
+    (speakers.length > 0 && !selectedSpeakerId) ||
+    (flow === "new_user" && speakers.length === 0 && !currentUserName) ||
+    checking;
+
+  return (
+    <>
+      {/* Speaker section — flow-specific. New-user collapses to a
+          single "Yourself" card; returning + demo render a grid. */}
+      <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden mb-4">
+        <div className="px-4 py-3 border-b border-[#E2E8F0]">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+            Who is submitting this draft?
+          </div>
+        </div>
+        <div className="p-4">
+          {flow === "new_user" && speakers.length === 0 ? (
+            <>
+              <div className="border border-[#1A56DB] bg-[#EFF8FF] rounded-sm p-3 mb-3 flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-[#1A56DB] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                  {(currentUserName ?? "Y").charAt(0).toUpperCase()}
                 </div>
-                <div className="font-mono text-[10px] text-[#166534] flex items-center gap-1">
-                  ✓ Record generated
+                <div>
+                  <div className="text-sm font-medium text-[#0F172A] flex items-center gap-2">
+                    {currentUserName ?? "You"}
+                    <span className="font-mono text-[9px] bg-[#1A56DB] text-white px-1.5 py-0.5 rounded-sm">
+                      you
+                    </span>
+                  </div>
+                  <div className="font-mono text-[10px] text-[#64748B]">
+                    Checking as yourself
+                  </div>
                 </div>
               </div>
-
-              {isBlockOrEscalate && verdictData && (
-                <div>
-                  {verdictData.ruleName && (
-                    <div className="text-sm font-medium text-[#0F172A] mb-1">
-                      {verdictData.ruleName}
-                    </div>
-                  )}
-                  {verdictData.ruleDescription && (
-                    <div className="text-xs text-[#64748B] mb-2">
-                      {verdictData.ruleDescription}
-                    </div>
-                  )}
-                  {verdictData.matchedKeyword && (
-                    <span className="font-mono text-xs bg-[#F1F5F9] text-[#1A56DB] px-2 py-0.5 rounded-sm inline-block">
-                      keyword: {verdictData.matchedKeyword}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Governance intelligence — surfaces the corpus + rule
-                  calibration signals against the just-submitted draft.
-                  Sits between the verdict info and the Checks Performed
-                  list so the panel reads as the higher-level context
-                  for the deterministic check rows below it. */}
-              {verdictData?.consistencyResult && (
-                <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-4 mt-4">
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
-                    Governance intelligence
-                  </div>
-                  <div className="space-y-2">
-                    {/* Corpus comparison */}
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="text-sm text-[#374151]">Corpus comparison</div>
-                      <div className="font-mono text-xs text-right">
-                        {verdictData.consistencyResult.corpusSize > 0 ? (
-                          <span className="text-[#166534]">
-                            {verdictData.consistencyResult.corpusSize} statement
-                            {verdictData.consistencyResult.corpusSize !== 1 ? "s" : ""}{" "}
-                            checked ·{" "}
-                            {verdictData.consistencyResult.result === "pass"
-                              ? "no contradictions"
-                              : "contradiction found"}
-                          </span>
-                        ) : (
-                          <span className="text-[#94A3B8]">
-                            No prior statements — corpus builds as drafts are approved
+              <div className="text-sm text-[#94A3B8]">
+                Your team isn&apos;t set up yet.{" "}
+                <a
+                  href="/onboarding/speakers"
+                  className="text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+                >
+                  Add speakers →
+                </a>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {displaySpeakers.map((speaker) => {
+                  const selected = selectedSpeakerId === speaker.id;
+                  return (
+                    <button
+                      key={speaker.id}
+                      type="button"
+                      onClick={() => setSelectedSpeakerId(speaker.id)}
+                      className={`text-left p-3 rounded-sm border transition-colors cursor-pointer ${
+                        selected
+                          ? "border-[#1A56DB] bg-[#EFF8FF]"
+                          : "border-[#E2E8F0] bg-white hover:border-[#94A3B8]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-sm font-medium text-[#0F172A] truncate">
+                          {speaker.display_name}
+                        </span>
+                        {speaker.is_current_user && (
+                          <span className="font-mono text-[9px] bg-[#1A56DB] text-white px-1.5 py-0.5 rounded-sm shrink-0">
+                            you
                           </span>
                         )}
                       </div>
-                    </div>
-
-                    {/* Rule calibration — only when a rule actually fired
-                        AND it has historical data to score against. */}
-                    {verdictData.ruleMatch && verdictData.ruleMatch.effectiveness !== null && (
-                      <div className="flex items-start justify-between gap-3 flex-wrap">
-                        <div className="text-sm text-[#374151]">Rule calibration</div>
-                        <div
-                          className={`font-mono text-xs ${
-                            verdictData.ruleMatch.effectiveness < 50
-                              ? "text-[#C2410C]"
-                              : "text-[#166534]"
-                          }`}
-                        >
-                          {verdictData.ruleMatch.name}: {verdictData.ruleMatch.effectiveness}% effective
-                        </div>
+                      <div className="font-mono text-[10px] text-[#64748B] truncate">
+                        {speaker.title ?? speaker.role ?? ""}
                       </div>
-                    )}
-
-                    {/* Publish token — informational only on this surface;
-                        the actual token is minted in the reviewer action
-                        when the draft is approved/overridden. */}
-                    <div className="flex items-start justify-between gap-3 flex-wrap pt-2 border-t border-[#E2E8F0]">
-                      <div className="text-sm text-[#374151]">Publish token</div>
-                      <div className="font-mono text-xs text-[#94A3B8]">
-                        {verdictLower === "clear"
-                          ? "Auto-issued — no review required"
-                          : "Issued after principal approval"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Checks performed */}
-              <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
-                  CHECKS PERFORMED
-                </div>
-                {checksToShow.map((c, i) => {
-                  const dot =
-                    c.result === "fail" ? "bg-[#B91C1C]" :
-                    c.result === "warn" ? "bg-[#C2410C]" :
-                                          "bg-[#166534]";
-                  return (
-                    <div
-                      key={`${c.check_name}-${i}`}
-                      className="flex items-center gap-2 py-1"
-                    >
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} aria-hidden />
-                      <span className="font-mono text-xs text-[#0F172A]">{c.check_name}</span>
-                      <span className="font-mono text-xs text-[#64748B]">{c.result.toUpperCase()}</span>
-                      {c.detail && (
-                        <span className="font-mono text-[10px] text-[#64748B]">· {c.detail}</span>
-                      )}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
-
-              {/* Status line — block/escalate get an amber pending-review
-                  tone; clear gets a green ready-to-publish tone. Replaces
-                  the old muted notification so the resolution of the
-                  verdict reads as the most important sentence in the
-                  card. */}
-              {isBlockOrEscalate && (
-                <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
-                  <div className="flex items-center gap-2 text-sm text-[#374151]">
-                    <span className="w-2 h-2 rounded-full bg-[#F59E0B] shrink-0" aria-hidden />
-                    <span>
-                      Pending principal review — Sarah Chen (GC) has been notified. Your draft will not publish until approved.
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {verdictLower === "clear" && (
-                <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
-                  <div className="flex items-center gap-2 text-sm text-[#374151]">
-                    <span className="w-2 h-2 rounded-full bg-[#22C55E] shrink-0" aria-hidden />
-                    <span>
-                      System cleared — no rule violations found. This draft is ready to publish.
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Verdict-specific next step */}
-              {nextStep && (
-                <div className="mt-4 pt-4 border-t border-[#E2E8F0] flex items-center">
-                  <Link
-                    href={nextStep.href}
-                    className={`font-mono text-xs ${
-                      nextStep.tone === "green"
-                        ? "text-[#166534] hover:text-[#0F4C2A]"
-                        : "text-[#1A56DB] hover:text-[#1447C0]"
-                    } transition-colors`}
-                  >
-                    {nextStep.label}
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={checkAnother}
-                    className="font-mono text-xs text-[#64748B] ml-4 cursor-pointer hover:text-[#0F172A] transition-colors"
-                  >
-                    Check another draft
-                  </button>
-                  {/* Block/escalate only: keep the draft text but clear the
-                      verdict so the user can iterate on the wording without
-                      retyping the body. */}
-                  {isBlockOrEscalate && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setVerdict(null);
-                        setVerdictData(null);
-                      }}
-                      className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors cursor-pointer ml-4"
-                    >
-                      Edit and recheck →
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Block / escalate routes the GC into the queue management flow.
-                  Clear / review verdicts don't surface this nudge — those drafts
-                  don't need triage. */}
-              {isBlockOrEscalate && (
-                <div className="mt-4 pt-4 border-t border-[#E2E8F0] text-center">
-                  <Link
-                    href="/dashboard"
-                    className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
-                  >
-                    Go to dashboard to manage all pending reviews →
-                  </Link>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* "What happens next" panel — explicit walkthrough of the
-              flow downstream of the verdict. CLEAR drafts skip the
-              principal queue and go straight into the record; BLOCK /
-              ESCALATE land in the queue first. Bottom links route to
-              the live demo surfaces for both paths. */}
-          {verdictLower && (
-            <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-4 mt-4">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
-                What happens next
-              </div>
-
-              {verdictLower === "clear" ? (
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <span className="text-[#166534] font-mono text-xs mt-0.5" aria-hidden>
-                      ✓
-                    </span>
-                    <div>
-                      <div className="text-sm font-medium text-[#0F172A]">
-                        Cleared for publication
-                      </div>
-                      <div className="font-mono text-[10px] text-[#64748B]">
-                        No violations found. This draft can publish.
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-[#1A56DB] font-mono text-xs mt-0.5" aria-hidden>
-                      →
-                    </span>
-                    <div>
-                      <div className="text-sm font-medium text-[#0F172A]">
-                        Communication record created
-                      </div>
-                      <div className="font-mono text-[10px] text-[#64748B]">
-                        SHA-256 locked. Immutable. Available in the archive.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <span className="text-[#C2410C] font-mono text-xs mt-0.5" aria-hidden>
-                      →
-                    </span>
-                    <div>
-                      <div className="text-sm font-medium text-[#0F172A]">
-                        Routed to principal review
-                      </div>
-                      <div className="font-mono text-[10px] text-[#64748B]">
-                        Sarah Chen, GC will review this draft and make a structured decision.
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="text-[#94A3B8] font-mono text-xs mt-0.5" aria-hidden>
-                      →
-                    </span>
-                    <div>
-                      <div className="text-sm font-medium text-[#0F172A]">
-                        Communication record created
-                      </div>
-                      <div className="font-mono text-[10px] text-[#64748B]">
-                        The full governance chain is recorded — verdict, rule, reviewer decision.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-3 mt-4 pt-3 border-t border-[#E2E8F0] flex-wrap">
-                <Link
-                  href="/dashboard"
-                  className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+              {speakers.length > 6 && !showAllSpeakers && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllSpeakers(true)}
+                  className="font-mono text-xs text-[#64748B] mt-3 hover:text-[#0F172A] transition-colors cursor-pointer"
                 >
-                  See the review queue →
-                </Link>
-                <Link
-                  href="/drafts"
-                  className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
-                >
-                  View all communications →
-                </Link>
-              </div>
-            </div>
-          )}
-
-          {/* Demo-mode conversion prompt. Sits as a sibling below the
-              verdict card so a visitor who just saw the engine fire has
-              an obvious next step toward setting it up for their team.
-              Renders for every verdict outcome — block / escalate /
-              clear / review / guide — once a verdict exists. */}
-          {verdictLower && (
-            <div className="mt-3 pt-3 border-t border-[#E2E8F0] flex items-center justify-between flex-wrap gap-2">
-              <div className="text-xs text-[#64748B]">
-                Want ERA CUE for your team?
-              </div>
-              <Link
-                href="/auth/signup"
-                className="font-mono text-xs font-medium text-[#1A56DB] hover:text-[#1447C0] transition-colors whitespace-nowrap"
-              >
-                Get started in 10 minutes →
-              </Link>
-            </div>
+                  + {speakers.length - 6} more
+                </button>
+              )}
+            </>
           )}
         </div>
+      </div>
 
-        {/* CONTEXT PANEL — desktop col-span-2, mobile first */}
-        <div className="lg:col-span-2 order-1 lg:order-2 flex flex-col gap-3">
-          {/* Card 1 — Speaker */}
-          <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
-            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-              SPEAKER
-            </div>
-            <div className="flex flex-col gap-2 mt-3 w-full">
-              {SPEAKERS.map((s) => {
-                const selected = speaker === s.name;
-                return (
-                  <button
-                    key={s.name}
-                    type="button"
-                    onClick={() => setSpeaker(s.name)}
-                    className={`w-full flex items-center justify-between px-3 py-3 rounded-sm border text-left transition-colors cursor-pointer min-h-[48px] ${
-                      selected
-                        ? "bg-[#EFF8FF] border-[#BAE6FD]"
-                        : "bg-[#F8F9FB] border-[#E2E8F0] hover:bg-[#F1F5F9]"
-                    }`}
-                  >
-                    <span className="text-sm font-medium text-[#0F172A]">{s.name}</span>
-                    <span className={`font-mono text-xs ${selected ? "text-[#1A56DB]" : "text-[#64748B]"}`}>
-                      {s.role}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+      {/* Channel pills */}
+      <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden mb-4">
+        <div className="px-4 py-3 border-b border-[#E2E8F0]">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+            Where will this be published?
           </div>
-
-          {/* Card 2 — Channel */}
-          <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
-            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-              CHANNEL
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 w-full">
-              {CHANNELS.map((c) => {
-                const selected = channel === c.value;
-                return (
-                  <button
-                    key={c.value}
-                    type="button"
-                    onClick={() => setChannel(c.value)}
-                    className={`py-3 px-2 rounded-sm border text-center transition-colors cursor-pointer font-mono text-xs uppercase tracking-wide min-h-[48px] flex items-center justify-center ${
-                      selected
-                        ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0]"
-                        : "bg-[#F8F9FB] border-[#E2E8F0] text-[#64748B] hover:bg-[#F1F5F9]"
-                    }`}
-                  >
-                    {c.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Card 2b — Communication type (FINRA Rule 2210). Drives whether
-              a hard BLOCK actually applies (retail) or relaxes to ESCALATE
-              (correspondence and institutional don't require principal
-              pre-approval under 2210). Auto-set from channel; user can
-              override. */}
-          <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
-              Communication type
-            </div>
-            <div className="font-mono text-[10px] text-[#94A3B8] mb-3">
-              Affects which FINRA rules apply
-            </div>
-
-            <div className="space-y-1.5">
-              {[
-                {
-                  value: "retail" as const,
-                  label: "Retail communication",
-                  desc: "More than 25 retail investors · Pre-approval required",
-                },
-                {
-                  value: "correspondence" as const,
-                  label: "Correspondence",
-                  desc: "25 or fewer retail investors · Supervision required",
-                },
-                {
-                  value: "institutional" as const,
-                  label: "Institutional",
-                  desc: "Institutional investors only · Review recommended",
-                },
-              ].map((opt) => {
-                const selected = commCategory === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setCommCategory(opt.value)}
-                    className={`w-full text-left px-3 py-2.5 rounded-sm border text-sm transition-colors cursor-pointer ${
-                      selected
-                        ? "bg-[#EFF8FF] border-[#BAE6FD]"
-                        : "bg-white border-[#E2E8F0] hover:bg-[#F8F9FB]"
-                    }`}
-                  >
-                    <div className="font-medium text-[#0F172A] text-sm">{opt.label}</div>
-                    <div className="font-mono text-[10px] text-[#64748B] mt-0.5">{opt.desc}</div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="font-mono text-[10px] text-[#94A3B8] mt-2">
-              Default: Retail (conservative). Public channels (LinkedIn, Twitter, Blog) are always Retail.
-            </div>
-          </div>
-
-          {/* Card 3 — Submission type */}
-          <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
-            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-              SUBMISSION TYPE
-            </div>
-            <div className="font-mono text-[10px] text-[#64748B] mt-0.5 mb-3">
-              Required · FINRA agentic AI guidance 2026
-            </div>
-            <div className="flex flex-col">
-              {[
-                {
-                  value: "human" as const,
-                  name: "Human submitted",
-                  desc: "A person is submitting this draft. AI may have assisted in drafting.",
-                },
-                {
-                  value: "agent" as const,
-                  name: "Agent submitted",
-                  desc: "An automated system drafted and submitted this. ERA CUE review is the required human checkpoint.",
-                },
-              ].map((opt) => {
-                const selected = submissionType === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setSubmissionType(opt.value)}
-                    className={`flex items-start gap-3 py-3 px-3 border rounded-sm mb-1.5 text-left w-full transition-colors ${
-                      selected ? "bg-[#EFF8FF] border-[#BAE6FD]" : "bg-white border-[#E2E8F0]"
-                    }`}
-                  >
-                    {/* Inset shadow renders the inner white dot when selected — no
-                        pseudo-elements needed. */}
-                    <span
-                      aria-hidden
-                      className="w-4 h-4 rounded-full border-2 mt-0.5 shrink-0"
-                      style={
-                        selected
-                          ? { backgroundColor: "#1A56DB", borderColor: "#1A56DB", boxShadow: "inset 0 0 0 3px white" }
-                          : { borderColor: "#E2E8F0" }
-                      }
-                    />
-                    <span>
-                      <span className="block text-sm font-medium text-[#0F172A]">{opt.name}</span>
-                      <span className="block text-xs text-[#374151] leading-relaxed">{opt.desc}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {submissionType === "agent" && (
-              <div className="font-mono text-xs text-[#C2410C] mt-1.5">
-                FINRA 2026: ERA CUE principal review is consistent with FINRA&apos;s 2026 GenAI oversight guidance on human-in-the-loop checkpoints for agentic AI.
-              </div>
-            )}
-            {/* Source citation for the FINRA 2026 framing above. Static —
-                renders regardless of submission_type so the regulatory
-                footing of this card stays visible. */}
-            <div className="font-mono text-[10px] text-[#94A3B8] mt-3 pt-3 border-t border-[#E2E8F0]">
-              FINRA 2026 Annual Regulatory Oversight Report — GenAI: Continuing and Emerging Trends.{" "}
-              <a
-                href="https://www.finra.org/rules-guidance/guidance/reports/2026-finra-annual-regulatory-oversight-report/gen-ai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#1A56DB] hover:text-[#1447C0] transition-colors"
-              >
-                finra.org ↗
-              </a>
-            </div>
-          </div>
-
-          {/* Card 4 — EU AI Act declaration */}
-          <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
-            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-              EU AI ACT DECLARATION
-            </div>
-            <div className="font-mono text-[10px] text-[#64748B] mt-0.5 mb-3">
-              Article 50 · AI content disclosure
-            </div>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={aiDeclaration}
-                onChange={(e) => setAiDeclaration(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded-sm accent-[#1A56DB] cursor-pointer shrink-0"
-              />
-              <div>
-                <div className="text-sm font-medium text-[#0F172A]">
-                  This communication contains AI-generated content
-                </div>
-                <div className="text-xs text-[#64748B] mt-0.5">
-                  {aiDeclaration
-                    ? "Disclosure may be required at publication under EU AI Act Article 50"
-                    : "No AI disclosure required — human-authored content declared"}
-                </div>
-              </div>
-            </label>
-          </div>
-
-          {/* Card 4b — AI prompt logging (FINRA 2026). Only meaningful when
-              AI involvement is declared, so the card hides itself otherwise. */}
-          {aiDeclaration && (
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
-                AI PROMPT USED
-              </div>
-              <div className="font-mono text-[10px] text-[#94A3B8] mb-3">
-                Optional · FINRA 2026 prompt logging requirement
-              </div>
-              <textarea
-                value={promptUsed}
-                onChange={(e) => setPromptUsed(e.target.value)}
-                rows={3}
-                placeholder="Paste the prompt used to generate this draft, if known. e.g. 'Write a LinkedIn post about our Series B growth plans for the CEO to post.'"
-                className="w-full border border-[#E2E8F0] rounded-sm p-3 text-sm text-[#0F172A] bg-[#F8F9FB] resize-none focus:outline-none focus:ring-1 focus:ring-[#1A56DB] font-mono leading-relaxed placeholder:text-[#94A3B8]"
-              />
-              <div className="font-mono text-[10px] text-[#94A3B8] mt-2">
-                Stored in the governance record per FINRA 2026 GenAI oversight guidance.
-              </div>
-            </div>
-          )}
-
-          {/* Card 5 — Campaign */}
-          <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
-            <div className="flex items-baseline justify-between mb-2">
-              <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-                CAMPAIGN
-              </div>
-              <div className="font-mono text-[10px] text-[#64748B]">Optional</div>
-            </div>
-            <select
-              value={campaign}
-              onChange={(e) => setCampaign(e.target.value)}
-              className="w-full border border-[#E2E8F0] rounded-sm bg-[#F8F9FB] text-sm text-[#0F172A] px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
-            >
-              {CAMPAIGNS.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Card 6 — Agent submission API (coming soon) */}
-          <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-4">
-            <div className="flex justify-between items-center mb-3">
-              <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-                ERA CUE API
-              </div>
-              <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
-                Coming soon
-              </span>
-            </div>
-            <p className="text-xs text-[#64748B] mb-3 leading-relaxed">
-              Connect ERA CUE to every tool in your communications stack.
-              Outlook. Salesforce. Marketo. Your CMS. Any AI-generated
-              content submits to ERA CUE before it publishes — automatically.
-            </p>
-            {/* Inline-styled <pre> with dangerouslySetInnerHTML — bypasses
-                any downstream markdown / MDX processing of the JSX
-                children that was occasionally swallowing the curly braces
-                and quote marks. Quotes are HTML-entity-escaped so XSS is
-                impossible (the payload is a fixed literal anyway). */}
-            <pre
-              style={{
-                backgroundColor: "#0F172A",
-                color: "#7DD3FC",
-                fontFamily: "ui-monospace, monospace",
-                fontSize: "11px",
-                lineHeight: "1.6",
-                padding: "12px",
-                borderRadius: "4px",
-                overflowX: "auto",
-                whiteSpace: "pre",
-                margin: "8px 0",
-                display: "block",
-              }}
-              dangerouslySetInnerHTML={{
-                __html: [
-                  "POST https://api.eracue.com/v1/check",
-                  "Authorization: Bearer {org_api_key}",
-                  "X-ERA-CUE-WSP: &quot;Section 4.2&quot;",
-                  "",
-                  "{",
-                  "  &quot;speaker&quot;: &quot;ceo&quot;,",
-                  "  &quot;draft&quot;: &quot;...&quot;,",
-                  "  &quot;channel&quot;: &quot;earnings_call&quot;,",
-                  "  &quot;campaign&quot;: &quot;q2_2026&quot;,",
-                  "  &quot;submission_type&quot;: &quot;agent&quot;,",
-                  "  &quot;source&quot;: &quot;outlook_copilot&quot;",
-                  "}",
-                ].join("\n"),
-              }}
-            />
-            <div className="font-mono text-[10px] text-[#94A3B8] mt-3 space-y-1">
-              <div>✓ Rule inheritance by role and division</div>
-              <div>✓ Campaign-scoped consistency checking</div>
-              <div>✓ Regulator-format audit export</div>
-              <div>✓ SOC 2 Type II (in progress)</div>
-            </div>
+        </div>
+        <div className="p-4">
+          <div className="flex gap-2 flex-wrap">
+            {CHANNELS.map((ch) => {
+              const selected = channel === ch.key;
+              return (
+                <button
+                  key={ch.key}
+                  type="button"
+                  onClick={() => setChannel(ch.key)}
+                  className={`font-mono text-xs px-4 py-2 rounded-sm border transition-colors cursor-pointer ${
+                    selected
+                      ? "bg-[#0F172A] border-[#0F172A] text-white"
+                      : "bg-white border-[#E2E8F0] text-[#374151] hover:border-[#94A3B8]"
+                  }`}
+                >
+                  {ch.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
+
+      {/* Draft card — textarea + collapsed campaign field + submit row */}
+      <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden mb-4">
+        <div className="px-4 py-3 border-b border-[#E2E8F0] flex items-center justify-between">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+            The draft
+          </div>
+          {isDemoMode && (
+            <button
+              type="button"
+              onClick={() => setDraftText(exampleDraft)}
+              className="font-mono text-[10px] text-[#1A56DB] hover:text-[#1447C0] transition-colors cursor-pointer"
+            >
+              Try an example →
+            </button>
+          )}
+        </div>
+
+        <div className="p-4">
+          <textarea
+            value={draftText}
+            onChange={(e) => setDraftText(e.target.value)}
+            placeholder={
+              flow === "demo"
+                ? "Paste a draft here — or click 'Try an example →' above to see a rule fire."
+                : "Paste the communication here — LinkedIn post, press release, email, or anything your team will publish publicly."
+            }
+            className="w-full min-h-[140px] text-sm text-[#0F172A] bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm px-4 py-3 leading-relaxed resize-y focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+          />
+        </div>
+
+        {/* Campaign — collapsed by default. The link sits flush in the
+            card so it doesn't read as a primary action. */}
+        <div className="px-4 pb-3">
+          {!showCampaign ? (
+            <button
+              type="button"
+              onClick={() => setShowCampaign(true)}
+              className="font-mono text-[10px] text-[#94A3B8] hover:text-[#64748B] transition-colors cursor-pointer"
+            >
+              + Add to a campaign (optional)
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="text"
+                value={campaign}
+                onChange={(e) => setCampaign(e.target.value)}
+                placeholder="Campaign name..."
+                className="flex-1 border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-sm text-[#0F172A] bg-[#F8F9FB] focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCampaign(false);
+                  setCampaign("");
+                }}
+                aria-label="Remove campaign"
+                className="font-mono text-[10px] text-[#94A3B8] hover:text-[#64748B] transition-colors cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Submit row — count tag on the left, primary CTA on the right */}
+        <div className="px-4 py-3 border-t border-[#E2E8F0] bg-[#F8F9FB] flex items-center justify-between gap-3 flex-wrap">
+          <div className="font-mono text-[10px] text-[#94A3B8]">
+            {ruleCount > 0
+              ? `${ruleCount} active rule${ruleCount !== 1 ? "s" : ""} will be checked`
+              : "Standard governance checks will run"}
+          </div>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={submitDisabled}
+            className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#1447C0] disabled:opacity-40 transition-colors whitespace-nowrap cursor-pointer"
+          >
+            {checking ? "Checking..." : "Check this draft →"}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div
+          className="font-mono text-xs text-[#B91C1C] bg-[#FEF2F2] border border-[#FECACA] rounded-sm px-3 py-2"
+          role="alert"
+        >
+          {error}
+        </div>
+      )}
+    </>
+  );
+}
+
+// ---------- CheckingState ------------------------------------------------
+
+function CheckingState({
+  stage,
+  ruleCount,
+  corpusCount,
+}: {
+  stage: 0 | 1 | 2;
+  ruleCount: number;
+  corpusCount: number;
+}) {
+  const stages: ReadonlyArray<{ text: string; stage: 0 | 1 | 2 }> = [
+    {
+      text:
+        ruleCount > 0
+          ? `Checking against ${ruleCount} active rule${ruleCount !== 1 ? "s" : ""}`
+          : "Running governance checks",
+      stage: 0,
+    },
+    { text: "Evaluating context", stage: 1 },
+    {
+      text:
+        corpusCount > 0
+          ? `Checking against ${corpusCount} prior approved statement${corpusCount !== 1 ? "s" : ""}`
+          : "Running consistency check",
+      stage: 2,
+    },
+  ];
+
+  return (
+    <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 text-center mb-4">
+      <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-8">
+        Checking your draft...
+      </div>
+      <div className="flex flex-col gap-4 max-w-[280px] mx-auto text-left">
+        {stages.map((s) => {
+          const done = stage > s.stage;
+          const active = stage === s.stage;
+          return (
+            <div key={s.stage} className="flex items-center gap-3">
+              <div
+                className={`w-2 h-2 rounded-full shrink-0 transition-all ${
+                  done
+                    ? "bg-[#166534]"
+                    : active
+                      ? "bg-[#1A56DB] animate-pulse"
+                      : "bg-[#E2E8F0]"
+                }`}
+                aria-hidden
+              />
+              <span
+                className={`font-mono text-[11px] transition-colors ${
+                  done
+                    ? "text-[#94A3B8] line-through"
+                    : active
+                      ? "text-[#0F172A] font-medium"
+                      : "text-[#D1D5DB]"
+                }`}
+              >
+                {s.text}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
+  );
+}
+
+// ---------- VerdictView --------------------------------------------------
+
+function VerdictView({
+  verdictKey,
+  meta,
+  data,
+  isBlockOrEscalate,
+  flow,
+  ghostButton,
+  onReset,
+}: {
+  verdictKey: string;
+  meta: { label: string; headerBg: string; headerBorder: string; badgeBg: string };
+  data: VerdictData | null;
+  isBlockOrEscalate: boolean;
+  flow: SubmitFlow;
+  ghostButton: { href: string; label: string };
+  onReset: () => void;
+}) {
+  const draftId = data?.draftId;
+  const checks = data?.checks ?? [];
+  const isClear = verdictKey === "clear";
+
+  return (
+    <>
+      {/* Verdict card — header carries the plain-English label + rule
+          context; body lists the checks that ran. */}
+      <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden mb-4">
+        <div className={`px-5 py-4 border-b ${meta.headerBg} ${meta.headerBorder}`}>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span
+              className={`font-mono text-xs font-bold uppercase px-2.5 py-1 rounded-sm border ${meta.badgeBg}`}
+            >
+              {meta.label}
+            </span>
+            {data?.ruleName && (
+              <span className="text-sm font-medium text-[#0F172A]">
+                {data.ruleName}
+              </span>
+            )}
+          </div>
+          {data?.matchedKeyword && (
+            <div className="font-mono text-[10px] text-[#64748B] mt-2">
+              Keyword: &ldquo;{data.matchedKeyword}&rdquo;
+              {data.ruleDescription && (
+                <span> · {data.ruleDescription}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {checks.length > 0 && (
+          <div className="px-5 py-4">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+              Checks performed
+            </div>
+            <div className="space-y-1">
+              {checks.map((c, i) => {
+                const dot =
+                  c.result === "fail"
+                    ? "bg-[#B91C1C]"
+                    : c.result === "warn"
+                      ? "bg-[#C2410C]"
+                      : "bg-[#166534]";
+                return (
+                  <div
+                    key={`${c.check_name}-${i}`}
+                    className="flex items-center gap-2 py-1"
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${dot}`}
+                      aria-hidden
+                    />
+                    <span className="font-mono text-xs text-[#0F172A]">
+                      {c.check_name}
+                    </span>
+                    <span className="font-mono text-xs text-[#64748B]">
+                      {c.result.toUpperCase()}
+                    </span>
+                    {c.detail && (
+                      <span className="font-mono text-[10px] text-[#64748B]">
+                        · {c.detail}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* What happens next — block/escalate gets a three-step flow,
+          clear gets a two-line "you can publish" framing. */}
+      {isBlockOrEscalate && (
+        <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-5 mb-4">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-4">
+            What happens next
+          </div>
+          <div className="space-y-4">
+            {[
+              {
+                n: "1",
+                title: "Routes to principal review.",
+                sub: "The principal sees the full check chain and makes a structured decision.",
+              },
+              {
+                n: "2",
+                title: "A communication record is created permanently.",
+                sub: "SHA-256 locked. Includes this verdict and the principal’s decision.",
+              },
+              {
+                n: "3",
+                title: "Do not publish until approved.",
+                sub: "Publishing before approval bypasses your governance and creates regulatory exposure.",
+              },
+            ].map((item) => (
+              <div key={item.n} className="flex items-start gap-3">
+                <span className="font-mono text-sm font-bold text-[#1A56DB] w-5 shrink-0 mt-0.5">
+                  {item.n}
+                </span>
+                <div>
+                  <div className="text-sm font-medium text-[#0F172A] mb-0.5">
+                    {item.title}
+                  </div>
+                  <div className="font-mono text-[10px] text-[#64748B]">
+                    {item.sub}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isClear && (
+        <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-5 mb-4">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-4">
+            Cleared for publication
+          </div>
+          <div className="space-y-3">
+            {[
+              {
+                title: "All five checks passed. You can publish this draft.",
+                sub: "A communication record has been created with this verdict.",
+              },
+              {
+                title: "The record is SHA-256 locked and permanent.",
+                sub: "This proves ERA CUE checked this draft before it was published.",
+              },
+            ].map((item, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <span
+                  className="text-[#166534] font-bold mt-0.5"
+                  aria-hidden
+                >
+                  ✓
+                </span>
+                <div>
+                  <div className="text-sm font-medium text-[#0F172A] mb-0.5">
+                    {item.title}
+                  </div>
+                  <div className="font-mono text-[10px] text-[#64748B]">
+                    {item.sub}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {draftId && (
+          <a
+            href={`/drafts/${draftId}/examiner`}
+            className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#1447C0] transition-colors"
+          >
+            See the communication record →
+          </a>
+        )}
+        <button
+          type="button"
+          onClick={onReset}
+          className="bg-white text-[#374151] font-mono text-sm font-medium px-5 py-2.5 rounded-sm border border-[#E2E8F0] hover:bg-[#F8F9FB] transition-colors cursor-pointer"
+        >
+          Check another draft
+        </button>
+        {/* Ghost — block/escalate only. CLEAR new-user gets a separate
+            invite link below the buttons instead. */}
+        {isBlockOrEscalate && (
+          <a
+            href={ghostButton.href}
+            className="font-mono text-sm text-[#64748B] hover:text-[#0F172A] transition-colors px-2 py-2.5"
+          >
+            {ghostButton.label} →
+          </a>
+        )}
+      </div>
+
+      {/* CLEAR + new_user only — invite team prompt */}
+      {isClear && flow === "new_user" && (
+        <div className="mt-4 pt-4 border-t border-[#E2E8F0] text-sm text-[#64748B]">
+          Want to check more drafts faster?{" "}
+          <a
+            href="/onboarding/speakers"
+            className="text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+          >
+            Invite your team →
+          </a>
+        </div>
+      )}
+    </>
   );
 }
