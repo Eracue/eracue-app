@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AddRulePanel } from "./add-rule-panel";
 import { deactivateRuleAction } from "./actions";
 import { extractRulesFromWsp } from "./wsp-import-action";
@@ -153,20 +153,28 @@ const IS_DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // `?activated=true` is set by the /rules/confirm redirect. Both the
+  // initial view and the success-banner toggle key off this param so a
+  // visitor lands directly on managing-with-banner instead of flashing
+  // the setup view first.
+  const activatedFromConfirm = searchParams.get("activated") === "true";
+
   const [tab, setTab] = useState<Tab>("active");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Initial view — managing if the org already has live rules, setup
-  // otherwise. Computed from the rules prop (not the useMemo counts
-  // below) because it runs once at mount and doesn't need to react to
-  // subsequent count changes.
+  // Initial view — managing if the org already has live rules OR if the
+  // user just activated a batch from /rules/confirm; setup otherwise.
+  // Computed from the rules prop (not the useMemo counts below) because
+  // it runs once at mount and doesn't need to react to subsequent count
+  // changes.
   const initialActiveCount = rules.filter(
     (r) => r.rule_status !== "deactivated",
   ).length;
   const [view, setView] = useState<RulesView>(
-    initialActiveCount > 0 ? "managing" : "setup",
+    activatedFromConfirm || initialActiveCount > 0 ? "managing" : "setup",
   );
 
   // Import panel state. In demo mode the panel opens by default so the
@@ -191,11 +199,22 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   });
   const [authorizing, setAuthorizing] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
-  // Post-authorization success state. Set on the next tick after the
-  // import action returns ok; powers the green success card with the
-  // "Check your first draft →" CTA + "Add more rules" secondary.
-  const [justAuthorized, setJustAuthorized] = useState(false);
-  const [authorizedCount, setAuthorizedCount] = useState(0);
+  // Post-authorization success state. Triggered by either the in-page
+  // import-panel flow (handleConfirmRules below) or the /rules/confirm
+  // redirect that lands here with `?activated=true`. Both paths reach
+  // the same green success banner with the "Check your first draft →"
+  // CTA and the "Add more rules" secondary.
+  const [justAuthorized, setJustAuthorized] = useState(activatedFromConfirm);
+
+  // Strip the `?activated=true` query off the URL so a refresh doesn't
+  // re-trigger the banner. Used by the dismiss button + the "Add more
+  // rules" secondary so neither leaves stale state in the bar.
+  function clearActivated() {
+    setJustAuthorized(false);
+    if (activatedFromConfirm) {
+      router.replace("/rules");
+    }
+  }
   // Templates tab now lets the user switch firm-type buckets without
   // leaving the page (defaults to whatever the org was created with).
   const [firmTypeFilter, setFirmTypeFilter] = useState<string>(() => {
@@ -280,9 +299,6 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
         setImportError(result.error);
         return;
       }
-      // Capture the count BEFORE wiping confirmed so the success card
-      // can render "N rules authorized and active" with the right N.
-      const count = picks.length;
       // Reset all import state on success and close the panel.
       setCandidates([]);
       setConfirmed(new Set());
@@ -290,9 +306,8 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
       setManualRules("");
       setUploadedFile(null);
       setShowImport(false);
-      // Surface the success state — sticks until the user navigates
-      // away or runs another import.
-      setAuthorizedCount(count);
+      // Surface the success state — sticks until the user dismisses
+      // the banner or navigates away.
       setJustAuthorized(true);
       router.refresh();
     } catch (e) {
@@ -1026,10 +1041,12 @@ Block posts mentioning specific fund performance`}
           </div>
         )}
 
-        {/* Post-authorization success card — sits between the import
-            panel and the rest of the page. Dismissible (×) so the
-            user can clear it once they've moved on; "Add more rules"
-            re-opens the import panel without needing a separate path. */}
+        {/* Post-authorization success banner — fires for both the
+            in-page import-panel flow and the /rules/confirm redirect.
+            Dismiss strips the `?activated=true` query so a refresh
+            doesn't re-show it. "Add more rules" jumps to the setup
+            view rather than re-opening the import panel — keeps the
+            two-step setup story coherent for first-time visitors. */}
         {justAuthorized && (
           <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-5 mb-6">
             <div className="flex items-start justify-between">
@@ -1039,18 +1056,17 @@ Block posts mentioning specific fund performance`}
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-[#0F172A] mb-1">
-                    {authorizedCount} rule{authorizedCount !== 1 ? "s" : ""} active
+                    Your governance rules are live.
                   </div>
                   <div className="text-sm text-[#374151]">
-                    ERA CUE will now check every draft against{" "}
-                    {authorizedCount === 1 ? "this rule" : "these rules"}. You can add
-                    more rules at any time — there&apos;s no limit.
+                    ERA CUE is now checking every draft your team submits
+                    against these rules before publication.
                   </div>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setJustAuthorized(false)}
+                onClick={clearActivated}
                 aria-label="Dismiss"
                 className="text-[#94A3B8] hover:text-[#64748B] font-mono text-xs ml-4 shrink-0 cursor-pointer"
               >
@@ -1067,8 +1083,8 @@ Block posts mentioning specific fund performance`}
               <button
                 type="button"
                 onClick={() => {
-                  setJustAuthorized(false);
-                  setShowImport(true);
+                  clearActivated();
+                  setView("setup");
                 }}
                 className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
               >
