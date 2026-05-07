@@ -292,9 +292,11 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
                   hierarchy reads: eyebrow → name → authority lines → demo
                   note in muted slate. */}
               <div className="bg-[#FFFBEB] border border-[#FEF3C7] rounded-sm p-4">
-                <div className="font-mono text-[10px] text-[#94A3B8] mb-3 pb-3 border-b border-[#FEF3C7] italic">
-                  In this demo, you are the designated principal — the named supervisor responsible for this communication.
-                </div>
+                {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
+                  <div className="font-mono text-[10px] text-[#94A3B8] mb-3 pb-3 border-b border-[#FEF3C7] italic">
+                    In this demo, you are the designated principal — the named supervisor responsible for this communication.
+                  </div>
+                )}
                 <div className="font-mono text-[10px] text-[#B45309] uppercase tracking-widest">
                   Reviewing as
                 </div>
@@ -307,9 +309,11 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
                 <div className="font-mono text-[10px] text-[#92400E] mt-2">
                   FINRA Rule 3110(a) + Rule 2210(b)
                 </div>
-                <div className="font-mono text-[10px] text-[#94A3B8] mt-3 italic">
-                  Demo identity — production reads from user record
-                </div>
+                {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
+                  <div className="font-mono text-[10px] text-[#94A3B8] mt-3 italic">
+                    Demo identity — production reads from user record
+                  </div>
+                )}
               </div>
 
               {/* Card 2 — Decision form OR already-decided panel */}

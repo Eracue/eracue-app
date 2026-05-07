@@ -60,6 +60,40 @@ async function getExaminerRecord(draftId: string) {
     // Columns missing — leave nulls.
   }
 
+  // Publish-token fields — same defensive read as publication fields.
+  // Populated by scripts/publish-token-migration.sql; rows pre-dating
+  // the migration just stay null.
+  let tokenFields: {
+    publish_token: string | null;
+    publish_token_expires_at: string | null;
+    draft_hash_at_approval: string | null;
+  } = {
+    publish_token: null,
+    publish_token_expires_at: null,
+    draft_hash_at_approval: null,
+  };
+  try {
+    const { data: tokRow, error: tokErr } = await sb
+      .from("drafts")
+      .select("publish_token, publish_token_expires_at, draft_hash_at_approval")
+      .eq("id", draftId)
+      .maybeSingle();
+    if (!tokErr && tokRow) {
+      tokenFields = {
+        publish_token:
+          (tokRow as { publish_token?: string | null }).publish_token ?? null,
+        publish_token_expires_at:
+          (tokRow as { publish_token_expires_at?: string | null })
+            .publish_token_expires_at ?? null,
+        draft_hash_at_approval:
+          (tokRow as { draft_hash_at_approval?: string | null })
+            .draft_hash_at_approval ?? null,
+      };
+    }
+  } catch {
+    // Columns missing — leave nulls.
+  }
+
   const { data: actions } = await sb
     .from("actions")
     .select(
@@ -100,7 +134,7 @@ async function getExaminerRecord(draftId: string) {
   }
 
   return {
-    draft: { ...(draft as object), ...pubFields } as unknown as DraftRow,
+    draft: { ...(draft as object), ...pubFields, ...tokenFields } as unknown as DraftRow,
     actions: (actions || []) as ActionRow[],
     rules,
     actors,

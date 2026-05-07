@@ -122,7 +122,15 @@ async function getDashboardData() {
   const sb = getSupabaseAdmin();
   const orgId = await resolveOrgId();
 
-  const [draftsRes, rulesRes, verdictsRes, reviewerActionsRes, speakerStatsRes, queueRes] = await Promise.all([
+  const [
+    draftsRes,
+    rulesRes,
+    verdictsRes,
+    reviewerActionsRes,
+    speakerStatsRes,
+    queueRes,
+    allDecisionsRes,
+  ] = await Promise.all([
     sb.from("drafts").select("id, status, source_origin").eq("org_id", orgId),
     sb
       .from("rules")
@@ -156,6 +164,17 @@ async function getDashboardData() {
       .eq("org_id", orgId)
       .in("status", ["blocked", "escalated"])
       .order("submitted_at", { ascending: false }),
+    // All reviewer decisions (no limit, no order) — drives the
+    // Governance Intelligence calibration signals further down. The
+    // existing reviewerActionsRes is capped at 10 for the feed display
+    // and excludes the legacy seed.ts mirror rows; for stats we want
+    // every real decision so include the same payload->>decision filter.
+    sb
+      .from("actions")
+      .select("payload")
+      .eq("org_id", orgId)
+      .eq("action_type", "reviewer_decided")
+      .in("payload->>decision", ["override", "confirm_block", "approve", "reject"]),
   ]);
 
   if (draftsRes.error) throw new Error("drafts: " + draftsRes.error.message);
@@ -164,6 +183,7 @@ async function getDashboardData() {
   if (reviewerActionsRes.error) throw new Error("reviewer actions: " + reviewerActionsRes.error.message);
   if (speakerStatsRes.error) throw new Error("speaker stats: " + speakerStatsRes.error.message);
   if (queueRes.error) throw new Error("queue: " + queueRes.error.message);
+  if (allDecisionsRes.error) throw new Error("decisions: " + allDecisionsRes.error.message);
 
   const drafts = (draftsRes.data || []) as DraftLite[];
   const rules = (rulesRes.data || []) as RuleRow[];
@@ -367,6 +387,40 @@ async function getDashboardData() {
   // Once that action is wired up, this filter should narrow accordingly.
   const clearedWithoutSignoff = drafts.filter((d) => d.status === "approved").length;
 
+  // Governance Intelligence — calibration signals from reviewer behavior.
+  // avgDuration: mean review_duration_seconds across decisions that
+  // recorded one (older decisions pre-date the field, so they're skipped).
+  // overrideRate: percentage of decisions that overrode a system flag.
+  type DecisionPayload = {
+    decision?: string;
+    review_duration_seconds?: number;
+  };
+  const allDecisionPayloads = ((allDecisionsRes.data as Array<{ payload: DecisionPayload }> | null) ??
+    []
+  ).map((r) => r.payload ?? {});
+  const durationsAll = allDecisionPayloads
+    .map((p) => p.review_duration_seconds)
+    .filter((d): d is number => typeof d === "number" && d > 0);
+  const avgDuration =
+    durationsAll.length > 0
+      ? Math.round(durationsAll.reduce((a, b) => a + b, 0) / durationsAll.length)
+      : null;
+  const overrideCountAll = allDecisionPayloads.filter((p) => p.decision === "override").length;
+  const overrideRate =
+    allDecisionPayloads.length > 0
+      ? Math.round((overrideCountAll / allDecisionPayloads.length) * 100)
+      : null;
+  // Calibration insight rules — the Rules to Refine block lists rules
+  // that fire often enough to have signal (≥3 triggers) and get
+  // overridden more than 60% of the time. Reuses the existing
+  // effectivenessScore so the dashboard tells one consistent story.
+  const rulesToRefine = rulesPerf.filter(
+    (r) =>
+      r.effectivenessScore !== null &&
+      r.effectivenessScore < 40 &&
+      r.timesTriggered >= 3,
+  );
+
   return {
     health: { draftsReviewed, blockRatePct, overrideRatePct, gapExposure, pendingReview },
     rulesPerf,
@@ -375,6 +429,11 @@ async function getDashboardData() {
     queueGroups,
     examinerRecords,
     clearedWithoutSignoff,
+    governance: {
+      avgDuration,
+      overrideRate,
+      rulesToRefine,
+    },
   };
 }
 
@@ -467,6 +526,7 @@ export default async function DashboardPage() {
     queueGroups,
     examinerRecords,
     clearedWithoutSignoff,
+    governance,
   } = await getDashboardData();
   const top = speakerStats[0]?.blocked > 0 ? speakerStats[0].name : null;
 
@@ -806,6 +866,130 @@ export default async function DashboardPage() {
             >
               Manage rules →
             </Link>
+          </section>
+
+          {/* SECTION 4.5 — Governance intelligence
+              Calibration signals derived from reviewer behaviour. Sits
+              below Rules Performance because every metric here describes
+              how the rules above have been received in practice. */}
+          <section className="mt-6">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+              Governance intelligence
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Avg review duration */}
+              <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
+                <div className="text-2xl font-light font-mono text-[#0F172A]">
+                  {governance.avgDuration !== null
+                    ? governance.avgDuration < 60
+                      ? `${governance.avgDuration}s`
+                      : `${Math.floor(governance.avgDuration / 60)}m`
+                    : "—"}
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mt-1">
+                  Avg. review time
+                </div>
+                {governance.avgDuration !== null && governance.avgDuration < 10 && (
+                  <div className="font-mono text-[10px] text-[#C2410C] mt-1">
+                    ⚠ Very fast — verify thorough review
+                  </div>
+                )}
+              </div>
+
+              {/* Override rate */}
+              <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
+                <div className="text-2xl font-light font-mono text-[#0F172A]">
+                  {governance.overrideRate !== null ? `${governance.overrideRate}%` : "—"}
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mt-1">
+                  Override rate
+                </div>
+                {governance.overrideRate !== null && governance.overrideRate > 70 && (
+                  <div className="font-mono text-[10px] text-[#C2410C] mt-1">
+                    ⚠ High — rules may be too strict
+                  </div>
+                )}
+                {governance.overrideRate !== null &&
+                  governance.overrideRate < 20 &&
+                  governance.overrideRate > 0 && (
+                    <div className="font-mono text-[10px] text-[#166534] mt-1">
+                      ✓ Rules well-calibrated
+                    </div>
+                  )}
+              </div>
+
+              {/* Rule calibration — qualitative score derived from
+                  override rate. Strong / Review / Refine maps to the
+                  same green/amber/red palette used by the rules table. */}
+              <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
+                <div
+                  className={`text-2xl font-light font-mono ${
+                    governance.overrideRate !== null
+                      ? governance.overrideRate < 30
+                        ? "text-[#166534]"
+                        : governance.overrideRate < 60
+                          ? "text-[#C2410C]"
+                          : "text-[#B91C1C]"
+                      : "text-[#0F172A]"
+                  }`}
+                >
+                  {governance.overrideRate === null
+                    ? "—"
+                    : governance.overrideRate < 30
+                      ? "Strong"
+                      : governance.overrideRate < 60
+                        ? "Review"
+                        : "Refine"}
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mt-1">
+                  Rule calibration
+                </div>
+                <div className="font-mono text-[10px] text-[#94A3B8] mt-1">
+                  {governance.overrideRate === null
+                    ? "No decisions yet"
+                    : governance.overrideRate < 30
+                      ? "Rules match real decisions"
+                      : governance.overrideRate < 60
+                        ? "Some rules need refinement"
+                        : "Rules too strict for this org"}
+                </div>
+              </div>
+            </div>
+
+            {/* Rule-specific calibration insights — only renders when at
+                least one rule has signal: ≥3 triggers AND <40% effective.
+                Bare-minimum trigger count avoids amber-flagging rules
+                with one unlucky 0/1 ratio. */}
+            {governance.rulesToRefine.length > 0 && (
+              <div className="mt-3 bg-[#FFFBEB] border border-[#FDE68A] rounded-sm p-4">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#B45309] mb-2">
+                  Rules to refine
+                </div>
+                <div className="space-y-1">
+                  {governance.rulesToRefine.map((r) => {
+                    const effective = r.effectivenessScore ?? 0;
+                    const overrideTimes = Math.round(
+                      ((100 - effective) / 100) * r.timesTriggered,
+                    );
+                    return (
+                      <div
+                        key={r.id}
+                        className="flex items-center justify-between text-sm gap-3 flex-wrap"
+                      >
+                        <span className="text-[#92400E]">{r.name}</span>
+                        <span className="font-mono text-[10px] text-[#B45309]">
+                          {effective}% effective · overridden {overrideTimes}× of {r.timesTriggered} triggers
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="font-mono text-[10px] text-[#92400E] mt-2 leading-relaxed">
+                  These rules trigger frequently but get overridden. Consider narrowing their keywords or changing their verdict type.
+                </div>
+              </div>
+            )}
           </section>
 
           {/* SECTION 5 — Recent decisions */}

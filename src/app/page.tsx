@@ -639,6 +639,12 @@ export default function Home() {
 
       {/* ============================================================
           SECTION 6 — FOOTER
+          The demo disclaimer + the "· demo · May 2026" wordmark suffix
+          only render when NEXT_PUBLIC_DEMO_MODE === "true". The middle
+          slot collapses cleanly because the parent flex is
+          justify-between with three independent children — when the
+          middle one is removed, the wordmark stays left and the nav
+          links stay right.
          ============================================================ */}
       <footer className="border-t border-[#E2E8F0] bg-[#F8F9FB]">
         <div className="max-w-[1100px] mx-auto px-6 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
@@ -647,11 +653,15 @@ export default function Home() {
               <span className="text-[#1A56DB] font-bold">ERA</span>
               <span className="text-[#1A56DB] italic font-normal"> CUE</span>
             </span>
-            <span className="font-mono">· demo · May 2026</span>
+            {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
+              <span className="font-mono">· demo · May 2026</span>
+            )}
           </div>
-          <div className="text-xs text-[#64748B] md:text-center">
-            Demo data only. No live customer information. The append-only audit trail and tamper-evident records shown are real database constraints — not simulated.
-          </div>
+          {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && (
+            <div className="text-xs text-[#64748B] md:text-center">
+              Demo data only. No live customer information. The append-only audit trail and tamper-evident records shown are real database constraints — not simulated.
+            </div>
+          )}
           <div className="flex gap-4 font-mono text-xs">
             <Link href="/rules" className="text-[#64748B] hover:text-[#0F172A] transition-colors">
               Rules

@@ -20,6 +20,12 @@ type Member = {
   display_name: string | null;
 };
 
+// Demo mode is gated by an env var so customer deployments can flip the
+// "demo" pills, footer disclaimers, and reviewer-note copy off without a
+// code change. NEXT_PUBLIC_* values are inlined at build time, so reading
+// it here in a client module is safe — no runtime fetch.
+const IS_DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -106,9 +112,16 @@ export function SiteHeader() {
               {member.org_name}
             </span>
           ) : (
-            <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#94A3B8] px-1.5 py-0.5 rounded-sm border border-[#E2E8F0] ml-2">
-              demo
-            </span>
+            // The "demo" pill only renders when the deployment is
+            // explicitly in demo mode. A production tenant on this same
+            // codebase but unauthenticated (e.g. visiting /pricing while
+            // logged out) sees no pill at all — cleaner than tagging
+            // every public page with a demo label.
+            IS_DEMO_MODE && (
+              <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#94A3B8] px-1.5 py-0.5 rounded-sm border border-[#E2E8F0] ml-2">
+                demo
+              </span>
+            )
           )}
         </Link>
 

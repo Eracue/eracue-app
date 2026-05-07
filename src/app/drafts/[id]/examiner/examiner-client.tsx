@@ -31,6 +31,12 @@ export type DraftRow = {
   published_platform?: string | null;
   published_url?: string | null;
   published_at?: string | null;
+  // Publish-token fields. Populated by the reviewer action on
+  // approve/override after scripts/publish-token-migration.sql has
+  // been run. Surface as a dark code-block in both views.
+  publish_token?: string | null;
+  publish_token_expires_at?: string | null;
+  draft_hash_at_approval?: string | null;
 };
 
 export type ActionRow = {
@@ -752,6 +758,11 @@ function SummaryView({
         </section>
       )}
 
+      {/* Clearance token — only for approved/overridden drafts where a
+          token was minted. Renders as a dark code block so it reads as a
+          credential / receipt rather than a UI element. */}
+      <PublishTokenBlock draft={draft} />
+
       {/* Draft text */}
       <section className="mb-8">
         <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
@@ -1196,6 +1207,11 @@ function FullView({
             </div>
           </div>
         )}
+
+        {/* Section 5 also surfaces the clearance token (when present)
+            so the FINRA-defensible record carries it inline alongside
+            the principal decision. */}
+        <PublishTokenBlock draft={draft} variant="compact" />
       </section>
 
       {/* Section 6: Audit Trail */}
@@ -1302,5 +1318,64 @@ function FullView({
         )}
       </section>
     </>
+  );
+}
+
+// ---------- Publish token block ------------------------------------------
+
+/**
+ * Dark code-block credential. Used in two places:
+ *   • Summary view, after Principal decision (default variant).
+ *   • Full record, end of Section 5 (variant="compact" — tighter
+ *     vertical rhythm so it sits cleanly inside the section card).
+ *
+ * Renders nothing when the token isn't present (drafts pre-dating
+ * approval, or rows pre-dating scripts/publish-token-migration.sql).
+ */
+function PublishTokenBlock({
+  draft,
+  variant = "default",
+}: {
+  draft: DraftRow;
+  variant?: "default" | "compact";
+}) {
+  if (!draft.publish_token) return null;
+
+  const expiresAt = draft.publish_token_expires_at
+    ? new Date(draft.publish_token_expires_at)
+    : null;
+  const isValid = expiresAt ? expiresAt.getTime() > Date.now() : false;
+  const expiresLabel = expiresAt
+    ? expiresAt.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "—";
+  const hashPreview = draft.draft_hash_at_approval
+    ? `${draft.draft_hash_at_approval.slice(0, 16)}...`
+    : "—";
+
+  const wrapperCls =
+    variant === "compact"
+      ? "mt-4 pt-4 border-t border-[#E2E8F0]"
+      : "pb-5 mb-8 border-b border-[#E2E8F0]";
+
+  return (
+    <div className={wrapperCls}>
+      <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
+        Clearance token
+      </div>
+      <div className="bg-[#0F172A] rounded-sm p-4 font-mono text-[11px] text-[#7DD3FC] space-y-1">
+        <div>token: {draft.publish_token}</div>
+        <div>draft_hash: {hashPreview}</div>
+        <div>expires: {expiresLabel}</div>
+        <div>status: {isValid ? "✓ valid" : "✗ expired"}</div>
+      </div>
+      <div className="font-mono text-[10px] text-[#94A3B8] mt-2">
+        Present this token to any ERA CUE-integrated publishing tool. If the draft text is modified after approval, the token becomes invalid.
+      </div>
+    </div>
   );
 }
