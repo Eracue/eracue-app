@@ -25,6 +25,7 @@ type RawRuleRow = {
 };
 
 type VerdictAction = {
+  draft_id: string;
   occurred_at: string;
   payload: { primary_match?: { rule_id?: string; rule_name?: string } | null };
 };
@@ -37,7 +38,7 @@ async function getRulesData(): Promise<{
   const sb = getSupabaseAdmin();
   const orgId = await resolveOrgId();
 
-  const [rulesRes, actionsRes, corpusRes, orgRes] = await Promise.all([
+  const [rulesRes, actionsRes, corpusRes, orgRes, draftStatusRes] = await Promise.all([
     sb
       .from("rules")
       // PostgREST aliases:  alias_name:column_name. Surface DB columns under
@@ -49,7 +50,7 @@ async function getRulesData(): Promise<{
       .order("name"),
     sb
       .from("actions")
-      .select("occurred_at, payload")
+      .select("draft_id, occurred_at, payload")
       .eq("org_id", orgId)
       .eq("action_type", "verdict_issued"),
     // Approved-draft count drives the Consistency Check status line
@@ -64,6 +65,10 @@ async function getRulesData(): Promise<{
     // its own query (not a join on rules) because rules can outlive the
     // firm_type that authored them.
     sb.from("orgs").select("firm_type").eq("id", orgId).maybeSingle(),
+    // draft_id → status lookup so the per-rule effectiveness_score can
+    // tell which of a rule's matched drafts ended up overridden. Mirrors
+    // the dashboard's rules-perf computation.
+    sb.from("drafts").select("id, status").eq("org_id", orgId),
   ]);
 
   if (rulesRes.error) throw new Error("rules: " + rulesRes.error.message);
@@ -75,24 +80,34 @@ async function getRulesData(): Promise<{
   const rules = (rulesRes.data || []) as unknown as RawRuleRow[];
   const verdicts = (actionsRes.data || []) as VerdictAction[];
 
-  // Compute trigger_count and last_triggered per rule by joining in JS on
-  // payload.primary_match.rule_name. (rule_id would be more reliable but the
-  // existing seed/backfill data also matches by name.)
+  const draftStatusById = new Map<string, string>();
+  for (const d of (draftStatusRes.data ?? []) as Array<{ id: string; status: string }>) {
+    draftStatusById.set(d.id, d.status);
+  }
+
+  // Compute trigger_count, last_triggered, and effectiveness_score per
+  // rule. effectiveness_score = (matches − overrides) / matches × 100,
+  // null when the rule has never matched a draft.
   const rulesWithCounts: RuleRow[] = rules.map((r) => {
     let count = 0;
+    let overrideCount = 0;
     let last: string | null = null;
     for (const v of verdicts) {
       const pm = v.payload?.primary_match;
       if (!pm) continue;
-      if (pm.rule_name === r.name) {
+      if (pm.rule_name === r.name || (pm.rule_id && pm.rule_id === r.id)) {
         count++;
         if (!last || v.occurred_at > last) last = v.occurred_at;
+        if (draftStatusById.get(v.draft_id) === "overridden") overrideCount++;
       }
     }
+    const effectiveness_score =
+      count > 0 ? Math.round(((count - overrideCount) / count) * 100) : null;
     return {
       ...r,
       trigger_count: count,
       last_triggered: last,
+      effectiveness_score,
     };
   });
 

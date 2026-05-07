@@ -398,6 +398,12 @@ async function getDashboardData() {
   const allDecisionPayloads = ((allDecisionsRes.data as Array<{ payload: DecisionPayload }> | null) ??
     []
   ).map((r) => r.payload ?? {});
+
+  // Moat summary inputs — corpus is approved drafts; decisionCount comes
+  // from the all-decisions slice we already filtered to real form-driven
+  // decisions (excludes legacy seed mirror rows).
+  const corpusCount = drafts.filter((d) => d.status === "approved").length;
+  const decisionCount = allDecisionPayloads.length;
   const durationsAll = allDecisionPayloads
     .map((p) => p.review_duration_seconds)
     .filter((d): d is number => typeof d === "number" && d > 0);
@@ -429,6 +435,7 @@ async function getDashboardData() {
     queueGroups,
     examinerRecords,
     clearedWithoutSignoff,
+    moat: { corpusCount, decisionCount },
     governance: {
       avgDuration,
       overrideRate,
@@ -526,6 +533,7 @@ export default async function DashboardPage() {
     queueGroups,
     examinerRecords,
     clearedWithoutSignoff,
+    moat,
     governance,
   } = await getDashboardData();
   const top = speakerStats[0]?.blocked > 0 ? speakerStats[0].name : null;
@@ -554,6 +562,30 @@ export default async function DashboardPage() {
               </div>
             </div>
           </div>
+
+          {/* MOAT SUMMARY — one-liner above the cleared-drafts banner so
+              the dashboard opens on what ERA CUE has accumulated for
+              this org (decision count + corpus size) rather than
+              starting on flagged-draft alerts. */}
+          {moat.decisionCount > 0 && (
+            <div className="bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm px-5 py-3 mt-6 flex items-center justify-between flex-wrap gap-2">
+              <div className="text-sm text-[#1A56DB]">
+                ERA CUE has recorded{" "}
+                <strong>{moat.decisionCount}</strong> governance decision
+                {moat.decisionCount !== 1 ? "s" : ""} for this organization.
+                {moat.corpusCount > 0 && (
+                  <>
+                    {" "}The corpus contains <strong>{moat.corpusCount}</strong>{" "}
+                    approved statement{moat.corpusCount !== 1 ? "s" : ""} —
+                    checked against every new draft automatically.
+                  </>
+                )}
+              </div>
+              <div className="font-mono text-[10px] text-[#1A56DB] whitespace-nowrap ml-4">
+                Supervisory memory active
+              </div>
+            </div>
+          )}
 
           {/* CLEARED DRAFTS BANNER — directly below header, above stat cards.
               Banner self-hides when count is zero; banner already carries its

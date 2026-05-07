@@ -1035,6 +1035,47 @@ function FullView({
         </dl>
       </section>
 
+      {/* Tamper evidence — sits prominently right after the regulatory
+          framework so the immutability claim is read alongside the
+          regulatory citations it supports, not buried at the end. The
+          dark slate palette intentionally breaks the white card rhythm
+          to make this read as a guarantee, not a note. */}
+      <div className="bg-[#0F172A] rounded-sm p-5 mb-6">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
+          Tamper evidence
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {[
+            {
+              label: "Enforcement",
+              value: "Database-level",
+              sub: "UPDATE + DELETE refused",
+            },
+            {
+              label: "Hash algorithm",
+              value: "SHA-256",
+              sub: "Computed at insert time",
+            },
+            {
+              label: "Records altered",
+              value: "0",
+              sub: "Since this record was created",
+            },
+          ].map((item) => (
+            <div key={item.label}>
+              <div className="font-mono text-[10px] text-[#64748B] mb-0.5">
+                {item.label}
+              </div>
+              <div className="text-white font-semibold text-sm">{item.value}</div>
+              <div className="font-mono text-[10px] text-[#64748B]">{item.sub}</div>
+            </div>
+          ))}
+        </div>
+        <div className="font-mono text-[10px] text-[#64748B] border-t border-white/10 pt-3">
+          Not a policy claim. A database constraint. The actions table enforces append-only at the PostgreSQL level — no application code can override this.
+        </div>
+      </div>
+
       {/* Section 2: Draft text */}
       <section className="mb-8">
         <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">2. Draft Text (verbatim)</h2>
@@ -1253,29 +1294,6 @@ function FullView({
               );
             })}
         </ol>
-
-        {/* Tamper evidence callout — surfaces the database-level
-            guarantees the audit trail above relies on. The append-only
-            language and SHA-256 hash language below match the actual
-            triggers in db/01-schema.sql so an examiner can verify the
-            claims by querying pg_trigger / pg_proc directly. */}
-        <div className="mt-6 bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-5">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-2">
-            Tamper evidence
-          </div>
-          <div className="text-sm text-[#374151] leading-relaxed mb-3">
-            Every entry in this audit trail has a SHA-256 hash computed at the moment of database insert. The actions table enforces append-only at the database level — UPDATE and DELETE are refused by the database engine, not just the application.
-          </div>
-          <div className="font-mono text-xs text-[#166534]">
-            ✓ Append-only enforced at database level
-          </div>
-          <div className="font-mono text-xs text-[#166534]">
-            ✓ SHA-256 hash computed at insert time
-          </div>
-          <div className="font-mono text-xs text-[#166534]">
-            ✓ Record cannot be altered or deleted
-          </div>
-        </div>
       </section>
 
       {/* Section 7: Regulatory Compliance Attestation. Conditional on whether

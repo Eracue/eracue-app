@@ -170,7 +170,44 @@ export type RuleRow = {
   wsp_reference: string | null;
   trigger_count?: number;
   last_triggered?: string | null;
+  // (matches − overrides) / matches × 100 — null when the rule has
+  // never fired. Drives the freshness signal below.
+  effectiveness_score?: number | null;
 };
+
+// Governance-drift freshness for a rule. Computed locally so the
+// classification stays in sync with the UI rendering:
+//   • "needs_calibration" — fires often (≥3 triggers) but gets
+//     overridden a lot (effectiveness < 40%)
+//   • "expiring" — within 14 days of effective_to
+//   • "silent" — active but never fired
+//   • "healthy" — everything else with at least one trigger
+type Freshness = "needs_calibration" | "expiring" | "silent" | "healthy";
+
+function classifyFreshness(
+  rule: RuleRow,
+  now: number,
+): { freshness: Freshness; daysUntilExpiry: number | null } {
+  const triggers = rule.trigger_count ?? 0;
+  const score = rule.effectiveness_score ?? null;
+  const daysUntilExpiry = rule.effective_until
+    ? Math.ceil(
+        (new Date(rule.effective_until).getTime() - now) /
+          (1000 * 60 * 60 * 24),
+      )
+    : null;
+
+  if (score !== null && score < 40 && triggers >= 3) {
+    return { freshness: "needs_calibration", daysUntilExpiry };
+  }
+  if (daysUntilExpiry !== null && daysUntilExpiry <= 14 && daysUntilExpiry >= 0) {
+    return { freshness: "expiring", daysUntilExpiry };
+  }
+  if (triggers === 0) {
+    return { freshness: "silent", daysUntilExpiry };
+  }
+  return { freshness: "healthy", daysUntilExpiry };
+}
 
 type Tab = "all" | "active" | "expired" | "deactivated";
 
@@ -374,6 +411,19 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
     if (tab === "all") return classified;
     return classified.filter((c) => c.classification === tab);
   }, [classified, tab]);
+
+  // Governance drift roll-up. Counts rules whose freshness is
+  // "needs_calibration" or "expiring" — the two states a principal
+  // should actually do something about. "silent" rules don't count
+  // (an active rule with zero triggers might just mean the team is
+  // disciplined, not that the rule is broken).
+  const driftCount = useMemo(() => {
+    return classified.filter(({ rule, classification }) => {
+      if (classification !== "active") return false;
+      const f = classifyFreshness(rule, now).freshness;
+      return f === "needs_calibration" || f === "expiring";
+    }).length;
+  }, [classified, now]);
 
   function handleDeactivate(id: string) {
     const reason = window.prompt("Why are you deactivating this rule?");
@@ -703,6 +753,21 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
           )}
         </div>
 
+        {/* Governance drift summary — only renders when at least one
+            active rule needs calibration or is within its expiry
+            window. Sits above the stats strip so a principal opening
+            this page sees what to act on first. */}
+        {driftCount > 0 && (
+          <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-sm p-4 mb-4 mt-6">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#B45309] mb-1">
+              Governance drift detected
+            </div>
+            <div className="text-sm text-[#92400E]">
+              {driftCount} rule{driftCount !== 1 ? "s" : ""} need attention — either expiring soon or showing high override rates that suggest miscalibration.
+            </div>
+          </div>
+        )}
+
         {/* Stats strip — Total dropped because it included deactivated rules
             (misleading); Active is now the primary stat. Deactivated lives at
             the end in muted slate so it reads as "not governing right now." */}
@@ -768,6 +833,11 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               const badge = VERDICT_BADGE[v] || VERDICT_BADGE.review;
               const triggers = r.trigger_count ?? 0;
               const showKeywords = r.keywords && r.keywords.length > 0 && v !== "guide";
+              // Drift signal renders only on active rules — deactivated/
+              // expired rules have their own footer text and adding a
+              // freshness chip on top would be noisy.
+              const drift =
+                classification === "active" ? classifyFreshness(r, now) : null;
               return (
                 <div
                   key={r.id}
@@ -823,6 +893,32 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                         {triggers > 0 && r.last_triggered && (
                           <div className="font-mono text-xs text-[#94A3B8] mt-0.5">
                             Last triggered: {fmtRelative(r.last_triggered)}
+                          </div>
+                        )}
+                        {/* Drift indicator — color and copy keyed off the
+                            freshness classification so the same compact
+                            line tells the principal whether the rule
+                            needs attention without adding a separate
+                            column. */}
+                        {drift?.freshness === "needs_calibration" && (
+                          <div className="font-mono text-[10px] text-[#C2410C] mt-1">
+                            ⚠ Override rate high — rule may be too broad
+                          </div>
+                        )}
+                        {drift?.freshness === "expiring" && drift.daysUntilExpiry !== null && (
+                          <div className="font-mono text-[10px] text-[#B45309] mt-1">
+                            ⏱ Expires in {drift.daysUntilExpiry}{" "}
+                            {drift.daysUntilExpiry === 1 ? "day" : "days"} — review and renew
+                          </div>
+                        )}
+                        {drift?.freshness === "silent" && (
+                          <div className="font-mono text-[10px] text-[#94A3B8] mt-1">
+                            ○ No triggers yet — rule is active but hasn&apos;t fired
+                          </div>
+                        )}
+                        {drift?.freshness === "healthy" && (
+                          <div className="font-mono text-[10px] text-[#166534] mt-1">
+                            ✓ Well-calibrated
                           </div>
                         )}
                         {classification === "deactivated" && r.deactivated_reason && (

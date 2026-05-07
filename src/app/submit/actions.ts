@@ -68,6 +68,18 @@ export type SubmitSuccess = {
   ruleDescription?: string;
   matchedKeyword?: string;
   checks: CheckEntry[];
+  // Surfaced to the submit form so the post-verdict panel can show
+  // "N statements checked · no contradictions" and the rule's
+  // effectiveness score in context. Both are derived inline below
+  // from the existing checks output + a small effectiveness lookup.
+  consistencyResult?: {
+    corpusSize: number;
+    result: "pass" | "fail" | "warn";
+  };
+  ruleMatch?: {
+    name: string;
+    effectiveness: number | null;
+  } | null;
   error?: undefined;
 };
 type SubmitResult = SubmitSuccess | { draftId?: undefined; error: string };
@@ -246,8 +258,58 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
   const newStatus = verdictToStatus(result.verdict);
   await sb.from("drafts").update({ status: newStatus }).eq("id", draft.id);
 
-  // 9. Flat return shape — primary_match unfolded into rule* fields so the
-  //    form can render directly without reaching into a nested object.
+  // 9a. Pull the Consistency Check entry out of the existing checks
+  //     array — it already has corpus_size + a pass/warn result, which
+  //     is everything the post-verdict governance panel needs.
+  const consistencyEntry = checks.find((c) => c.check_name === "Consistency Check");
+  const consistencyResultOut = consistencyEntry
+    ? {
+        corpusSize: consistencyEntry.corpus_size ?? 0,
+        result: consistencyEntry.result,
+      }
+    : undefined;
+
+  // 9b. If this draft tripped a rule, compute that rule's historical
+  //     effectiveness — (matches − overrides) / matches × 100 — by
+  //     looking at past verdict_issued payloads against the same
+  //     rule_name and joining to drafts.status. Skipped when no rule
+  //     matched. The lookup excludes the current draft so the score
+  //     reflects how the rule has performed before this submission.
+  let ruleMatchOut: { name: string; effectiveness: number | null } | null = null;
+  if (result.primary_match) {
+    const ruleName = result.primary_match.rule_name;
+    const { data: pastVerdicts } = await sb
+      .from("actions")
+      .select("draft_id, payload")
+      .eq("org_id", orgId)
+      .eq("action_type", "verdict_issued")
+      .neq("draft_id", draft.id);
+    type PastVerdict = {
+      draft_id: string;
+      payload: { primary_match?: { rule_name?: string } | null };
+    };
+    const matched = ((pastVerdicts ?? []) as PastVerdict[]).filter(
+      (v) => v.payload?.primary_match?.rule_name === ruleName,
+    );
+    let effectiveness: number | null = null;
+    if (matched.length > 0) {
+      const { data: matchedDrafts } = await sb
+        .from("drafts")
+        .select("id, status")
+        .in(
+          "id",
+          matched.map((m) => m.draft_id),
+        );
+      const overrides = ((matchedDrafts ?? []) as Array<{ status: string }>).filter(
+        (d) => d.status === "overridden",
+      ).length;
+      effectiveness = Math.round(((matched.length - overrides) / matched.length) * 100);
+    }
+    ruleMatchOut = { name: ruleName, effectiveness };
+  }
+
+  // 10. Flat return shape — primary_match unfolded into rule* fields so the
+  //     form can render directly without reaching into a nested object.
   return {
     draftId: draft.id,
     verdict: result.verdict,
@@ -255,5 +317,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     ruleDescription: result.primary_match?.rule_description,
     matchedKeyword: result.primary_match?.matched_keyword,
     checks,
+    ...(consistencyResultOut ? { consistencyResult: consistencyResultOut } : {}),
+    ruleMatch: ruleMatchOut,
   };
 }

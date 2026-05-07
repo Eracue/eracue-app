@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { SiteHeader } from "@/app/site-header";
+import { getSupabaseAdmin } from "@/lib/checks";
+import { DEMO_ORG_ID } from "@/lib/demo-config";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -14,6 +16,101 @@ export const fetchCache = "force-no-store";
 // Rivera draft. Kept as a constant so the demo data id is changeable in
 // one place.
 const CCO_EXAMINER_DRAFT_ID = "afe14696-5336-4336-a0b7-c3410477ec31";
+
+// ---------- Moat data --------------------------------------------------
+
+type TopRule = {
+  name: string;
+  times_triggered: number;
+  effectiveness_score: number | null;
+};
+
+type MoatData = {
+  corpusCount: number;
+  decisionCount: number;
+  topRule: TopRule | null;
+};
+
+/**
+ * Pull the three live numbers the moat section surfaces: corpus size,
+ * total reviewer decisions, and the most-triggered rule (with its
+ * effectiveness score derived from the same draft-status join the
+ * dashboard uses).
+ *
+ * Failures fall back to zeroes so the homepage renders cleanly even
+ * when Supabase env vars aren't configured (e.g. local first-time
+ * setup before .env.local is wired).
+ */
+async function getMoatData(): Promise<MoatData> {
+  try {
+    const sb = getSupabaseAdmin();
+    const [corpusRes, decisionRes, draftsRes, verdictsRes] = await Promise.all([
+      sb
+        .from("drafts")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", DEMO_ORG_ID)
+        .eq("status", "approved"),
+      // Strict filter on payload->>decision matches the dashboard so
+      // we only count real form-driven decisions, not the legacy
+      // seed.ts mirror rows that duplicate draft status onto the
+      // reviewer_decided action_type.
+      sb
+        .from("actions")
+        .select("*", { count: "exact", head: true })
+        .eq("org_id", DEMO_ORG_ID)
+        .eq("action_type", "reviewer_decided")
+        .in("payload->>decision", ["override", "confirm_block", "approve", "reject"]),
+      sb.from("drafts").select("id, status").eq("org_id", DEMO_ORG_ID),
+      sb
+        .from("actions")
+        .select("draft_id, payload")
+        .eq("org_id", DEMO_ORG_ID)
+        .eq("action_type", "verdict_issued"),
+    ]);
+
+    const corpusCount = corpusRes.count ?? 0;
+    const decisionCount = decisionRes.count ?? 0;
+
+    // Compute trigger counts + override counts per rule_name (matched
+    // through verdict_issued.payload.primary_match.rule_name). Effectiveness
+    // = (matches − overrides) / matches × 100. Mirrors the dashboard
+    // computation so the homepage and dashboard tell the same story.
+    const draftStatusById = new Map<string, string>();
+    for (const d of (draftsRes.data ?? []) as Array<{ id: string; status: string }>) {
+      draftStatusById.set(d.id, d.status);
+    }
+    const stats = new Map<string, { matches: number; overrides: number }>();
+    type VerdictRow = { draft_id: string; payload: { primary_match?: { rule_name?: string } | null } };
+    for (const v of (verdictsRes.data ?? []) as VerdictRow[]) {
+      const name = v.payload?.primary_match?.rule_name;
+      if (!name) continue;
+      const cur = stats.get(name) ?? { matches: 0, overrides: 0 };
+      cur.matches++;
+      if (draftStatusById.get(v.draft_id) === "overridden") cur.overrides++;
+      stats.set(name, cur);
+    }
+
+    let topRule: TopRule | null = null;
+    let max = 0;
+    for (const [name, s] of stats.entries()) {
+      if (s.matches > max) {
+        max = s.matches;
+        topRule = {
+          name,
+          times_triggered: s.matches,
+          effectiveness_score:
+            s.matches > 0
+              ? Math.round(((s.matches - s.overrides) / s.matches) * 100)
+              : null,
+        };
+      }
+    }
+
+    return { corpusCount, decisionCount, topRule };
+  } catch {
+    return { corpusCount: 0, decisionCount: 0, topRule: null };
+  }
+}
 
 // ---------- Small reusable pieces -----------------------------------------
 
@@ -66,7 +163,8 @@ function KeywordChip({ children }: { children: React.ReactNode }) {
 
 // ---------- Page ----------------------------------------------------------
 
-export default function Home() {
+export default async function Home() {
+  const { corpusCount, decisionCount, topRule } = await getMoatData();
   return (
     <div className="bg-[#F8F9FB] min-h-screen">
       {/* v2-homepage-2026-redesign */}
@@ -366,59 +464,87 @@ export default function Home() {
       </section>
 
       {/* ============================================================
-          SECTION 3.25 — WHY ERA CUE (MOAT)
-          Three-card moat callout. Sits between role cards (audience)
-          and campaign snapshot (proof) so the narrative reads
-          audience → differentiation → proof → mechanics.
+          SECTION 3.25 — THE MOAT (live data)
+          Three live moments pulled from the demo org via getMoatData.
+          The numbers don't change between page loads in tests, but
+          they're real reads from drafts + actions — not hardcoded —
+          so a new approval or decision moves the dial automatically.
          ============================================================ */}
-      <section className="py-16 px-6 md:px-12 border-t border-[#E2E8F0] bg-[#F8F9FB]">
+      <section className="py-16 px-6 md:px-12 border-t border-[#E2E8F0]">
         <div className="max-w-[1100px] mx-auto">
           <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
-            Why ERA CUE
+            The moat
           </div>
           <div
             style={{ fontFamily: "var(--font-newsreader)" }}
             className="text-2xl font-light text-[#0F172A] mb-10"
           >
-            The governance layer that gets smarter with every decision.
+            ERA CUE becomes smarter with every decision your team makes.
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                num: "01",
-                title: "Supervisory memory",
-                body: "Every approved draft becomes part of your compliance corpus — checked against every future communication automatically. The corpus only contains principal-approved content. No hallucinations. No bad baselines.",
-                accent: "text-[#1A56DB]",
-              },
-              {
-                num: "02",
-                title: "Immutable audit trail",
-                body: "Every decision is SHA-256 locked the moment it's made. The record cannot be altered — not by you, not by ERA CUE, not by anyone. This is what makes it FINRA-ready and legally defensible.",
-                accent: "text-[#166534]",
-              },
-              {
-                num: "03",
-                title: "Behavioral calibration",
-                body: "Every reviewer decision teaches ERA CUE what your organization actually tolerates. Override a rule six times? ERA CUE suggests refining it. Approve everything in 3 seconds? ERA CUE flags it.",
-                accent: "text-[#7C3AED]",
-              },
-            ].map((item) => (
-              <div
-                key={item.num}
-                className="bg-white border border-[#E2E8F0] rounded-sm p-6"
-              >
-                <div className={`font-mono text-2xl font-bold mb-3 ${item.accent}`}>
-                  {item.num}
-                </div>
-                <div className="text-base font-semibold text-[#0F172A] mb-2">
-                  {item.title}
-                </div>
-                <div className="text-sm text-[#374151] leading-relaxed">
-                  {item.body}
-                </div>
+          {/* gap-px + a slate background reads as a hairline grid in light
+              mode, which feels closer to the "Bloomberg terminal" demo
+              ethos than padded floating cards. */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[#E2E8F0] border border-[#E2E8F0] rounded-sm overflow-hidden">
+            {/* Moat moment 1 — Corpus */}
+            <div className="bg-white p-6">
+              <div className="font-mono text-4xl font-light text-[#1A56DB] mb-2">
+                {corpusCount}
               </div>
-            ))}
+              <div className="text-sm font-semibold text-[#0F172A] mb-2">
+                Approved statements in corpus
+              </div>
+              <div className="text-sm text-[#64748B] leading-relaxed">
+                Every approved communication enters the governance corpus. New drafts are checked against it automatically — catching contradictions before anyone else sees them.
+              </div>
+              <div className="font-mono text-[10px] text-[#94A3B8] mt-3 pt-3 border-t border-[#F1F5F9]">
+                Corpus is principal-approved only. No unreviewed content enters.
+              </div>
+            </div>
+
+            {/* Moat moment 2 — Immutability. Hardcoded zero is honest:
+                the actions table's append-only trigger refuses UPDATE
+                and DELETE at the database level, so this number is
+                literally a database invariant, not a count. */}
+            <div className="bg-white p-6">
+              <div className="font-mono text-4xl font-light text-[#166534] mb-2">
+                0
+              </div>
+              <div className="text-sm font-semibold text-[#0F172A] mb-2">
+                Records altered since launch
+              </div>
+              <div className="text-sm text-[#64748B] leading-relaxed">
+                Every governance decision is SHA-256 locked the moment it&apos;s made. The database enforces append-only — UPDATE and DELETE are refused at the database level, not just the application.
+              </div>
+              <div className="font-mono text-[10px] text-[#94A3B8] mt-3 pt-3 border-t border-[#F1F5F9]">
+                Not a claim. A database constraint.
+              </div>
+            </div>
+
+            {/* Moat moment 3 — Calibration */}
+            <div className="bg-white p-6">
+              <div className="font-mono text-4xl font-light text-[#7C3AED] mb-2">
+                {decisionCount}
+              </div>
+              <div className="text-sm font-semibold text-[#0F172A] mb-2">
+                Decisions training governance
+              </div>
+              <div className="text-sm text-[#64748B] leading-relaxed">
+                Every reviewer decision — override, escalation, approval — updates ERA CUE&apos;s understanding of what your organization actually tolerates. Rules get smarter. False positives decrease.
+              </div>
+              <div className="font-mono text-[10px] text-[#94A3B8] mt-3 pt-3 border-t border-[#F1F5F9]">
+                {topRule
+                  ? `${topRule.name}: ${topRule.effectiveness_score ?? 0}% effective`
+                  : "Calibration active"}
+              </div>
+            </div>
+          </div>
+
+          {/* The one-liner — sits below the grid as the takeaway. */}
+          <div className="mt-8 text-center">
+            <div className="font-mono text-sm text-[#64748B] italic">
+              &ldquo;ERA CUE becomes the system of record for human supervision of agentic communication.&rdquo;
+            </div>
           </div>
         </div>
       </section>

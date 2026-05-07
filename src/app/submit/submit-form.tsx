@@ -47,6 +47,16 @@ type VerdictData = {
   matchedKeyword?: string;
   draftId?: string;
   checks?: CheckEntry[];
+  // Surfaced by the action so the post-verdict panel can show
+  // governance signals without fishing through the checks array.
+  consistencyResult?: {
+    corpusSize: number;
+    result: "pass" | "fail" | "warn";
+  };
+  ruleMatch?: {
+    name: string;
+    effectiveness: number | null;
+  } | null;
 };
 
 // ---------- Form ---------------------------------------------------------
@@ -128,6 +138,8 @@ export function SubmitForm() {
         matchedKeyword: result.matchedKeyword,
         draftId: result.draftId,
         checks: result.checks,
+        consistencyResult: result.consistencyResult,
+        ruleMatch: result.ruleMatch,
       });
     } catch {
       setError("Submission failed. Please try again.");
@@ -278,6 +290,70 @@ export function SubmitForm() {
                       keyword: {verdictData.matchedKeyword}
                     </span>
                   )}
+                </div>
+              )}
+
+              {/* Governance intelligence — surfaces the corpus + rule
+                  calibration signals against the just-submitted draft.
+                  Sits between the verdict info and the Checks Performed
+                  list so the panel reads as the higher-level context
+                  for the deterministic check rows below it. */}
+              {verdictData?.consistencyResult && (
+                <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-4 mt-4">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+                    Governance intelligence
+                  </div>
+                  <div className="space-y-2">
+                    {/* Corpus comparison */}
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="text-sm text-[#374151]">Corpus comparison</div>
+                      <div className="font-mono text-xs text-right">
+                        {verdictData.consistencyResult.corpusSize > 0 ? (
+                          <span className="text-[#166534]">
+                            {verdictData.consistencyResult.corpusSize} statement
+                            {verdictData.consistencyResult.corpusSize !== 1 ? "s" : ""}{" "}
+                            checked ·{" "}
+                            {verdictData.consistencyResult.result === "pass"
+                              ? "no contradictions"
+                              : "contradiction found"}
+                          </span>
+                        ) : (
+                          <span className="text-[#94A3B8]">
+                            No prior statements — corpus builds as drafts are approved
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Rule calibration — only when a rule actually fired
+                        AND it has historical data to score against. */}
+                    {verdictData.ruleMatch && verdictData.ruleMatch.effectiveness !== null && (
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="text-sm text-[#374151]">Rule calibration</div>
+                        <div
+                          className={`font-mono text-xs ${
+                            verdictData.ruleMatch.effectiveness < 50
+                              ? "text-[#C2410C]"
+                              : "text-[#166534]"
+                          }`}
+                        >
+                          {verdictData.ruleMatch.name}: {verdictData.ruleMatch.effectiveness}% effective
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Publish token — informational only on this surface;
+                        the actual token is minted in the reviewer action
+                        when the draft is approved/overridden. */}
+                    <div className="flex items-start justify-between gap-3 flex-wrap pt-2 border-t border-[#E2E8F0]">
+                      <div className="text-sm text-[#374151]">Publish token</div>
+                      <div className="font-mono text-xs text-[#94A3B8]">
+                        {verdictLower === "clear"
+                          ? "Auto-issued — no review required"
+                          : "Issued after principal approval"}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
