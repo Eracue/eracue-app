@@ -14,6 +14,96 @@ export const fetchCache = "force-no-store";
 // in one place.
 const CCO_EXAMINER_DRAFT_ID = "afe14696-5336-4336-a0b7-c3410477ec31";
 
+// Regulatory section data. Five named enforcement actions in the left
+// column ("five cases where the record did not exist") + three
+// positive standards in the right column ("three standards ERA CUE
+// operationalizes"). Failure panels carry an amber top border + a
+// purple ERA CUE footer; positive panels carry a teal top border + a
+// teal footer. Citations are to publicly available enforcement
+// actions and statutory text.
+const REGULATORY_PANELS = [
+  {
+    type: "failure" as const,
+    badge: "Enforcement action",
+    who: "Public companies · IR teams",
+    name: "DraftKings Inc.",
+    citation: "SEC Release No. 34-101198 · Sep 26, 2024",
+    consequence: "$200,000 civil penalty",
+    what: "A PR firm posted material nonpublic information on the CEO’s LinkedIn and X accounts during a quiet period — before Q2 earnings were released. The firm’s own social media policy required prior written approval. It was not obtained.",
+    era: "Quiet-period rule fires at submission. The draft is blocked before it reaches any platform.",
+  },
+  {
+    type: "failure" as const,
+    badge: "Enforcement action",
+    who: "Broker-dealers · Firms using third parties",
+    name: "M1 Finance LLC",
+    citation: "FINRA Disciplinary Proceeding · March 18, 2024",
+    consequence: "$850,000 fine",
+    what: "1,700 social media influencers promoted the firm without any registered principal reviewing content before it was posted. No supervisory records maintained. FINRA’s first influencer enforcement action.",
+    era: "Named registered principal reviews and approves every third-party communication before it reaches the public. The approval is on record.",
+  },
+  {
+    type: "failure" as const,
+    badge: "Enforcement action",
+    who: "Investment banks · PE firms · Deal teams",
+    name: "Sixteen firms — off-channel communications",
+    citation: "SEC Press Release No. 2024-18 · Feb 9, 2024",
+    consequence: "$81M combined · 16 firms",
+    what: "Firm employees communicated deal-sensitive information on personal WhatsApp, iMessage, and Signal. The firms could not produce required records during SEC investigations.",
+    era: "Every governed communication creates an immutable supervisory record automatically. No off-channel gap.",
+  },
+  {
+    type: "failure" as const,
+    badge: "Enforcement action",
+    who: "Registered investment advisers · Wealth managers",
+    name: "Nine registered investment advisers",
+    citation: "SEC Press Release No. 2024-121 · Sep 9, 2024",
+    consequence: "$1,240,000 combined · 9 firms",
+    what: "Advisers disseminated advertisements containing testimonials and endorsements without required disclosures. Marketing content published without adequate pre-approval or oversight.",
+    era: "Testimonial and endorsement language is flagged before publication. Pre-approval is documented. The disclosure record is created automatically.",
+  },
+  {
+    type: "failure" as const,
+    badge: "Regulatory requirement",
+    who: "All organizations using AI to draft content",
+    name: "EU AI Act Article 50",
+    citation: "Regulation (EU) 2024/1689 · August 2, 2026",
+    consequence: "Up to €7.5M or 1.5% of global turnover",
+    what: "AI systems generate and publish content on behalf of executives and organizations. No disclosure of AI origin. No documented human review. Article 50 requires both.",
+    era: "AI origin logged at submission. Human review documented. Disclosure trail created automatically for every governed draft.",
+  },
+  {
+    type: "positive" as const,
+    badge: "What good looks like",
+    who: "Broker-dealers · FINRA-regulated firms",
+    name: "FINRA Rule 3110 — Supervision",
+    citation: "FINRA Rule 3110(a) and 3110(b)(4)",
+    consequence: "Named principal. Documented review. Written record.",
+    what: "Member firms must establish, maintain, and enforce a supervisory system with written supervisory procedures reasonably designed to achieve compliance. Rule 3110(b)(4) requires review of electronic communications related to the firm’s securities business.",
+    era: "Every draft submission creates the supervisory workflow evidence FINRA Rule 3110 requires — automatically, for every communication.",
+  },
+  {
+    type: "positive" as const,
+    badge: "What good looks like",
+    who: "Registered investment advisers · RIAs",
+    name: "SEC Marketing Rule 206(4)-1",
+    citation: "Rule 206(4)-1 · Investment Advisers Act of 1940",
+    consequence: "Pre-approval. Disclosure chain. Communication record.",
+    what: "Advertisements containing testimonials or endorsements require clear and prominent disclosure of the relationship and any compensation, pre-publication oversight, and records maintained for five years.",
+    era: "Testimonial and endorsement language is identified at submission. Pre-approval is required. The disclosure and approval record is created before content reaches any audience.",
+  },
+  {
+    type: "positive" as const,
+    badge: "Emerging governance standard",
+    who: "Boards · General counsel · Risk officers · AI deployers",
+    name: "Human oversight of AI-mediated communication",
+    citation: "NIST AI RMF 1.0 · EU AI Act Art. 50 · Board duty of oversight",
+    consequence: "Structured decision. Documented basis. Proof of human accountability.",
+    what: "Boards are accountable for material operational risks — including AI systems acting on behalf of the organization. The NIST AI Risk Management Framework identifies human oversight and control as a core AI governance function. The EU AI Act requires deployers to implement appropriate human oversight before AI-generated content reaches the public.",
+    era: "Every AI-assisted draft requires a structured human decision before it clears. The decision is documented with basis. The record proves a human was in the loop — before publication, every time.",
+  },
+] as const;
+
 // ---------- Page ---------------------------------------------------------
 
 // Final homepage. Three-tone palette across the section bands:
@@ -175,110 +265,154 @@ export default function Home() {
       </section>
 
       {/* ============================================================
-          SECTION 4 — REGULATORY REALITY (dark, white cards)
-          Three named enforcement actions. Penalty numbers in amber
-          (#F59E0B); ERA CUE footer in solid #4F46E5 with white text.
-          Each body capped at two sentences; ERA CUE response capped
-          at one sentence. Hard limits.
+          SECTION 4 — THE REGULATORY AND SUPERVISORY REALITY
+          Two-column layout: five failure panels on the left ("five
+          cases where the record did not exist"), three positive
+          standards on the right ("three standards ERA CUE
+          operationalizes"). Failure panels carry an amber top border
+          + a purple ERA CUE footer; positive panels carry a teal top
+          border + a teal footer. The semantic split makes the
+          consequence/solution pairing legible at a glance.
          ============================================================ */}
-      <section className="bg-[#0D1B2A] py-16 md:py-20 px-6 md:px-12 border-t border-white/[0.06]">
+      <section className="bg-[#0D1B2A] border-t border-white/[0.06] py-16 md:py-20 px-6 md:px-12">
         <div className="max-w-[1100px] mx-auto">
-          <div className="mb-10">
-            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/[0.45] mb-3">
-              The regulatory reality
+          <div className="mb-10 max-w-3xl">
+            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-white/[0.40] mb-3">
+              The regulatory and supervisory reality
             </div>
             <h2
-              className="text-3xl md:text-4xl font-light text-white mb-3 leading-tight max-w-2xl"
+              className="text-3xl font-light text-white leading-tight mb-4"
               style={{ fontFamily: "var(--font-newsreader)" }}
             >
-              Three regulations. Real consequences.
+              The risk is no longer just bad content.
             </h2>
-            <p className="text-sm text-white/[0.65] leading-relaxed max-w-xl">
-              Real cases from the last 18 months. No communication was
-              reviewed before it was published.
+            <p className="text-base text-white/[0.65] leading-relaxed mb-2">
+              The risk is unreviewed AI-assisted communication with no
+              supervisory record.
+            </p>
+            <p className="text-sm text-white/[0.45] leading-relaxed">
+              ERA CUE is the pre-publication control layer: rule
+              checked, human reviewed, record created.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              {
-                type: "Public company · SEC Reg FD",
-                amount: "$200,000",
-                amountLabel: "SEC penalty · 2024",
-                bodyLabel: "What happened",
-                body: "DraftKings’ PR firm posted on the CEO’s LinkedIn during an earnings quiet period. Revenue data reached investors before Q2 results.",
-                cite: "SEC Release 34-101130 · Sep 26, 2024",
-                era: "Quiet period rule fires on submission. Draft blocked before it reaches LinkedIn.",
-              },
-              {
-                type: "Broker-dealer · FINRA 2210+3110",
-                amount: "$850,000",
-                amountLabel: "FINRA fine · 2024",
-                bodyLabel: "What happened",
-                body: "A broker-dealer paid influencers to post on its behalf. No registered principal reviewed any content. No records maintained.",
-                cite: "FINRA Enforcement · Mar 18, 2024",
-                era: "Every post reviewed by a named principal. The approval record satisfies Rule 3110 automatically.",
-              },
-              {
-                type: "All organizations · EU AI Act",
-                amount: "Aug 2026",
-                amountLabel: "Article 50 · enforceable",
-                bodyLabel: "The gap",
-                body: "AI drafts content. Executives post it. No record of human review. Article 50 requires disclosure of AI origin before publication.",
-                cite: "EU AI Act Art. 50 · August 2, 2026",
-                era: "AI origin recorded at submission. Human review documented. Disclosure trail created automatically.",
-              },
-            ].map((card) => (
-              <div
-                key={card.amount}
-                className="bg-white rounded-lg overflow-hidden border-t-[3px] border-t-[#4F46E5]"
-              >
-                <div className="p-5">
-                  <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#64748B] mb-2">
-                    {card.type}
-                  </div>
+          {/* Row labels */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+            <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/[0.40] pl-1">
+              Five cases where the record did not exist
+            </div>
+            <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/[0.40] pl-1 hidden md:block">
+              Three standards ERA CUE operationalizes
+            </div>
+          </div>
+
+          {/* Eight-panel grid: 5 left + 3 right */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* LEFT — five failure panels */}
+            <div className="space-y-3">
+              {REGULATORY_PANELS.filter((p) => p.type === "failure").map(
+                (panel) => (
                   <div
-                    className="font-mono text-[26px] font-bold text-[#F59E0B] leading-none mb-1"
-                    style={{ letterSpacing: "-0.02em" }}
+                    key={panel.name}
+                    className="bg-white rounded-lg overflow-hidden border-t-[3px] border-t-[#F59E0B]"
                   >
-                    {card.amount}
-                  </div>
-                  <div className="font-mono text-[9px] text-[#94A3B8]">
-                    {card.amountLabel}
-                  </div>
-                </div>
+                    <div className="px-5 pt-4 pb-3 border-b border-[#E2E8F0]">
+                      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+                        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#B45309] bg-[#FFFBEB] border border-[#FDE68A] px-2 py-0.5 rounded-sm">
+                          {panel.badge}
+                        </span>
+                        <span className="font-mono text-[10px] font-bold text-[#B91C1C]">
+                          {panel.consequence}
+                        </span>
+                      </div>
+                      <div className="text-sm font-medium text-[#0D1B2A] mb-0.5">
+                        {panel.name}
+                      </div>
+                      <div className="font-mono text-[9px] text-[#94A3B8]">
+                        {panel.citation}
+                      </div>
+                    </div>
 
-                <div className="h-px bg-[#E2E8F0] mx-5" />
+                    <div className="px-5 py-3 border-b border-[#E2E8F0]">
+                      <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#94A3B8] mb-1.5">
+                        What happened
+                      </div>
+                      <p className="text-xs text-[#1E293B] leading-relaxed">
+                        {panel.what}
+                      </p>
+                    </div>
 
-                <div className="p-5">
-                  <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#94A3B8] mb-2">
-                    {card.bodyLabel}
+                    <div className="px-5 py-3 bg-[#4F46E5]">
+                      <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/[0.62] mb-1.5">
+                        With ERA CUE
+                      </div>
+                      <p className="text-xs text-white leading-relaxed">
+                        {panel.era}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-[#1E293B] leading-relaxed mb-2">
-                    {card.body}
-                  </p>
-                  <div className="font-mono text-[9px] text-[#94A3B8]">
-                    {card.cite}
-                  </div>
-                </div>
+                ),
+              )}
+            </div>
 
-                <div className="bg-[#4F46E5] p-4">
-                  <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/[0.55] mb-1.5">
-                    With ERA CUE
-                  </div>
-                  <p className="text-sm text-white leading-relaxed">
-                    {card.era}
-                  </p>
-                </div>
+            {/* RIGHT — three positive panels */}
+            <div className="space-y-3">
+              <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/[0.40] pl-1 md:hidden">
+                Three standards ERA CUE operationalizes
               </div>
-            ))}
-          </div>
 
-          <div className="text-center mt-6">
-            <p className="font-mono text-xs text-white/[0.40] max-w-xl mx-auto leading-relaxed">
-              ERA CUE produces the supervisory evidence each of these
-              regulations requires — before publication.
-            </p>
+              {REGULATORY_PANELS.filter((p) => p.type === "positive").map(
+                (panel) => (
+                  <div
+                    key={panel.name}
+                    className="bg-white rounded-lg overflow-hidden border-t-[3px] border-t-[#0D9488]"
+                  >
+                    <div className="px-5 pt-4 pb-3 border-b border-[#E2E8F0]">
+                      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+                        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#0F766E] bg-[#F0FDFA] border border-[#99F6E4] px-2 py-0.5 rounded-sm">
+                          {panel.badge}
+                        </span>
+                        <span className="font-mono text-[9px] font-medium text-[#0D9488]">
+                          {panel.who}
+                        </span>
+                      </div>
+                      <div className="text-sm font-medium text-[#0D1B2A] mb-0.5">
+                        {panel.name}
+                      </div>
+                      <div className="font-mono text-[9px] text-[#94A3B8]">
+                        {panel.citation}
+                      </div>
+                    </div>
+
+                    <div className="px-5 py-3 border-b border-[#E2E8F0]">
+                      <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#94A3B8] mb-1.5">
+                        The requirement
+                      </div>
+                      <p className="text-xs text-[#1E293B] leading-relaxed">
+                        {panel.what}
+                      </p>
+                    </div>
+
+                    <div className="px-5 py-3 bg-[#0D9488]">
+                      <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/[0.62] mb-1.5">
+                        ERA CUE operationalizes this
+                      </div>
+                      <p className="text-xs text-white leading-relaxed">
+                        {panel.era}
+                      </p>
+                    </div>
+                  </div>
+                ),
+              )}
+
+              <p className="font-mono text-[10px] text-white/[0.42] leading-relaxed pt-1">
+                Regulatory citations are to publicly available
+                enforcement actions and statutory text. ERA CUE does
+                not provide legal advice. Consult qualified counsel
+                regarding the applicability of these requirements to
+                your organization.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -865,7 +999,7 @@ export default function Home() {
           </div>
 
           <p className="font-mono text-[10px] text-white/[0.14] mt-8 max-w-2xl mx-auto leading-relaxed text-center">
-            SEC v. DraftKings Inc., Release No. 34-101130 (Sept. 26, 2024)
+            SEC v. DraftKings Inc., Release No. 34-101198 (Sept. 26, 2024)
             · FINRA v. M1 Finance LLC (March 18, 2024) · EU AI Act Art. 50,
             effective August 2, 2026. ERA CUE produces supervisory records
             and governance evidence. ERA CUE does not provide legal advice
