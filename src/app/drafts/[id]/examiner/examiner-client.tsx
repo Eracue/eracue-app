@@ -25,6 +25,12 @@ export type DraftRow = {
   intended_audience: "public" | "limited" | "institutional" | null;
   users: { name: string; title: string | null; email: string | null } | null;
   campaigns: { name: string } | null;
+  // Optional publication fields. Populated from the published_*
+  // columns when scripts/migrate-publication-fields.ts has been run;
+  // null otherwise. The receipt uses these for Row 5 of the summary.
+  published_platform?: string | null;
+  published_url?: string | null;
+  published_at?: string | null;
 };
 
 export type ActionRow = {
@@ -569,8 +575,14 @@ function SummaryView({
         </div>
       )}
 
-      {/* Key details grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {/* Key details grid. Expands from a 4-cell to a 5-cell row when
+          a publication has been recorded so 'Published on' joins the
+          existing labels in line. */}
+      <div
+        className={`grid grid-cols-2 ${
+          draft.published_platform ? "md:grid-cols-5" : "md:grid-cols-4"
+        } gap-4 mb-8`}
+      >
         <div>
           <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
             Speaker
@@ -612,6 +624,25 @@ function SummaryView({
             })}
           </div>
         </div>
+        {draft.published_platform && (
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
+              Published on
+            </div>
+            <div className="text-sm text-[#0F172A] capitalize">
+              {draft.published_platform.replace(/_/g, " ")}
+            </div>
+            {draft.published_at && (
+              <div className="text-xs text-[#64748B]">
+                {new Date(draft.published_at).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Approval timeline — sits between the key-details grid and the

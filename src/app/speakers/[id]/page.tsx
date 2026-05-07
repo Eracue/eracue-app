@@ -221,7 +221,7 @@ export default async function SpeakerProfilePage({ params }: PageProps) {
                         href={`/drafts/${d.id}/examiner`}
                         className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors"
                       >
-                        Examiner record →
+                        Communication record →
                       </Link>
                     </div>
                   </div>

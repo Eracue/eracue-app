@@ -3,6 +3,7 @@ import { DEMO_ORG_ID } from "@/lib/demo-config";
 import { getSupabaseAdmin, type CheckEntry } from "@/lib/checks";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/app/site-header";
+import { PublicationRecord } from "./publication-record";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -50,9 +51,36 @@ async function getDraftWithActions(id: string) {
 
  if (aErr) throw new Error(aErr.message);
 
+ // Publication fields live on three new columns added by
+ // scripts/migrate-publication-fields.ts. Until that migration runs the
+ // select errors with PostgREST 42703 — caught silently here so the
+ // page still renders. Once the SQL is applied, values flow through.
+ let publication: { platform: string | null; url: string | null; at: string | null } = {
+   platform: null,
+   url: null,
+   at: null,
+ };
+ try {
+   const { data: pubRow, error: pubErr } = await sb
+     .from("drafts")
+     .select("published_platform, published_url, published_at")
+     .eq("id", id)
+     .maybeSingle();
+   if (!pubErr && pubRow) {
+     publication = {
+       platform: (pubRow as { published_platform?: string | null }).published_platform ?? null,
+       url: (pubRow as { published_url?: string | null }).published_url ?? null,
+       at: (pubRow as { published_at?: string | null }).published_at ?? null,
+     };
+   }
+ } catch {
+   // Columns missing — leave publication as nulls.
+ }
+
  return {
  draft: draft as unknown as DraftRow,
  actions: (actions || []) as ActionRow[],
+ publication,
  };
 }
 
@@ -177,7 +205,7 @@ export default async function DraftDetailPage({ params }: PageProps) {
  const { id } = await params;
  const result = await getDraftWithActions(id);
  if (!result) notFound();
- const { draft, actions } = result;
+ const { draft, actions, publication } = result;
 
  // Find the MOST RECENT verdict_issued action — older drafts have a second
  // verdict_issued written by the reclassify script. The first one is stale.
@@ -393,26 +421,16 @@ export default async function DraftDetailPage({ params }: PageProps) {
  </div>
  )}
 
- {/* Publication record placeholder — coming-soon panel that will
- eventually capture where/when the approved draft was published
- and verify the published text matches the approved version. */}
+ {/* Publication record — visible for approved/overridden drafts.
+ Renders the recorded platform/url/timestamp when present, the
+ capture form when not. Backed by recordPublicationAction. */}
  {(draft.status === "approved" || draft.status === "overridden") && (
- <div className="bg-[#F8F9FB] border border-dashed border-[#E2E8F0] rounded-sm p-5 mb-4">
- <div className="flex items-center justify-between mb-2">
- <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
- Publication Record
- </div>
- <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#94A3B8] px-2 py-0.5 rounded-sm border border-[#E2E8F0]">
- Coming soon
- </span>
- </div>
- <div className="text-sm text-[#94A3B8] leading-relaxed">
- Once published, record where and when this approved draft went live. ERA CUE will verify the published text matches the approved version.
- </div>
- <div className="font-mono text-[10px] text-[#94A3B8] mt-2">
- Platform · URL · Publication timestamp · Hash verification
- </div>
- </div>
+ <PublicationRecord
+ draftId={draft.id}
+ existingPlatform={publication.platform}
+ existingUrl={publication.url}
+ existingPublishedAt={publication.at}
+ />
  )}
 
  {/* Checks Performed */}

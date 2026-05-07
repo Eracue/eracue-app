@@ -30,6 +30,35 @@ async function getExaminerRecord(draftId: string) {
     .single();
   if (dErr || !draft) return null;
 
+  // Publication fields live on three columns added by
+  // scripts/migrate-publication-fields.ts. The select is wrapped in
+  // try/catch so the receipt still renders before the migration is
+  // applied — values stay null in that window.
+  let pubFields: {
+    published_platform: string | null;
+    published_url: string | null;
+    published_at: string | null;
+  } = { published_platform: null, published_url: null, published_at: null };
+  try {
+    const { data: pubRow, error: pubErr } = await sb
+      .from("drafts")
+      .select("published_platform, published_url, published_at")
+      .eq("id", draftId)
+      .maybeSingle();
+    if (!pubErr && pubRow) {
+      pubFields = {
+        published_platform:
+          (pubRow as { published_platform?: string | null }).published_platform ?? null,
+        published_url:
+          (pubRow as { published_url?: string | null }).published_url ?? null,
+        published_at:
+          (pubRow as { published_at?: string | null }).published_at ?? null,
+      };
+    }
+  } catch {
+    // Columns missing — leave nulls.
+  }
+
   const { data: actions } = await sb
     .from("actions")
     .select(
@@ -70,7 +99,7 @@ async function getExaminerRecord(draftId: string) {
   }
 
   return {
-    draft: draft as unknown as DraftRow,
+    draft: { ...(draft as object), ...pubFields } as unknown as DraftRow,
     actions: (actions || []) as ActionRow[],
     rules,
     actors,

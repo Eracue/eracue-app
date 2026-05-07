@@ -12,8 +12,8 @@ export const fetchCache = "force-no-store";
 
 const EXAMINER_DRAFT_ID = "e71b56c1-2e30-4a9c-bb78-f0db7ee1f651";
 // CCO role card links to a different blocked Marcus Rivera draft so the
-// examiner record on that page demonstrates a different rule firing path
-// than the one in the Examiner Record section below.
+// communication record on that page demonstrates a different rule firing path
+// than the one in the Communication Record section below.
 const CCO_EXAMINER_DRAFT_ID = "afe14696-5336-4336-a0b7-c3410477ec31";
 
 // ---------- Small reusable pieces -----------------------------------------
@@ -74,36 +74,36 @@ export default function Home() {
       <SiteHeader />
 
       {/* ============================================================
-          SECTION 1 — HERO
+          SECTION 1 — HERO (dark)
          ============================================================ */}
-      <section>
-        <div className="max-w-[1100px] mx-auto px-6 pt-20 pb-16">
+      <section className="bg-[#0F172A] min-h-[90vh] flex flex-col justify-center py-32 md:py-40">
+        <div className="max-w-[1100px] mx-auto px-6 w-full">
           <div className="flex flex-wrap items-center gap-2 mb-6">
             {/* Badge 1 — Governance Infrastructure */}
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-[#F8FAFC] text-[#475569] border-[#CBD5E1]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#64748B] inline-block shrink-0"></span>
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-white/10 text-white/60 border-white/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-white/60 inline-block shrink-0"></span>
               Governance Infrastructure
             </span>
             {/* Badge 2 — FINRA Rule 3110 */}
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-[#EFF8FF] text-[#1447C0] border-[#BAE6FD]">
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-white/10 text-white/60 border-white/20">
               <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block shrink-0"></span>
               FINRA Rule 3110
             </span>
             {/* Badge 3 — EU AI Act */}
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]">
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-sm border bg-white/10 text-white/60 border-white/20">
               <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] inline-block shrink-0"></span>
               EU AI Act Art. 50
             </span>
           </div>
 
           <h1
-            className="font-light leading-tight tracking-tight text-[#0F172A] text-4xl md:text-5xl max-w-3xl mb-6"
+            className="font-light leading-tight tracking-tight text-white text-5xl md:text-7xl max-w-4xl mb-6"
             style={{ fontFamily: "var(--font-newsreader)" }}
           >
             The governed moment between AI and publish.
           </h1>
 
-          <p className="text-base md:text-lg font-normal text-[#374151] max-w-xl leading-relaxed mb-10">
+          <p className="text-lg md:text-xl font-normal text-white/70 max-w-2xl leading-relaxed mb-10">
             AI drafts. Executives post. Nobody has a record that anyone
             checked — or that the messaging was consistent with last week.
             ERA CUE changes that.
@@ -112,40 +112,40 @@ export default function Home() {
           <div className="mb-8">
             <Link
               href="/submit"
-              className="inline-flex items-center bg-[#0F172A] text-white text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#1E293B] transition"
+              className="inline-flex items-center bg-[#1A56DB] text-white text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#1447C0] transition"
             >
               Check a draft before it goes live →
             </Link>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#1447C0]">
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-white/60">
               <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block"></span>
               FINRA Rule 3110 · Supervision
             </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#1447C0]">
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-white/60">
               <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block"></span>
               FINRA Rule 2210 · Communications
             </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#475569]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#64748B] inline-block"></span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-white/60">
+              <span className="w-1.5 h-1.5 rounded-full bg-white/60 inline-block"></span>
               SEC Reg FD · Fair Disclosure
             </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#475569]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#64748B] inline-block"></span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-white/60">
+              <span className="w-1.5 h-1.5 rounded-full bg-white/60 inline-block"></span>
               SEC Rule 204-2 · RIA Records
             </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#92400E]">
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-white/60">
               <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] inline-block"></span>
               EU AI Act Art. 50 · Transparency
             </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[#475569]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#64748B] inline-block"></span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-white/60">
+              <span className="w-1.5 h-1.5 rounded-full bg-white/60 inline-block"></span>
               SEC Rule 17a-4 · Retention
             </span>
           </div>
 
-          <p className="text-sm text-[#374151] mt-4 max-w-md leading-relaxed">
+          <p className="text-sm text-white/50 mt-4 max-w-md leading-relaxed">
             Paste any executive communication. ERA CUE checks it against your
             governance rules, flags violations, and routes it to your designated
             principal — before it reaches the public.
@@ -169,14 +169,15 @@ export default function Home() {
             ERA CUE caught it before it went live. Here is the complete record.
           </p>
 
-          {/* Evidence artifact */}
-          <div className="bg-white border border-[#E2E8F0] rounded-sm p-8">
+          {/* Evidence artifact — left blue rule grounds the card to the
+              brand accent and visually anchors the verdict that follows. */}
+          <div className="bg-white border border-[#E2E8F0] border-l-4 border-l-[#1A56DB] rounded-sm p-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Column 1 — Draft */}
               <div>
                 <Eyebrow>DRAFT · CEO · LINKEDIN · AI ASSISTED</Eyebrow>
                 <p
-                  className="italic text-lg text-[#0F172A] mt-3 leading-snug"
+                  className="italic text-lg md:text-xl text-[#0F172A] mt-3 leading-snug"
                   style={{ fontFamily: "var(--font-newsreader)" }}
                 >
                   &ldquo;We&apos;re aggressively hiring across engineering and
@@ -240,15 +241,17 @@ export default function Home() {
       </section>
 
       {/* ============================================================
-          SECTION 3 — FIVE ROLE CARDS
+          SECTION 3 — FIVE ROLE CARDS (dark)
           2×2 grid for cards 01–04 with card 05 spanning full width on
-          its own row (signalled by the lighter #F8F9FB card background).
+          its own row (signalled by a lifted bg-white/8 surface).
          ============================================================ */}
-      <section>
-        <div className="max-w-[1100px] mx-auto px-6 py-16">
-          <Eyebrow>BUILT FOR EVERY ROLE</Eyebrow>
+      <section className="bg-[#0F172A]">
+        <div className="max-w-[1100px] mx-auto px-6 py-20">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-white/50 mb-2">
+            BUILT FOR EVERY ROLE
+          </div>
           <h2
-            className="text-2xl font-light text-[#0F172A] mt-2 mb-2"
+            className="text-2xl md:text-3xl font-light text-white mt-2 mb-2"
             style={{ fontFamily: "var(--font-newsreader)" }}
           >
             From the executive drafting the post to the examiner reviewing the record.
@@ -256,14 +259,14 @@ export default function Home() {
 
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* CARD 01 — Executive */}
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+            <div className="bg-white/5 border border-white/10 rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-white/50 mb-3">
                 EXECUTIVE · FOUNDER · CEO
               </div>
-              <div className="text-lg font-semibold text-[#0F172A] mb-2 leading-snug">
+              <div className="text-lg font-semibold text-white mb-2 leading-snug">
                 Check it before you post.
               </div>
-              <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+              <p className="text-sm text-white/60 leading-relaxed mb-4 flex-1">
                 Draft anything. ERA CUE checks it against your
                 organization&apos;s active governance rules in under one
                 second. If something&apos;s wrong, you see exactly why —
@@ -271,21 +274,21 @@ export default function Home() {
               </p>
               <Link
                 href="/submit"
-                className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-auto transition-colors"
+                className="font-mono text-xs text-[#60A5FA] hover:text-white mt-auto transition-colors"
               >
                 Check a draft →
               </Link>
             </div>
 
             {/* CARD 02 — CMO / Comms / Brand */}
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+            <div className="bg-white/5 border border-white/10 rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-white/50 mb-3">
                 CMO · VP COMMS · PR AGENCY
               </div>
-              <div className="text-lg font-semibold text-[#0F172A] mb-2 leading-snug">
+              <div className="text-lg font-semibold text-white mb-2 leading-snug">
                 See everything before it goes live.
               </div>
-              <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+              <p className="text-sm text-white/60 leading-relaxed mb-4 flex-1">
                 Every executive on your team. Every campaign. Every channel.
                 ERA CUE flags contradictions, catches violations, and checks
                 new drafts against your team&apos;s approved statement
@@ -293,58 +296,58 @@ export default function Home() {
               </p>
               <Link
                 href="/dashboard"
-                className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-auto transition-colors"
+                className="font-mono text-xs text-[#60A5FA] hover:text-white mt-auto transition-colors"
               >
                 View the dashboard →
               </Link>
             </div>
 
             {/* CARD 03 — CCO / GC / RIA / Broker-dealer */}
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+            <div className="bg-white/5 border border-white/10 rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-white/50 mb-3">
                 CCO · GENERAL COUNSEL · RIA · BROKER-DEALER
               </div>
-              <div className="text-lg font-semibold text-[#0F172A] mb-2 leading-snug">
+              <div className="text-lg font-semibold text-white mb-2 leading-snug">
                 The supervisory record, ready for examination.
               </div>
-              <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+              <p className="text-sm text-white/60 leading-relaxed mb-4 flex-1">
                 FINRA Rule 3110
                 <a href="#ref-1">
-                  <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">1</sup>
+                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#60A5FA]">1</sup>
                 </a>{" "}
                 requires named principal review of communications. Rule
                 2210(b)
                 <a href="#ref-2">
-                  <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">2</sup>
+                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#60A5FA]">2</sup>
                 </a>{" "}
                 requires pre-approval of retail communications. SEC Rule
                 204-2
                 <a href="#ref-5">
-                  <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">5</sup>
+                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#60A5FA]">5</sup>
                 </a>{" "}
                 requires records of all advisory communications. ERA CUE
                 produces all three — in one governed submission.
               </p>
               <Link
                 href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
-                className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-auto transition-colors"
+                className="font-mono text-xs text-[#60A5FA] hover:text-white mt-auto transition-colors"
               >
                 See the examiner record →
               </Link>
             </div>
 
             {/* CARD 04 — IR / General Counsel / Public Co */}
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+            <div className="bg-white/5 border border-white/10 rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-white/50 mb-3">
                 IR · GENERAL COUNSEL · PUBLIC COMPANY
               </div>
-              <div className="text-lg font-semibold text-[#0F172A] mb-2 leading-snug">
+              <div className="text-lg font-semibold text-white mb-2 leading-snug">
                 Reg FD enforced at the moment of drafting.
               </div>
-              <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+              <p className="text-sm text-white/60 leading-relaxed mb-4 flex-1">
                 In 2024, SEC charged DraftKings
                 <a href="#ref-6">
-                  <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">6</sup>
+                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#60A5FA]">6</sup>
                 </a>{" "}
                 $200K after the CEO posted material nonpublic information
                 on personal LinkedIn and X accounts during a quiet period.
@@ -354,21 +357,21 @@ export default function Home() {
               </p>
               <Link
                 href="/rules"
-                className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-auto transition-colors"
+                className="font-mono text-xs text-[#60A5FA] hover:text-white mt-auto transition-colors"
               >
                 See active rules →
               </Link>
             </div>
 
             {/* CARD 05 — Investment bank / PE / Hedge fund · full width */}
-            <div className="md:col-span-2 bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-6 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+            <div className="md:col-span-2 bg-white/[0.08] border border-white/15 rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-white/50 mb-3">
                 INVESTMENT BANK · PRIVATE EQUITY · HEDGE FUND
               </div>
-              <div className="text-lg font-semibold text-[#0F172A] mb-2 leading-snug">
+              <div className="text-lg font-semibold text-white mb-2 leading-snug">
                 Deal-specific quiet periods. Every partner. Every portfolio company.
               </div>
-              <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+              <p className="text-sm text-white/60 leading-relaxed mb-4 flex-1">
                 Every deal, fundraise, and exit creates a communications
                 minefield. ERA CUE enforces transaction-specific quiet
                 periods across your entire team — partners, associates,
@@ -377,7 +380,7 @@ export default function Home() {
               </p>
               <Link
                 href="/rules"
-                className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-auto transition-colors"
+                className="font-mono text-xs text-[#60A5FA] hover:text-white mt-auto transition-colors"
               >
                 See how rules work →
               </Link>
@@ -670,15 +673,15 @@ export default function Home() {
           single primary CTA before the legal small-print closes
           things out.
          ============================================================ */}
-      <section className="border-t border-[#E2E8F0] py-16 px-6 md:px-12 text-center">
+      <section className="bg-[#0F172A] py-20 px-6 md:px-12 text-center">
         <div className="max-w-[1100px] mx-auto">
           <div
             style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-2xl font-light text-[#0F172A] mb-3"
+            className="text-3xl md:text-4xl font-light text-white mb-3"
           >
             Ready to govern your communications?
           </div>
-          <div className="text-sm text-[#374151] mb-8 max-w-md mx-auto leading-relaxed">
+          <div className="text-base text-white/60 mb-8 max-w-md mx-auto leading-relaxed">
             ERA CUE is in early access. Request a demo or ask about
             deployment for your organization.
           </div>
@@ -688,7 +691,7 @@ export default function Home() {
           >
             Request early access →
           </a>
-          <div className="font-mono text-xs text-[#94A3B8] mt-4">
+          <div className="font-mono text-xs text-white/40 mt-4">
             or email hello@eracue.com
           </div>
         </div>

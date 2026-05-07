@@ -214,8 +214,8 @@ export function ExaminerPdf({ draft, actions, rules, actors }: Props) {
       <Page size="LETTER" style={styles.page} wrap>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.recordLabel}>Examiner Record</Text>
-          <Text style={styles.recordTitle}>ERA CUE Audit Record</Text>
+          <Text style={styles.recordLabel}>Communication Record</Text>
+          <Text style={styles.recordTitle}>ERA CUE Communication Record</Text>
           <Text style={styles.draftId}>Draft ID: {draft.id}</Text>
           <Text style={styles.generated}>Generated: {fmtTime(generatedAt)}</Text>
         </View>

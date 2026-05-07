@@ -514,7 +514,7 @@ export function DraftsClient({
               <th className="w-24 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Channel</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Draft</th>
               <th className="w-44 text-left px-4 py-3 text-xs font-semibold text-[#64748B]">Status</th>
-              <th className="w-36 px-4 py-3" aria-label="Examiner record link" />
+              <th className="w-36 px-4 py-3" aria-label="Communication record link" />
             </tr>
           </thead>
           <tbody>
