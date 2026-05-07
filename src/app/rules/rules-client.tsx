@@ -9,6 +9,7 @@ import {
   createRulesFromImport,
   type CandidateRuleInput,
 } from "./create-rules-action";
+import { saveRuleUpdates, type RuleUpdates } from "./update-rule-action";
 
 // CandidateRule is the union shape every tab feeds into the same review
 // list — `source` records where the rule came from so the audit trail can
@@ -19,8 +20,21 @@ type ImportMode = "templates" | "paste" | "upload" | "manual";
 const TABS: ReadonlyArray<{ key: ImportMode; label: string }> = [
   { key: "templates", label: "Templates" },
   { key: "paste", label: "Paste policy" },
-  { key: "upload", label: "Upload doc" },
   { key: "manual", label: "Type rules" },
+  { key: "upload", label: "Upload doc" },
+];
+
+// Six firm types the Templates tab cycles through. Each maps to a
+// templatesFor() bucket via the same alias rules — `pr_agency` and
+// `executive_team` fall back to the broker_dealer set since their
+// starter governance overlaps heavily with retail communications.
+const FIRM_TYPE_BUTTONS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: "broker_dealer", label: "Broker-Dealer" },
+  { key: "ria", label: "RIA" },
+  { key: "public_company", label: "Public Company" },
+  { key: "pr_agency", label: "PR Agency" },
+  { key: "executive_team", label: "Executive Team" },
+  { key: "investment_bank", label: "Investment Bank / PE" },
 ];
 
 // Pre-built starter rules per firm type. The Templates tab shows these
@@ -211,13 +225,6 @@ function classifyFreshness(
 
 type Tab = "all" | "active" | "expired" | "deactivated";
 
-const VERDICT_STRIPE: Record<string, string> = {
-  block:    "bg-[#B91C1C]",
-  escalate: "bg-[#C2410C]",
-  review:   "bg-[#1D4ED8]",
-  guide:    "bg-[#6D28D9]",
-};
-
 const VERDICT_BADGE: Record<string, { bg: string; text: string; border: string; label: string }> = {
   block:    { bg: "bg-[#FEF2F2]", text: "text-[#B91C1C]", border: "border-[#FECACA]", label: "BLOCK" },
   escalate: { bg: "bg-[#FFF7ED]", text: "text-[#C2410C]", border: "border-[#FED7AA]", label: "ESCALATE" },
@@ -312,11 +319,22 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   const [importError, setImportError] = useState<string | null>(null);
   // Post-authorization success state. Set on the next tick after the
   // import action returns ok; powers the green success card with the
-  // "Check your first draft →" CTA.
+  // "Check your first draft →" CTA + "Add more rules" secondary.
   const [justAuthorized, setJustAuthorized] = useState(false);
   const [authorizedCount, setAuthorizedCount] = useState(0);
+  // Templates tab now lets the user switch firm-type buckets without
+  // leaving the page (defaults to whatever the org was created with).
+  const [firmTypeFilter, setFirmTypeFilter] = useState<string>(
+    firmType ?? "broker_dealer",
+  );
+  // Inline rule editing — when set, the matching rule card expands to
+  // show the EditRulePanel instead of opening the side AddRulePanel.
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
 
-  const templateRules = useMemo(() => templatesFor(firmType), [firmType]);
+  const templateRules = useMemo(
+    () => templatesFor(firmTypeFilter),
+    [firmTypeFilter],
+  );
 
   async function handleExtract(mode: ImportMode) {
     setImportError(null);
@@ -437,19 +455,43 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   // should actually do something about. "silent" rules don't count
   // (an active rule with zero triggers might just mean the team is
   // disciplined, not that the rule is broken).
-  const driftCount = useMemo(() => {
-    return classified.filter(({ rule, classification }) => {
-      if (classification !== "active") return false;
-      const f = classifyFreshness(rule, now).freshness;
-      return f === "needs_calibration" || f === "expiring";
-    }).length;
+  // Per-bucket lists for the bottom "rules need attention" panel.
+  // Expiring = within 14 days of effective_to. Needs calibration =
+  // ≥3 triggers and effectiveness <40%. Everything else is fine and
+  // doesn't surface here.
+  const expiringRules = useMemo(() => {
+    return classified
+      .filter(({ rule, classification }) => {
+        if (classification !== "active") return false;
+        return classifyFreshness(rule, now).freshness === "expiring";
+      })
+      .map(({ rule }) => rule);
   }, [classified, now]);
 
-  function handleDeactivate(id: string) {
-    const reason = window.prompt("Why are you deactivating this rule?");
-    if (!reason || !reason.trim()) return;
+  const needsCalibration = useMemo(() => {
+    return classified
+      .filter(({ rule, classification }) => {
+        if (classification !== "active") return false;
+        return classifyFreshness(rule, now).freshness === "needs_calibration";
+      })
+      .map(({ rule }) => rule);
+  }, [classified, now]);
+
+  function handleDeactivate(id: string, ruleName: string) {
+    // Simple confirm — no modal. The deactivate action stores a
+    // canonical reason ("Deactivated by principal") since the demo
+    // visitor doesn't have an audit-trail-quality justification to
+    // type and we'd rather not block the action behind a free-text
+    // prompt.
+    const ok = window.confirm(
+      `Deactivate "${ruleName}"? ERA CUE will stop enforcing this rule immediately. You can reactivate it from the Deactivated tab.`,
+    );
+    if (!ok) return;
     startTransition(async () => {
-      const result = await deactivateRuleAction({ ruleId: id, reason: reason.trim() });
+      const result = await deactivateRuleAction({
+        ruleId: id,
+        reason: "Deactivated by principal",
+      });
       if (!result.ok) {
         alert("Could not deactivate: " + result.error);
         return;
@@ -461,168 +503,98 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   return (
     <main className="min-h-screen bg-[#F8F9FB]">
       <div className="max-w-[1100px] mx-auto px-6 pt-10 pb-6">
-        {/* Header row */}
-        <div className="flex justify-between items-start gap-6">
-          <div>
-            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-              {IS_DEMO_MODE
-                ? "GOVERNANCE RULES"
-                : "GOVERNANCE RULES · AUTHORIZED BY SARAH CHEN, GC"}
-            </div>
-            <h1
-              style={{ fontFamily: "var(--font-newsreader)" }}
-              className="font-light text-3xl text-[#0F172A] mt-2"
-            >
-              {IS_DEMO_MODE
-                ? "Configure what ERA CUE enforces before checking any drafts."
-                : "Your rules govern every speaker, every draft."}
-            </h1>
-            {!IS_DEMO_MODE && (
-              <p className="text-sm text-[#64748B] max-w-xl mt-2 leading-relaxed">
-                One principal. Every speaker on your team checks against these
-                policies before anything goes live. Add a rule and it takes
-                effect immediately.
-              </p>
-            )}
-
-            {/* Framing notice. In demo mode this reads "rules before drafts"
-                — the entry point for visitors clicking through. In
-                production it stays as the WSP framing so authorized
-                principals see the regulatory positioning instead. */}
-            {IS_DEMO_MODE ? (
-              <div className="mt-4 bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm px-5 py-4 flex items-start gap-4 max-w-2xl">
-                <div
-                  className="shrink-0 mt-0.5 font-mono text-[#1A56DB] text-lg"
-                  aria-hidden
-                >
-                  ←
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-[#0F172A] mb-1">
-                    Start here. Rules before drafts.
-                  </div>
-                  <div className="text-sm text-[#374151]">
-                    ERA CUE checks every draft against your active rules.
-                    Configure your governance policies first — then check
-                    your team&apos;s communications.
-                  </div>
-                  <div className="font-mono text-[10px] text-[#64748B] mt-2">
-                    The example rules below show what ERA CUE can enforce.
-                    Import your own policies to get started.
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-4 bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm px-5 py-4 flex items-start gap-4 max-w-2xl">
-                <div className="shrink-0 mt-0.5">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#1A56DB"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <line x1="16" y1="13" x2="8" y2="13" />
-                    <line x1="16" y1="17" x2="8" y2="17" />
-                    <polyline points="10 9 9 9 8 9" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-[#0F172A] mb-1">
-                    ERA CUE enforces your Written Supervisory Procedures.
-                  </div>
-                  <div className="text-sm text-[#374151] leading-relaxed">
-                    Each rule references the WSP section it implements. ERA CUE
-                    becomes the enforcement layer of your existing supervisory
-                    framework — not a replacement for it.
-                  </div>
-                  <div className="font-mono text-xs text-[#1A56DB] mt-2">
-                    Add a WSP reference when creating or editing any rule →
-                  </div>
-                </div>
-              </div>
-            )}
+        {/* PAGE HEADER — copy adapts to whether any rules exist yet so
+            the page reads "configure ERA CUE" on first visit and
+            "<N> rules governing your team" once policies are active. */}
+        <div className="mb-6">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            Governance rules
           </div>
-          <div className="flex gap-2 shrink-0">
+          <h1
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-3xl font-light text-[#0F172A] mb-2"
+          >
+            {counts.active > 0
+              ? `${counts.active} rule${counts.active !== 1 ? "s" : ""} governing your team's communications.`
+              : "Configure ERA CUE before checking any draft."}
+          </h1>
+          <p className="text-sm text-[#64748B] max-w-2xl leading-relaxed">
+            {counts.active > 0
+              ? "Every draft your team submits is checked against these rules before publication."
+              : "Rules are ERA CUE's enforcement layer. Configure your governance policies first — then check your team's communications."}
+          </p>
+        </div>
+
+        {/* ACTION BAR — Add rule + Import toggle on the left, "Check a
+            draft" link on the right (only when at least one rule is
+            active so the next-step nudge isn't a misdirection on a
+            fresh page). */}
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setIsAddOpen(true)}
-              className="bg-[#1A56DB] text-white text-sm font-semibold px-5 py-2.5 rounded-sm hover:bg-[#1447C0] transition"
+              className="bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#1447C0] transition-colors flex items-center gap-1.5"
             >
+              <span aria-hidden>+</span>
               Add a rule
             </button>
             <button
               type="button"
               onClick={() => setShowImport((o) => !o)}
-              className="bg-white border border-[#E2E8F0] text-[#0F172A] text-sm px-4 py-2 rounded-sm hover:bg-[#F8F9FB] transition cursor-pointer"
+              className={`font-mono text-xs font-medium px-4 py-2 rounded-sm border transition-colors ${
+                showImport
+                  ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0]"
+                  : "bg-white border-[#E2E8F0] text-[#374151] hover:bg-[#F8F9FB]"
+              }`}
             >
-              {showImport ? "Close import" : "Import existing policies"}
+              {showImport ? "× Close import" : "↑ Import policies"}
             </button>
           </div>
+          {counts.active > 0 && (
+            <a
+              href="/submit"
+              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
+            >
+              Check a draft →
+            </a>
+          )}
         </div>
 
-        {/* Import existing policies — four-tab panel. Templates fires
-            without an extraction round-trip; the other three tabs run
-            text through extractRulesFromWsp before showing candidate
-            cards. Sits between the header and the stats strip so the
-            review surface sits above the live rule list. */}
-        <div className="bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm mb-6 mt-6">
-          {/* Header — always visible so the user can re-collapse without
-              losing scroll position. */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#BAE6FD]">
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#1A56DB] mb-0.5">
-                Import existing policies
-              </div>
-              <div className="text-sm text-[#374151]">
-                ERA CUE converts your existing compliance policies into active governance rules.
-              </div>
+        {/* Import existing policies — four-tab panel. The wrapper drops
+            its own header (the action bar above is the toggle now), so
+            the panel reads as the four tabs + their content body. */}
+        {showImport && (
+          <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm mb-6 overflow-hidden">
+            {/* Tab bar — underline-style, mirrors the dashboard tabs */}
+            <div className="flex border-b border-[#E2E8F0]">
+              {TABS.map((t) => {
+                const selected = importMode === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => {
+                      setImportMode(t.key);
+                      // Reset extraction state on tab change so stale
+                      // candidates from another tab don't render.
+                      setCandidates([]);
+                      setConfirmed(new Set());
+                      setImportError(null);
+                    }}
+                    className={`flex-1 font-mono text-[10px] uppercase tracking-widest py-3 px-4 transition-colors border-b-2 cursor-pointer ${
+                      selected
+                        ? "border-[#1A56DB] text-[#1A56DB] bg-white"
+                        : "border-transparent text-[#64748B] hover:text-[#0F172A] bg-transparent"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
             </div>
-            <button
-              type="button"
-              onClick={() => setShowImport((o) => !o)}
-              className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors cursor-pointer"
-            >
-              {showImport ? "Close ×" : "Open →"}
-            </button>
-          </div>
 
-          {showImport && (
-            <div className="px-5 py-4">
-              {/* Four tabs */}
-              <div className="flex gap-1 mb-4 bg-[#DBEAFE] p-1 rounded-sm">
-                {TABS.map((t) => {
-                  const selected = importMode === t.key;
-                  return (
-                    <button
-                      key={t.key}
-                      type="button"
-                      onClick={() => {
-                        setImportMode(t.key);
-                        // Reset extraction state on tab change so stale
-                        // candidates from another tab don't render.
-                        setCandidates([]);
-                        setConfirmed(new Set());
-                        setImportError(null);
-                      }}
-                      className={`flex-1 font-mono text-[10px] py-1.5 rounded-sm transition-colors cursor-pointer ${
-                        selected
-                          ? "bg-white text-[#0F172A] shadow-sm"
-                          : "text-[#1A56DB] hover:bg-white/50"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-
+            <div className="p-5">
               {importError && (
                 <div
                   className="bg-[#FEF2F2] border border-[#FECACA] text-[#B91C1C] text-xs font-mono rounded-sm px-3 py-2 mb-3"
@@ -635,18 +607,48 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               {/* TAB: Templates — pre-built rules per firm type. */}
               {importMode === "templates" && (
                 <div>
-                  <div className="text-sm text-[#374151] mb-4 leading-relaxed">
-                    Pre-built rules based on your firm type. Each is cited to the specific regulation it enforces. Review each rule and check the ones that apply to your organization.
+                  {/* Firm type selector — switches the templates pool
+                      without leaving the page. Resets the confirmed
+                      set so checks don't carry over across firm types. */}
+                  <div className="mb-5">
+                    <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+                      My organization is a
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {FIRM_TYPE_BUTTONS.map((ft) => {
+                        const selected = firmTypeFilter === ft.key;
+                        return (
+                          <button
+                            key={ft.key}
+                            type="button"
+                            onClick={() => {
+                              setFirmTypeFilter(ft.key);
+                              setConfirmed(new Set());
+                            }}
+                            className={`font-mono text-xs px-3 py-1.5 rounded-sm border transition-colors cursor-pointer ${
+                              selected
+                                ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0] font-medium"
+                                : "bg-white border-[#E2E8F0] text-[#64748B] hover:bg-[#F8F9FB]"
+                            }`}
+                          >
+                            {ft.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                  {templateRules.map((rule, i) => (
-                    <CandidateRuleCard
-                      key={`${rule.name}-${i}`}
-                      rule={rule}
-                      index={i}
-                      confirmed={confirmed}
-                      setConfirmed={setConfirmed}
-                    />
-                  ))}
+
+                  <div className="space-y-2 mb-4">
+                    {templateRules.map((rule, i) => (
+                      <CandidateRuleCard
+                        key={`${rule.name}-${i}`}
+                        rule={rule}
+                        index={i}
+                        confirmed={confirmed}
+                        setConfirmed={setConfirmed}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -776,6 +778,58 @@ Block posts mentioning specific fund performance`}
                     <div>✓ ERA CUE converts each line into a structured governance rule</div>
                     <div>✓ Assigns verdict type (BLOCK / ESCALATE / REVIEW / GUIDE) based on language</div>
                   </div>
+
+                  {/* Live verdict preview — heuristic match against the
+                      same verb cues the manual-mode system prompt uses
+                      ("block" / "escalate" / "review"). Lets the user
+                      see how their wording will map before committing
+                      to extraction. Capped at 10 rows so a long paste
+                      doesn't blow up the panel. */}
+                  {manualRules.trim() && (
+                    <div className="mt-3 border border-[#E2E8F0] rounded-sm divide-y divide-[#F1F5F9] overflow-hidden">
+                      {manualRules
+                        .split("\n")
+                        .map((l) => l.trim())
+                        .filter((l) => l.length > 0)
+                        .slice(0, 10)
+                        .map((line, i) => {
+                          const lower = line.toLowerCase();
+                          const verdict: "block" | "escalate" | "review" =
+                            lower.startsWith("block") ||
+                            lower.includes("never") ||
+                            lower.includes("no ") ||
+                            lower.includes("prohibit")
+                              ? "block"
+                              : lower.startsWith("escalate") ||
+                                  lower.includes("review") ||
+                                  lower.includes("require cco") ||
+                                  lower.includes("require legal")
+                                ? "escalate"
+                                : "review";
+                          const colors = {
+                            block: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]",
+                            escalate: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]",
+                            review: "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]",
+                          } as const;
+                          return (
+                            <div
+                              key={i}
+                              className="px-3 py-2.5 bg-white flex items-start gap-3"
+                            >
+                              <span
+                                className={`font-mono text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm border shrink-0 mt-0.5 ${colors[verdict]}`}
+                              >
+                                {verdict}
+                              </span>
+                              <span className="text-xs text-[#374151] leading-relaxed">
+                                {line}
+                              </span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => handleExtract("manual")}
@@ -789,10 +843,11 @@ Block posts mentioning specific fund performance`}
 
               {/* Candidate review list — paste / upload / manual. */}
               {candidates.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-[#BAE6FD]">
-                  <div className="text-sm font-medium text-[#0F172A] mb-3">
+                <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
+                  <div className="font-mono text-[10px] text-[#166534] mb-3 flex items-center gap-2">
+                    <span aria-hidden>✓</span>
                     ERA CUE found {candidates.length} rule
-                    {candidates.length !== 1 ? "s" : ""}. Review and confirm which to add.
+                    {candidates.length !== 1 ? "s" : ""} in your policy text. Review each one before authorizing.
                   </div>
                   {candidates.map((rule, i) => (
                     <CandidateRuleCard
@@ -824,47 +879,62 @@ Block posts mentioning specific fund performance`}
                 </button>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Post-authorization success card — sits between the import
-            panel and the rest of the page so the next-step CTA is the
-            first thing the user sees after the page reloads. Persists
-            until the next import run or a navigation away. */}
+            panel and the rest of the page. Dismissible (×) so the
+            user can clear it once they've moved on; "Add more rules"
+            re-opens the import panel without needing a separate path. */}
         {justAuthorized && (
-          <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-6 mb-6 text-center">
-            <div className="text-2xl mb-2" aria-hidden>
-              ✓
+          <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-5 mb-6">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="text-[#166534] text-xl mt-0.5" aria-hidden>
+                  ✓
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-[#0F172A] mb-1">
+                    {authorizedCount} rule{authorizedCount !== 1 ? "s" : ""} authorized and active
+                  </div>
+                  <div className="text-sm text-[#374151]">
+                    ERA CUE will now enforce these rules on every draft your team submits.
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setJustAuthorized(false)}
+                aria-label="Dismiss"
+                className="text-[#94A3B8] hover:text-[#64748B] font-mono text-xs ml-4 shrink-0 cursor-pointer"
+              >
+                ×
+              </button>
             </div>
-            <div className="text-base font-semibold text-[#0F172A] mb-1">
-              {authorizedCount} rule{authorizedCount !== 1 ? "s" : ""} authorized and active
+            <div className="mt-4 flex items-center gap-3 flex-wrap">
+              <a
+                href="/submit"
+                className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#1447C0] transition-colors"
+              >
+                Check your first draft →
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setJustAuthorized(false);
+                  setShowImport(true);
+                }}
+                className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+              >
+                Add more rules
+              </button>
             </div>
-            <div className="text-sm text-[#374151] mb-4">
-              ERA CUE will now enforce these rules on every draft submitted by your team.
-            </div>
-            <a
-              href="/submit"
-              className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-sm font-medium px-6 py-3 rounded-sm hover:bg-[#1447C0] transition-colors"
-            >
-              Check your first draft →
-            </a>
           </div>
         )}
 
-        {/* Governance drift summary — only renders when at least one
-            active rule needs calibration or is within its expiry
-            window. Sits above the stats strip so a principal opening
-            this page sees what to act on first. */}
-        {driftCount > 0 && (
-          <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-sm p-4 mb-4 mt-6">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#B45309] mb-1">
-              Governance drift detected
-            </div>
-            <div className="text-sm text-[#92400E]">
-              {driftCount} rule{driftCount !== 1 ? "s" : ""} need attention — either expiring soon or showing high override rates that suggest miscalibration.
-            </div>
-          </div>
-        )}
+        {/* Governance drift summary moved to the bottom of the page —
+            see the "rules need attention" amber list below the Coming
+            Soon sections. */}
 
         {/* Stats strip — Total dropped because it included deactivated rules
             (misleading); Active is now the primary stat. Deactivated lives at
@@ -887,38 +957,20 @@ Block posts mentioning specific fund performance`}
               <div className="font-mono text-xs uppercase text-[#64748B] mt-1">{s.label}</div>
             </div>
           ))}
-          <div className="ml-auto font-mono text-sm text-[#374151]">
-            2 of 5 checks active · Rule Check + Quiet Period Check deterministic · Consistency Check comparing against {corpusCount} approved statements
+          <div className="ml-auto font-mono text-xs text-[#374151]">
+            5 checks run on every draft · 2 deterministic · 3 AI-powered
+            {corpusCount > 0 && (
+              <span className="text-[#64748B]">
+                {" "}· Consistency comparing against {corpusCount} approved statements
+              </span>
+            )}
           </div>
         </div>
 
-        {/* "Rules active" next-step prompt — sits between the stats
-            strip and the filter tabs so the principal sees the obvious
-            next action (check a draft against these rules) without
-            scrolling. Renders only when at least one rule is active. */}
-        {counts.active > 0 && (
-          <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm px-5 py-4 mb-6 mt-6 flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <span className="text-[#166534] text-lg" aria-hidden>
-                ✓
-              </span>
-              <div>
-                <div className="text-sm font-semibold text-[#0F172A]">
-                  {counts.active} rule{counts.active !== 1 ? "s" : ""} active
-                </div>
-                <div className="font-mono text-[10px] text-[#64748B]">
-                  Your governance is configured. Ready to check your first draft.
-                </div>
-              </div>
-            </div>
-            <a
-              href="/submit"
-              className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#1447C0] transition-colors whitespace-nowrap"
-            >
-              Check a draft now →
-            </a>
-          </div>
-        )}
+        {/* "Rules active" prompt removed — that nudge now lives on the
+            action bar at the top ("Check a draft →") + the success
+            banner after authorization. Two surfaces telling the same
+            story were one too many. */}
 
         {/* Filter tabs */}
         <div className="flex gap-1 mt-6 border-b border-[#E2E8F0]">
@@ -946,23 +998,13 @@ Block posts mentioning specific fund performance`}
           })}
         </div>
 
-        {/* Demo-only label above the rule list — frames the seeded
-            rules as examples rather than the visitor's own authorized
-            policy. Renders only in demo mode and only when there are
-            rules to label. */}
-        {IS_DEMO_MODE && rules.length > 0 && (
-          <div className="flex items-center justify-between mb-4 mt-6 flex-wrap gap-2">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8]">
-              Example rules — showing what ERA CUE can enforce
-            </div>
-            <div className="font-mono text-[10px] text-[#94A3B8]">
-              Your rules will replace these
-            </div>
-          </div>
-        )}
-
-        {/* Rule cards */}
-        <div className="flex flex-col gap-3 mt-6">
+        {/* Rule cards — inline edit panel expands below the card when
+            Edit is toggled. Deactivate uses a window.confirm() prompt
+            and routes through the existing deactivateRuleAction (no
+            modal). The card body itself surfaces verdict badge, name,
+            description, keyword chips, status footer, trigger /
+            effectiveness inline, and a freshness signal. */}
+        <div className="flex flex-col gap-2 mt-6">
           {filtered.length === 0 ? (
             <div className="bg-white border border-[#E2E8F0] rounded-sm p-12 text-center text-[#64748B] text-sm">
               No rules in this view.
@@ -970,141 +1012,265 @@ Block posts mentioning specific fund performance`}
           ) : (
             filtered.map(({ rule: r, classification }) => {
               const v = (r.verdict || "review").toLowerCase();
-              const stripe = VERDICT_STRIPE[v] || "bg-[#64748B]";
               const badge = VERDICT_BADGE[v] || VERDICT_BADGE.review;
               const triggers = r.trigger_count ?? 0;
-              const showKeywords = r.keywords && r.keywords.length > 0 && v !== "guide";
-              // Drift signal renders only on active rules — deactivated/
-              // expired rules have their own footer text and adding a
-              // freshness chip on top would be noisy.
               const drift =
                 classification === "active" ? classifyFreshness(r, now) : null;
+              const isEditing = editingRuleId === r.id;
               return (
                 <div
                   key={r.id}
-                  className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden flex"
+                  id={`rule-${r.id}`}
+                  className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden scroll-mt-6"
                 >
-                  <div className={`w-1 shrink-0 ${stripe}`} aria-hidden />
-                  <div className="p-5 flex-1 min-w-0">
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="min-w-0">
-                        <div className="text-lg font-medium text-[#0F172A]">{r.name}</div>
-                        {r.description && (
-                          <div className="text-sm text-[#374151] mt-1">{r.description}</div>
-                        )}
-                      </div>
-                      <div className="flex gap-2 items-center shrink-0 ml-4">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-sm border font-mono text-xs font-bold tracking-wide ${badge.bg} ${badge.text} ${badge.border}`}>
+                  <div className="px-5 py-4">
+                    {/* Top row — verdict + name on the left, action
+                        buttons on the right. Always visible (Edit
+                        toggles to "× Close" when expanded). */}
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span
+                          className={`font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm border shrink-0 ${badge.bg} ${badge.text} ${badge.border}`}
+                        >
                           {badge.label}
                         </span>
-                        <span className="bg-[#EFF8FF] text-[#1447C0] border border-[#BAE6FD] font-mono text-xs px-2 py-0.5 rounded-sm">
-                          {scopeLabel(r.scope)}
+                        <span className="text-sm font-semibold text-[#0F172A] truncate">
+                          {r.name}
                         </span>
-                        {triggers > 0 && (
-                          <span className="bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA] font-mono text-xs px-2 py-0.5 rounded-sm">
-                            {triggers} {triggers === 1 ? "trigger" : "triggers"}
-                          </span>
-                        )}
                       </div>
+                      {classification === "active" && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditingRuleId(isEditing ? null : r.id)
+                            }
+                            className={`font-mono text-xs px-3 py-1.5 rounded-sm border transition-colors cursor-pointer ${
+                              isEditing
+                                ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0]"
+                                : "bg-white border-[#E2E8F0] text-[#64748B] hover:bg-[#F8F9FB]"
+                            }`}
+                          >
+                            {isEditing ? "× Close" : "Edit"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeactivate(r.id, r.name)}
+                            disabled={pending}
+                            className="font-mono text-xs px-3 py-1.5 rounded-sm border border-[#E2E8F0] text-[#94A3B8] hover:border-[#FCA5A5] hover:text-[#B91C1C] transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            Deactivate
+                          </button>
+                        </div>
+                      )}
+                      {classification === "expired" && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingRuleId(isEditing ? null : r.id)}
+                          className="font-mono text-xs px-3 py-1.5 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8F9FB] transition-colors cursor-pointer"
+                        >
+                          Renew
+                        </button>
+                      )}
                     </div>
 
-                    {showKeywords && (
-                      <div className="flex flex-wrap gap-1 mt-3">
-                        {(r.keywords ?? []).map((kw) => (
+                    {r.description && (
+                      <div className="text-sm text-[#374151] mb-3 leading-relaxed">
+                        {r.description}
+                      </div>
+                    )}
+
+                    {r.keywords && r.keywords.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {r.keywords.slice(0, 6).map((kw) => (
                           <span
                             key={kw}
-                            className="bg-[#F1F5F9] text-[#64748B] font-mono text-xs px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
+                            className="font-mono text-[10px] bg-[#F1F5F9] text-[#374151] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
                           >
                             {kw}
                           </span>
                         ))}
+                        {r.keywords.length > 6 && (
+                          <span className="font-mono text-[10px] text-[#94A3B8]">
+                            +{r.keywords.length - 6} more
+                          </span>
+                        )}
                       </div>
                     )}
 
-                    <div className="mt-4 pt-3 border-t border-[#E2E8F0] flex justify-between items-center gap-4 flex-wrap">
-                      <div className="min-w-0">
-                        <div className="font-mono text-xs text-[#64748B]">
-                          {buildFooterText(r, classification)}
+                    {/* Status line */}
+                    <div className="font-mono text-[10px] text-[#94A3B8] flex items-center gap-2 flex-wrap">
+                      <span>{buildFooterText(r, classification)}</span>
+                      {r.wsp_reference && (
+                        <>
+                          <span aria-hidden>·</span>
+                          <span className="text-[#1447C0]">WSP: {r.wsp_reference}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Trigger + freshness inline */}
+                    <div className="mt-2 flex items-center gap-3 flex-wrap">
+                      {triggers > 0 && (
+                        <div className="font-mono text-[10px] text-[#64748B]">
+                          {triggers} trigger{triggers !== 1 ? "s" : ""}
+                          {r.effectiveness_score !== null && r.effectiveness_score !== undefined && (
+                            <span
+                              className={`ml-1 ${
+                                r.effectiveness_score < 50
+                                  ? "text-[#C2410C]"
+                                  : "text-[#166534]"
+                              }`}
+                            >
+                              · {r.effectiveness_score}% effective
+                            </span>
+                          )}
+                          {r.last_triggered && (
+                            <span className="text-[#94A3B8]">
+                              {" "}· last {fmtRelative(r.last_triggered)}
+                            </span>
+                          )}
                         </div>
-                        {r.wsp_reference && (
-                          <div className="font-mono text-xs text-[#1447C0] mt-0.5">
-                            WSP: {r.wsp_reference}
-                          </div>
-                        )}
-                        {triggers > 0 && r.last_triggered && (
-                          <div className="font-mono text-xs text-[#94A3B8] mt-0.5">
-                            Last triggered: {fmtRelative(r.last_triggered)}
-                          </div>
-                        )}
-                        {/* Drift indicator — color and copy keyed off the
-                            freshness classification so the same compact
-                            line tells the principal whether the rule
-                            needs attention without adding a separate
-                            column. */}
-                        {drift?.freshness === "needs_calibration" && (
-                          <div className="font-mono text-[10px] text-[#C2410C] mt-1">
-                            ⚠ Override rate high — rule may be too broad
-                          </div>
-                        )}
-                        {drift?.freshness === "expiring" && drift.daysUntilExpiry !== null && (
-                          <div className="font-mono text-[10px] text-[#B45309] mt-1">
-                            ⏱ Expires in {drift.daysUntilExpiry}{" "}
-                            {drift.daysUntilExpiry === 1 ? "day" : "days"} — review and renew
-                          </div>
-                        )}
-                        {drift?.freshness === "silent" && (
-                          <div className="font-mono text-[10px] text-[#94A3B8] mt-1">
-                            ○ No triggers yet — rule is active but hasn&apos;t fired
-                          </div>
-                        )}
-                        {drift?.freshness === "healthy" && (
-                          <div className="font-mono text-[10px] text-[#166534] mt-1">
-                            ✓ Well-calibrated
-                          </div>
-                        )}
-                        {classification === "deactivated" && r.deactivated_reason && (
-                          <div className="font-mono text-xs text-[#64748B] mt-0.5">
-                            Reason: {r.deactivated_reason}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-3 shrink-0">
-                        {classification === "active" && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setEditingRule(r)}
-                              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition cursor-pointer"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeactivate(r.id)}
-                              disabled={pending}
-                              className="font-mono text-xs text-[#64748B] hover:text-[#B91C1C] transition cursor-pointer disabled:opacity-50"
-                            >
-                              {pending ? "Deactivating..." : "Deactivate"}
-                            </button>
-                          </>
-                        )}
-                        {classification === "expired" && (
-                          <button
-                            type="button"
-                            onClick={() => alert("Renew coming soon")}
-                            className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition cursor-pointer"
-                          >
-                            Renew
-                          </button>
-                        )}
-                      </div>
+                      )}
+                      {drift?.freshness === "needs_calibration" && (
+                        <div className="font-mono text-[10px] text-[#C2410C]">
+                          ⚠ Override rate high — consider refining keywords
+                        </div>
+                      )}
+                      {drift?.freshness === "expiring" && drift.daysUntilExpiry !== null && (
+                        <div className="font-mono text-[10px] text-[#B45309]">
+                          ⏱ Expires in {drift.daysUntilExpiry}{" "}
+                          {drift.daysUntilExpiry === 1 ? "day" : "days"}
+                        </div>
+                      )}
+                      {drift?.freshness === "silent" && (
+                        <div className="font-mono text-[10px] text-[#94A3B8]">
+                          ○ No triggers yet
+                        </div>
+                      )}
+                      {drift?.freshness === "healthy" && triggers > 0 && (
+                        <div className="font-mono text-[10px] text-[#166534]">
+                          ✓ Well-calibrated
+                        </div>
+                      )}
+                      {classification === "deactivated" && r.deactivated_reason && (
+                        <div className="font-mono text-[10px] text-[#64748B]">
+                          Reason: {r.deactivated_reason}
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  {/* Inline edit panel — expands when Edit is clicked */}
+                  {isEditing && (
+                    <EditRulePanel
+                      rule={r}
+                      onSave={async (updates) => {
+                        const result = await saveRuleUpdates(r.id, updates);
+                        if (!result.ok) {
+                          alert("Could not save: " + result.error);
+                          return;
+                        }
+                        setEditingRuleId(null);
+                        router.refresh();
+                      }}
+                      onCancel={() => setEditingRuleId(null)}
+                    />
+                  )}
                 </div>
               );
             })
           )}
         </div>
+
+        {/* Rules need attention — bottom-of-page amber panel. Lists
+            expiring rules first (Review →) then over-broad rules
+            flagged by the calibration heuristic (Refine →). Each row
+            opens the inline EditRulePanel for the matching rule. */}
+        {(expiringRules.length > 0 || needsCalibration.length > 0) && (
+          <div className="mt-8 border border-[#FDE68A] rounded-sm p-5 bg-[#FFFBEB]">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[#B45309]" aria-hidden>
+                ⚠
+              </span>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#B45309]">
+                {expiringRules.length + needsCalibration.length} rule
+                {expiringRules.length + needsCalibration.length !== 1 ? "s" : ""} need attention
+              </div>
+            </div>
+            <div className="space-y-2">
+              {expiringRules.map((r) => {
+                const days = r.effective_until
+                  ? Math.ceil(
+                      (new Date(r.effective_until).getTime() - Date.now()) /
+                        (1000 * 60 * 60 * 24),
+                    )
+                  : 0;
+                return (
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between py-2 px-3 bg-white rounded-sm border border-[#FDE68A] gap-3 flex-wrap"
+                  >
+                    <div>
+                      <span className="text-sm font-medium text-[#0F172A]">
+                        {r.name}
+                      </span>
+                      <span className="font-mono text-[10px] text-[#92400E] ml-2">
+                        expires in {days} day{days !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingRuleId(r.id);
+                        setTab("active");
+                        // Scroll the rule into view after the next paint.
+                        setTimeout(() => {
+                          document
+                            .getElementById(`rule-${r.id}`)
+                            ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }, 50);
+                      }}
+                      className="font-mono text-xs text-[#B45309] hover:text-[#92400E] border border-[#FDE68A] px-3 py-1 rounded-sm hover:bg-[#FEF3C7] transition-colors cursor-pointer"
+                    >
+                      Review →
+                    </button>
+                  </div>
+                );
+              })}
+              {needsCalibration.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex items-center justify-between py-2 px-3 bg-white rounded-sm border border-[#FDE68A] gap-3 flex-wrap"
+                >
+                  <div>
+                    <span className="text-sm font-medium text-[#0F172A]">
+                      {r.name}
+                    </span>
+                    <span className="font-mono text-[10px] text-[#92400E] ml-2">
+                      high override rate — keywords may be too broad
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingRuleId(r.id);
+                      setTab("active");
+                      setTimeout(() => {
+                        document
+                          .getElementById(`rule-${r.id}`)
+                          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }, 50);
+                    }}
+                    className="font-mono text-xs text-[#B45309] hover:text-[#92400E] border border-[#FDE68A] px-3 py-1 rounded-sm hover:bg-[#FEF3C7] transition-colors cursor-pointer"
+                  >
+                    Refine →
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Coming-soon — Message House. Sits above the AI-detection card so
             the alignment narrative reads as the lens through which the
@@ -1273,6 +1439,286 @@ function CandidateRuleCard({
             {rule.wsp_reference}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- EditRulePanel -------------------------------------------------
+
+const VERDICT_BADGE_SELECTED: Record<string, string> = {
+  block: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]",
+  escalate: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]",
+  review: "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]",
+  guide: "bg-[#F5F3FF] text-[#6D28D9] border-[#DDD6FE]",
+};
+
+/**
+ * Inline edit panel that expands below a rule card when the user
+ * clicks Edit. Fields: name, verdict, description, keywords (comma-
+ * separated), expiry date. The "Test this rule" input runs the same
+ * keyword match the engine uses (case-insensitive substring) so the
+ * principal can verify their wording fires correctly before saving.
+ */
+function EditRulePanel({
+  rule,
+  onSave,
+  onCancel,
+}: {
+  rule: RuleRow;
+  onSave: (updates: RuleUpdates) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(rule.name);
+  const [description, setDescription] = useState(rule.description ?? "");
+  const initialVerdict =
+    rule.verdict === "block" ||
+    rule.verdict === "escalate" ||
+    rule.verdict === "review" ||
+    rule.verdict === "guide"
+      ? rule.verdict
+      : "review";
+  const [ruleType, setRuleType] = useState<
+    "block" | "escalate" | "review" | "guide"
+  >(initialVerdict);
+  const [keywordsStr, setKeywordsStr] = useState(
+    (rule.keywords ?? []).join(", "),
+  );
+  const [effectiveTo, setEffectiveTo] = useState(
+    rule.effective_until ? rule.effective_until.split("T")[0] : "",
+  );
+  const [saving, setSaving] = useState(false);
+  const [testDraft, setTestDraft] = useState("");
+  const [testResult, setTestResult] = useState<
+    | { matched: true; keyword: string }
+    | { matched: false }
+    | null
+  >(null);
+
+  function handleTest() {
+    const keywords = keywordsStr
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+    const lower = testDraft.toLowerCase();
+    for (const kw of keywords) {
+      if (lower.includes(kw.toLowerCase())) {
+        setTestResult({ matched: true, keyword: kw });
+        return;
+      }
+    }
+    setTestResult({ matched: false });
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    const keywords = keywordsStr
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+    await onSave({
+      name,
+      description,
+      rule_type: ruleType,
+      keywords,
+      effective_to: effectiveTo
+        ? new Date(effectiveTo).toISOString()
+        : null,
+    });
+    setSaving(false);
+  }
+
+  return (
+    <div className="border-t border-[#E2E8F0] bg-[#F8F9FB] px-5 py-5">
+      <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-4">
+        Edit rule
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+            Rule name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
+          />
+        </div>
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+            Verdict type
+          </label>
+          <div className="flex gap-1.5">
+            {(["block", "escalate", "review", "guide"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setRuleType(v)}
+                className={`font-mono text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-sm border flex-1 transition-colors cursor-pointer ${
+                  ruleType === v
+                    ? VERDICT_BADGE_SELECTED[v]
+                    : "bg-white border-[#E2E8F0] text-[#64748B]"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+          Description
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={2}
+          className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB] resize-none"
+        />
+      </div>
+
+      <div className="mb-4">
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+          Keywords
+          <span className="normal-case ml-1 text-[#94A3B8]">(comma-separated)</span>
+        </label>
+        <input
+          type="text"
+          value={keywordsStr}
+          onChange={(e) => {
+            setKeywordsStr(e.target.value);
+            setTestResult(null);
+          }}
+          placeholder="keyword one, keyword two, keyword three"
+          className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB] font-mono"
+        />
+        {keywordsStr.trim() && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {keywordsStr
+              .split(",")
+              .map((k) => k.trim())
+              .filter(Boolean)
+              .map((kw, i) => (
+                <span
+                  key={`${kw}-${i}`}
+                  className="font-mono text-[10px] bg-white text-[#374151] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
+                >
+                  {kw}
+                </span>
+              ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mb-4">
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+          Expires on
+          <span className="normal-case ml-1 text-[#94A3B8]">
+            (optional — leave blank for no expiry)
+          </span>
+        </label>
+        <input
+          type="date"
+          value={effectiveTo}
+          onChange={(e) => setEffectiveTo(e.target.value)}
+          className="border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB] font-mono"
+        />
+      </div>
+
+      {/* Test this rule — uses the same case-insensitive substring
+          match the engine uses, so the principal sees exactly which
+          keyword would fire (or that none would). */}
+      <div className="mb-5 bg-white border border-[#E2E8F0] rounded-sm p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+          Test this rule
+        </div>
+        <div className="text-xs text-[#64748B] mb-3">
+          Paste a draft snippet to verify the keywords fire correctly.
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={testDraft}
+            onChange={(e) => {
+              setTestDraft(e.target.value);
+              setTestResult(null);
+            }}
+            placeholder="Paste a sentence to test..."
+            className="flex-1 border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-[#F8F9FB] focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleTest();
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleTest}
+            disabled={!testDraft.trim()}
+            className="font-mono text-xs bg-[#0F172A] text-white px-4 py-2 rounded-sm hover:bg-[#1E293B] disabled:opacity-40 transition-colors whitespace-nowrap cursor-pointer"
+          >
+            Test →
+          </button>
+        </div>
+
+        {testResult !== null && (
+          <div
+            className={`font-mono text-[10px] mt-2 flex items-center gap-1.5 ${
+              testResult.matched ? "text-[#B91C1C]" : "text-[#166534]"
+            }`}
+          >
+            {testResult.matched ? (
+              <>
+                <span aria-hidden>✗</span>
+                <span>
+                  Would trigger — matched keyword: &ldquo;{testResult.keyword}&rdquo;
+                </span>
+              </>
+            ) : (
+              <>
+                <span aria-hidden>✓</span>
+                <span>Would not trigger with current keywords</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || !name.trim()}
+          className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#1447C0] disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
+        >
+          {saving ? (
+            <>
+              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+              Saving...
+            </>
+          ) : (
+            "Save changes →"
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors px-2 py-2.5 cursor-pointer"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );

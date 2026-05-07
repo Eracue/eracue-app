@@ -107,6 +107,13 @@ export function AddRulePanel({ isOpen, onClose, initialRule }: Props) {
   const [scopeType, setScopeType] = useState<ScopeType>("all");
   const [scopeRole, setScopeRole] = useState<string>("");
   const [scopePerson, setScopePerson] = useState<string>("");
+  // Quick Add — single-input shortcut at the top of the panel that
+  // calls draftRuleAction with a one-line description and pre-fills
+  // every form field below. Saves the principal from filling out the
+  // long-form scope/describe/end-date sections when their intent
+  // already fits a sentence.
+  const [quickAddText, setQuickAddText] = useState<string>("");
+  const [quickAddDrafting, setQuickAddDrafting] = useState<boolean>(false);
   // Tracked for parity with spec; only the setter is read so eslint stays
   // happy without an explicit suppression.
   const [, setShowConfirmation] = useState(false);
@@ -232,6 +239,42 @@ export function AddRulePanel({ isOpen, onClose, initialRule }: Props) {
       setError(e instanceof Error ? e.message : "Could not draft rule.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Quick Add — runs the same draftRuleAction the long-form path uses
+  // and applies the result to the existing review-state setters
+  // directly, skipping the describe screen. Stays on the describe
+  // screen on error so the user can adjust the input.
+  async function handleQuickAdd() {
+    const text = quickAddText.trim();
+    if (!text || quickAddDrafting) return;
+    setQuickAddDrafting(true);
+    setError(null);
+    try {
+      const result = await draftRuleAction(text, {
+        type: scopeType,
+        label: getScopeLabel(),
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      // applyDrafted populates name / verdict / description /
+      // keywords + flips state to "review" so the user lands on the
+      // pre-filled review screen with everything ready to authorize.
+      const drafted: DraftedRule = activeUntil
+        ? { ...result.drafted, suggested_end_date: activeUntil }
+        : result.drafted;
+      applyDrafted(drafted);
+      // Carry the quick-add text into the description field so the
+      // user has the original intent visible while reviewing.
+      setDescription(text);
+      setQuickAddText("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not draft rule.");
+    } finally {
+      setQuickAddDrafting(false);
     }
   }
 
@@ -375,6 +418,64 @@ Examples:
         <div className="flex-1 overflow-y-auto px-6 py-6">
           {state === "describe" && (
             <>
+              {/* Quick Add — one-line shortcut. The principal types the
+                  intent in plain English, ERA CUE drafts the rule, and
+                  the panel jumps straight to the review screen with
+                  every field pre-filled. The long form below remains
+                  available for hand-authored rules. */}
+              <div className="mb-6 pb-6 border-b border-[#E2E8F0]">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
+                  Quick add
+                </div>
+                <div className="text-sm text-[#374151] mb-3 leading-relaxed">
+                  Describe what you want to govern in plain English. ERA CUE will draft the full rule for you to review.
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={quickAddText}
+                    onChange={(e) => setQuickAddText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === "Enter" &&
+                        !quickAddDrafting &&
+                        quickAddText.trim()
+                      ) {
+                        e.preventDefault();
+                        void handleQuickAdd();
+                      }
+                    }}
+                    placeholder="e.g. Block hiring mentions during quiet period"
+                    className="flex-1 border border-[#E2E8F0] rounded-sm px-3 py-2.5 text-sm text-[#0F172A] bg-[#F8F9FB] focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleQuickAdd}
+                    disabled={!quickAddText.trim() || quickAddDrafting}
+                    className="bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-2.5 rounded-sm hover:bg-[#1447C0] disabled:opacity-50 whitespace-nowrap transition-colors flex items-center gap-2"
+                  >
+                    {quickAddDrafting ? (
+                      <>
+                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden>
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                        Drafting...
+                      </>
+                    ) : (
+                      "Draft rule →"
+                    )}
+                  </button>
+                </div>
+                <div className="font-mono text-[10px] text-[#94A3B8] mt-2">
+                  Press Enter or click Draft rule → ERA CUE fills in the details. You review before anything goes live.
+                </div>
+              </div>
+
               {/* Section A — scope */}
               <div className="mb-6">
                 <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
