@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createBrowserClient } from "@/lib/supabase-client";
 
-// Authed users get the full app nav. Unauthed users see only the
-// "Check a draft →" CTA on the right — no other nav links, no demo
-// pill, no mailto. The middleware demo-bypass means the CTA actually
-// lands the visitor on the live submit form without an auth gate.
+// Authed users get the full app nav (Review / Rules / Archive + user
+// menu). Unauthed users see only the wordmark on the left — the CTAs
+// for unauthed visitors live on the homepage hero and the submit
+// page's own demo banner, so the header stays uncluttered.
 const NAV_LINKS_AUTHED = [
   { href: "/dashboard", label: "Review" },
   { href: "/rules", label: "Rules" },
@@ -110,22 +110,14 @@ export function SiteHeader() {
           )}
         </Link>
 
-        {/* Desktop nav — hidden below md, where the hamburger takes over.
-            "Check a draft →" renders for everyone once auth state has
-            resolved. Authed users also get Review / Rules / Archive +
-            user menu. Unauthed users see ONLY the Check a draft button
-            on the right. The authed === null case (still hydrating)
-            suppresses everything so we don't flash unauthed state for
-            logged-in users. */}
+        {/* Desktop nav — hidden below md, where the hamburger takes
+            over. Authed users get Review / Rules / Archive + user
+            menu. Unauthed users see only the wordmark on the left;
+            the homepage hero and submit page's own banner carry the
+            CTAs, so the header stays clean. The authed === null case
+            (still hydrating) renders nothing on the right so we don't
+            flash unauthed state for logged-in users. */}
         <nav className="hidden md:flex items-center gap-6">
-          {authed !== null && (
-            <Link
-              href="/submit"
-              className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-1.5 rounded-sm hover:bg-[#1447C0] transition-colors whitespace-nowrap"
-            >
-              Check a draft →
-            </Link>
-          )}
           {navLinks.map((item) => (
             <Link
               key={item.href}
@@ -221,23 +213,14 @@ export function SiteHeader() {
         </button>
       </div>
 
-      {/* Mobile dropdown — anchored to the header's relative wrapper so it
-          spans the full width below the row. Each tap closes it.
-          Pre-launch surface: "Check a draft" (blue) for everyone +
-          authed app nav + Sign out. Unauthed users see only the Check
-          a draft button. */}
+      {/* Mobile dropdown — anchored to the header's relative wrapper so
+          it spans the full width below the row. Each tap closes it.
+          Authed users get the app nav + Sign out; unauthed users see
+          an empty dropdown (closed by default; the hamburger only
+          opens to reveal these slots). */}
       {open && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-[#E2E8F0] shadow-sm z-50 py-3 px-6">
           <div className="flex flex-col gap-1">
-            {authed !== null && (
-              <Link
-                href="/submit"
-                onClick={() => setOpen(false)}
-                className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-4 py-3 rounded-sm text-center hover:bg-[#1447C0] transition-colors mb-2"
-              >
-                Check a draft →
-              </Link>
-            )}
             {navLinks.map((item) => (
               <Link
                 key={item.href}
