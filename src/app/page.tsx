@@ -118,29 +118,26 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-white/60">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block"></span>
+          {/* Six trust badges — solid colored pills, one regulatory family
+              per color: blue = FINRA, teal = SEC RIA/Reg FD, violet = EU
+              AI Act, amber = SEC Rule 17a-4 retention. */}
+          <div className="flex flex-wrap gap-2 justify-center">
+            <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#1A56DB]/20 text-[#93C5FD] border border-[#1A56DB]/40">
               FINRA Rule 3110 · Supervision
             </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-white/60">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1A56DB] inline-block"></span>
+            <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#1A56DB]/20 text-[#93C5FD] border border-[#1A56DB]/40">
               FINRA Rule 2210 · Communications
             </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-white/60">
-              <span className="w-1.5 h-1.5 rounded-full bg-white/60 inline-block"></span>
+            <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#0D9488]/20 text-[#5EEAD4] border border-[#0D9488]/40">
               SEC Reg FD · Fair Disclosure
             </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-white/60">
-              <span className="w-1.5 h-1.5 rounded-full bg-white/60 inline-block"></span>
+            <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#0D9488]/20 text-[#5EEAD4] border border-[#0D9488]/40">
               SEC Rule 204-2 · RIA Records
             </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-white/60">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] inline-block"></span>
+            <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#7C3AED]/20 text-[#C4B5FD] border border-[#7C3AED]/40">
               EU AI Act Art. 50 · Transparency
             </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-white/60">
-              <span className="w-1.5 h-1.5 rounded-full bg-white/60 inline-block"></span>
+            <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#D97706]/20 text-[#FCD34D] border border-[#D97706]/40">
               SEC Rule 17a-4 · Retention
             </span>
           </div>
@@ -258,9 +255,9 @@ export default function Home() {
           </h2>
 
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* CARD 01 — Executive */}
-            <div className="bg-white/5 border border-white/10 rounded-sm p-6 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-white/50 mb-3">
+            {/* CARD 01 — Executive · amber accent */}
+            <div className="bg-white/5 border border-white/10 border-l-4 border-l-[#D97706] rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#FCD34D] mb-3">
                 EXECUTIVE · FOUNDER · CEO
               </div>
               <div className="text-lg font-semibold text-white mb-2 leading-snug">
@@ -274,15 +271,15 @@ export default function Home() {
               </p>
               <Link
                 href="/submit"
-                className="font-mono text-xs text-[#60A5FA] hover:text-white mt-auto transition-colors"
+                className="font-mono text-xs text-[#FCD34D] hover:text-white mt-auto transition-colors"
               >
                 Check a draft →
               </Link>
             </div>
 
-            {/* CARD 02 — CMO / Comms / Brand */}
-            <div className="bg-white/5 border border-white/10 rounded-sm p-6 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-white/50 mb-3">
+            {/* CARD 02 — CMO / Comms / Brand · violet accent */}
+            <div className="bg-white/5 border border-white/10 border-l-4 border-l-[#7C3AED] rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#C4B5FD] mb-3">
                 CMO · VP COMMS · PR AGENCY
               </div>
               <div className="text-lg font-semibold text-white mb-2 leading-snug">
@@ -296,15 +293,15 @@ export default function Home() {
               </p>
               <Link
                 href="/dashboard"
-                className="font-mono text-xs text-[#60A5FA] hover:text-white mt-auto transition-colors"
+                className="font-mono text-xs text-[#C4B5FD] hover:text-white mt-auto transition-colors"
               >
                 View the dashboard →
               </Link>
             </div>
 
-            {/* CARD 03 — CCO / GC / RIA / Broker-dealer */}
-            <div className="bg-white/5 border border-white/10 rounded-sm p-6 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-white/50 mb-3">
+            {/* CARD 03 — CCO / GC / RIA / Broker-dealer · ERA CUE blue */}
+            <div className="bg-white/5 border border-white/10 border-l-4 border-l-[#1A56DB] rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#93C5FD] mb-3">
                 CCO · GENERAL COUNSEL · RIA · BROKER-DEALER
               </div>
               <div className="text-lg font-semibold text-white mb-2 leading-snug">
@@ -313,32 +310,32 @@ export default function Home() {
               <p className="text-sm text-white/60 leading-relaxed mb-4 flex-1">
                 FINRA Rule 3110
                 <a href="#ref-1">
-                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#60A5FA]">1</sup>
+                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#93C5FD]">1</sup>
                 </a>{" "}
                 requires named principal review of communications. Rule
                 2210(b)
                 <a href="#ref-2">
-                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#60A5FA]">2</sup>
+                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#93C5FD]">2</sup>
                 </a>{" "}
                 requires pre-approval of retail communications. SEC Rule
                 204-2
                 <a href="#ref-5">
-                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#60A5FA]">5</sup>
+                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#93C5FD]">5</sup>
                 </a>{" "}
                 requires records of all advisory communications. ERA CUE
                 produces all three — in one governed submission.
               </p>
               <Link
                 href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
-                className="font-mono text-xs text-[#60A5FA] hover:text-white mt-auto transition-colors"
+                className="font-mono text-xs text-[#93C5FD] hover:text-white mt-auto transition-colors"
               >
                 See the examiner record →
               </Link>
             </div>
 
-            {/* CARD 04 — IR / General Counsel / Public Co */}
-            <div className="bg-white/5 border border-white/10 rounded-sm p-6 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-white/50 mb-3">
+            {/* CARD 04 — IR / General Counsel / Public Co · teal accent */}
+            <div className="bg-white/5 border border-white/10 border-l-4 border-l-[#0D9488] rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#5EEAD4] mb-3">
                 IR · GENERAL COUNSEL · PUBLIC COMPANY
               </div>
               <div className="text-lg font-semibold text-white mb-2 leading-snug">
@@ -347,7 +344,7 @@ export default function Home() {
               <p className="text-sm text-white/60 leading-relaxed mb-4 flex-1">
                 In 2024, SEC charged DraftKings
                 <a href="#ref-6">
-                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#60A5FA]">6</sup>
+                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#5EEAD4]">6</sup>
                 </a>{" "}
                 $200K after the CEO posted material nonpublic information
                 on personal LinkedIn and X accounts during a quiet period.
@@ -357,15 +354,15 @@ export default function Home() {
               </p>
               <Link
                 href="/rules"
-                className="font-mono text-xs text-[#60A5FA] hover:text-white mt-auto transition-colors"
+                className="font-mono text-xs text-[#5EEAD4] hover:text-white mt-auto transition-colors"
               >
                 See active rules →
               </Link>
             </div>
 
-            {/* CARD 05 — Investment bank / PE / Hedge fund · full width */}
-            <div className="md:col-span-2 bg-white/[0.08] border border-white/15 rounded-sm p-6 flex flex-col">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-white/50 mb-3">
+            {/* CARD 05 — Investment bank / PE / Hedge fund · slate accent · full width */}
+            <div className="md:col-span-2 bg-white/[0.08] border border-white/15 border-l-4 border-l-[#94A3B8] rounded-sm p-6 flex flex-col">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#CBD5E1] mb-3">
                 INVESTMENT BANK · PRIVATE EQUITY · HEDGE FUND
               </div>
               <div className="text-lg font-semibold text-white mb-2 leading-snug">
@@ -380,7 +377,7 @@ export default function Home() {
               </p>
               <Link
                 href="/rules"
-                className="font-mono text-xs text-[#60A5FA] hover:text-white mt-auto transition-colors"
+                className="font-mono text-xs text-[#CBD5E1] hover:text-white mt-auto transition-colors"
               >
                 See how rules work →
               </Link>
