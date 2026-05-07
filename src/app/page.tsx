@@ -693,10 +693,10 @@ export default function Home() {
             deployment for your organization.
           </div>
           <a
-            href="mailto:hello@eracue.com?subject=ERA%20CUE%20Early%20Access%20Request"
+            href="mailto:hello@eracue.com?subject=ERA%20CUE%20Access%20Request"
             className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-sm font-medium px-8 py-3.5 rounded-sm hover:bg-[#1447C0] transition-colors"
           >
-            Request early access →
+            Request access →
           </a>
           <div className="font-mono text-xs text-white/40 mt-4">
             or email hello@eracue.com

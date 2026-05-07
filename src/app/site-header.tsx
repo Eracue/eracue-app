@@ -145,24 +145,25 @@ export function SiteHeader() {
             </Link>
           ))}
 
-          {/* Authed: user menu. Unauthed: Sign in + Get started. The
-              authed === null case (still hydrating) renders nothing on
-              this side so we don't flash unauthed state for logged-in
-              users. */}
+          {/* Authed: user menu. Unauthed: Sign in + Request access. Public
+              self-serve signup is disabled pre-launch — access is
+              provisioned via invitation. The authed === null case (still
+              hydrating) renders nothing on this side so we don't flash
+              unauthed state for logged-in users. */}
           {authed === false && (
             <>
               <Link
                 href="/auth/login"
-                className="font-mono text-xs text-[#0F172A] hover:text-[#1A56DB] transition-colors"
+                className="font-mono text-sm text-[#64748B] hover:text-[#0F172A] transition-colors"
               >
                 Sign in
               </Link>
-              <Link
-                href="/auth/signup"
-                className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-xs font-medium px-3 py-1.5 rounded-sm hover:bg-[#1447C0] transition-colors whitespace-nowrap"
+              <a
+                href="mailto:hello@eracue.com?subject=ERA%20CUE%20Access%20Request"
+                className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-sm font-medium px-4 py-1.5 rounded-sm hover:bg-[#1447C0] transition-colors whitespace-nowrap"
               >
-                Get started →
-              </Link>
+                Request access →
+              </a>
             </>
           )}
           {authed === true && (
@@ -279,17 +280,17 @@ export function SiteHeader() {
                 <Link
                   href="/auth/login"
                   onClick={() => setOpen(false)}
-                  className="font-mono text-sm text-[#0F172A] hover:text-[#1A56DB] transition-colors text-center py-2"
+                  className="font-mono text-sm text-[#64748B] hover:text-[#0F172A] transition-colors text-center py-2"
                 >
                   Sign in
                 </Link>
-                <Link
-                  href="/auth/signup"
+                <a
+                  href="mailto:hello@eracue.com?subject=ERA%20CUE%20Access%20Request"
                   onClick={() => setOpen(false)}
                   className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-4 py-3 rounded-sm text-center hover:bg-[#1447C0] transition-colors"
                 >
-                  Get started →
-                </Link>
+                  Request access →
+                </a>
               </div>
             )}
             {authed === true && (

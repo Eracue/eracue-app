@@ -173,14 +173,17 @@ function LoginForm() {
           </button>
         </div>
 
+        {/* Public self-serve signup is disabled pre-launch — invitations
+            come via the principal. Anyone here without an account is
+            routed to the access mailto so we capture the lead. */}
         <div className="mt-6 text-center text-sm text-[#64748B]">
-          No account?{" "}
-          <Link
-            href={`/auth/signup${next !== "/dashboard" ? `?next=${encodeURIComponent(next)}` : ""}`}
+          Want access?{" "}
+          <a
+            href="mailto:hello@eracue.com?subject=ERA%20CUE%20Access%20Request"
             className="text-[#1A56DB] hover:text-[#1447C0]"
           >
-            Get started →
-          </Link>
+            Request it →
+          </a>
         </div>
       </div>
     </div>
