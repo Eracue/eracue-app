@@ -171,64 +171,40 @@ export default async function Home() {
       <SiteHeader />
 
       {/* ============================================================
-          SECTION 1 — HERO (dark)
+          SECTION 1 — HERO (dark, two-column)
+          Left col (3/5): eyebrow, headline, subhead, regulatory line,
+          two CTAs, footer line.
+          Right col (2/5, desktop only): white card mockup of the BLOCK
+          verdict UI — a coded simulation, not an image, so it stays
+          crisp at every viewport and matches the production verdict
+          card pixel-for-pixel.
          ============================================================ */}
-      <section className="bg-[#0F172A] min-h-[90vh] flex flex-col justify-center py-32 md:py-40">
-        <div className="max-w-[1100px] mx-auto px-6 w-full">
-          {/* Top badge row removed pre-launch — the six colored
-              regulatory pills below the CTA carry the trust signal
-              without doubling up above the headline. */}
-          <h1
-            className="font-light leading-tight tracking-tight text-white text-5xl md:text-7xl max-w-4xl mb-6"
-            style={{ fontFamily: "var(--font-newsreader)" }}
-          >
-            The governed moment between AI and publish.
-          </h1>
-
-          <p className="text-lg md:text-xl font-normal text-white/70 max-w-2xl leading-relaxed mb-10">
-            AI drafts. Executives post. Nobody has a record that a human checked. ERA CUE changes that.
-          </p>
-
-          {/* Three-word workflow strip — first scan answers "what's the
-              loop?" without prose. CCO sees "Configure rules" as her job;
-              speaker sees "Check every draft"; everyone sees "Record
-              approved" as the outcome. */}
-          <div className="flex items-center gap-6 mb-10 flex-wrap justify-center">
-            {["Configure rules", "Check every draft", "Record approved"].map((step, i) => (
-              <div key={step} className="flex items-center gap-2">
-                {i > 0 && (
-                  <span className="text-white/20 font-mono" aria-hidden>
-                    →
-                  </span>
-                )}
-                <span className="font-mono text-xs text-white/50 uppercase tracking-widest">
-                  {step}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* THE LIVE PRODUCT — moved up from the bottom of the page so
-              the primary CTA is part of the hero scan, not buried below
-              the scenario / role cards / moat / examiner section. The
-              demo bypass in middleware makes "Try it now →" land
-              directly on a pre-filled draft; "Get ERA CUE for your team
-              →" routes to signup for visitors who've already seen
-              enough. */}
-          <div className="text-center max-w-[600px] mx-auto mb-10">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-white/40 mb-3">
-              THE LIVE PRODUCT
+      <section className="bg-[#0F172A] py-24 md:py-32">
+        <div className="max-w-[1100px] mx-auto px-6 grid grid-cols-1 md:grid-cols-5 gap-12 items-center">
+          {/* LEFT — copy + CTAs */}
+          <div className="md:col-span-3">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-white/40 mb-4">
+              Pre-publication governance · AI 2026
             </div>
-            <div
+
+            <h1
+              className="font-light leading-tight tracking-tight text-white text-4xl md:text-6xl mb-4"
               style={{ fontFamily: "var(--font-newsreader)" }}
-              className="text-2xl font-light text-white mb-2"
             >
-              Try ERA CUE right now.
+              The governed moment
+              <br />
+              between AI and publish.
+            </h1>
+
+            <p className="text-base text-white/60 max-w-lg mb-3 leading-relaxed">
+              Every AI draft your team creates gets checked against your governance rules, reviewed by a named principal, and locked in an immutable record — before anyone publishes anything.
+            </p>
+
+            <div className="font-mono text-xs text-white/30 mb-8">
+              FINRA Rule 3110 · SEC Reg FD · EU AI Act Art. 50 · SHA-256
             </div>
-            <div className="text-sm text-white/60 mb-6 max-w-md mx-auto leading-relaxed">
-              No login required. Submit a real draft, see a real governance check, open the communication record. The full product, live, in under two minutes.
-            </div>
-            <div className="flex gap-3 justify-center flex-wrap">
+
+            <div className="flex gap-3 flex-wrap">
               <a
                 href="/submit"
                 className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-6 py-3 rounded-sm hover:bg-[#1447C0] transition-colors"
@@ -236,44 +212,199 @@ export default async function Home() {
                 Try it now →
               </a>
               <a
-                href="/auth/signup"
+                href="mailto:hello@eracue.com?subject=ERA%20CUE%20Demo%20Request"
                 className="bg-white/10 text-white border border-white/20 font-mono text-sm font-medium px-6 py-3 rounded-sm hover:bg-white/20 transition-colors"
               >
-                Get ERA CUE for your team →
+                Request a demo →
               </a>
             </div>
-            <div className="font-mono text-xs text-white/30 mt-3 text-center">
-              or email hello@eracue.com
+
+            <div className="font-mono text-[10px] text-white/20 mt-3">
+              No login required to try · Regulated firms request a demo
             </div>
           </div>
 
-          {/* Six trust badges — solid colored pills, one regulatory family
-              per color: blue = FINRA, teal = SEC RIA/Reg FD, violet = EU
-              AI Act, amber = SEC Rule 17a-4 retention. */}
-          <div className="flex flex-wrap gap-2 justify-center">
-            <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#1A56DB]/20 text-[#93C5FD] border border-[#1A56DB]/40">
-              FINRA Rule 3110 · Supervision
+          {/* RIGHT — coded BLOCK verdict mockup, hidden on mobile so the
+              hero stays compact. Mirrors the live verdict card so what
+              the prospect sees here matches what they'll see at /submit. */}
+          <div className="md:col-span-2 hidden md:block">
+            <div className="bg-white rounded-sm border border-white/10 p-5 shadow-2xl shadow-black/50">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+                ERA CUE · Governance check
+              </div>
+
+              <div className="flex items-center gap-2 mb-4">
+                <span className="font-mono text-xs font-bold uppercase px-3 py-1.5 rounded-sm bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA]">
+                  BLOCK
+                </span>
+                <span className="text-sm font-medium text-[#0F172A]">
+                  Series B Quiet Period
+                </span>
+              </div>
+
+              <div className="text-xs text-[#374151] italic mb-4 bg-[#F8F9FB] rounded-sm p-3 leading-relaxed">
+                &ldquo;We&apos;re aggressively hiring across engineering and sales...&rdquo;
+              </div>
+
+              {/* Five checks — name + result, mono'd for ledger feel */}
+              <div className="space-y-1.5 mb-4">
+                {[
+                  { name: "Rule Check", result: "FAIL", fail: true },
+                  { name: "Quiet Period", result: "FAIL", fail: true },
+                  { name: "Consistency", result: "PASS", fail: false },
+                  { name: "Alignment", result: "PASS", fail: false },
+                  { name: "Agent Origin", result: "PASS", fail: false },
+                ].map((check) => (
+                  <div key={check.name} className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] text-[#64748B]">
+                      {check.name}
+                    </span>
+                    <span
+                      className={`font-mono text-[10px] font-bold ${
+                        check.fail ? "text-[#B91C1C]" : "text-[#166534]"
+                      }`}
+                    >
+                      {check.result}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="font-mono text-[10px] text-[#94A3B8] border-t border-[#E2E8F0] pt-3">
+                SHA-256 locked · append-only · cannot be altered
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          SECTION 1.1 — SOCIAL PROOF BAR
+          Thin dark band after the hero. Establishes "who this is for"
+          before the regulatory frame.
+         ============================================================ */}
+      <section className="bg-[#0F172A] border-t border-white/5 py-6 px-6">
+        <div className="max-w-[1100px] mx-auto">
+          <div className="flex items-center justify-center gap-8 flex-wrap">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-white/20">
+              Built for
             </span>
-            <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#1A56DB]/20 text-[#93C5FD] border border-[#1A56DB]/40">
-              FINRA Rule 2210 · Communications
-            </span>
-            <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#0D9488]/20 text-[#5EEAD4] border border-[#0D9488]/40">
-              SEC Reg FD · Fair Disclosure
-            </span>
-            <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#0D9488]/20 text-[#5EEAD4] border border-[#0D9488]/40">
-              SEC Rule 204-2 · RIA Records
-            </span>
-            <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#7C3AED]/20 text-[#C4B5FD] border border-[#7C3AED]/40">
-              EU AI Act Art. 50 · Transparency
-            </span>
-            <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#D97706]/20 text-[#FCD34D] border border-[#D97706]/40">
-              SEC Rule 17a-4 · Retention
-            </span>
+            {[
+              "Broker-Dealers",
+              "Registered Investment Advisers",
+              "Public Companies",
+              "Investment Banks",
+              "PR Agencies",
+              "Executive Teams",
+            ].map((type) => (
+              <span
+                key={type}
+                className="font-mono text-[10px] uppercase tracking-widest text-white/40"
+              >
+                {type}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          SECTION 1.2 — REGULATORY TRUST BADGES
+          Relocated from the old hero so the new two-column hero stays
+          uncluttered. Six colored pills, one regulatory family per
+          color: blue = FINRA, teal = SEC RIA/Reg FD, violet = EU AI
+          Act, amber = SEC Rule 17a-4 retention.
+         ============================================================ */}
+      <section className="bg-[#0F172A] border-t border-white/5 py-8 px-6">
+        <div className="max-w-[1100px] mx-auto flex flex-wrap gap-2 justify-center">
+          <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#1A56DB]/20 text-[#93C5FD] border border-[#1A56DB]/40">
+            FINRA Rule 3110 · Supervision
+          </span>
+          <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#1A56DB]/20 text-[#93C5FD] border border-[#1A56DB]/40">
+            FINRA Rule 2210 · Communications
+          </span>
+          <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#0D9488]/20 text-[#5EEAD4] border border-[#0D9488]/40">
+            SEC Reg FD · Fair Disclosure
+          </span>
+          <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#0D9488]/20 text-[#5EEAD4] border border-[#0D9488]/40">
+            SEC Rule 204-2 · RIA Records
+          </span>
+          <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#7C3AED]/20 text-[#C4B5FD] border border-[#7C3AED]/40">
+            EU AI Act Art. 50 · Transparency
+          </span>
+          <span className="inline-flex items-center px-3 py-1.5 rounded-sm font-mono text-[10px] uppercase tracking-widest bg-[#D97706]/20 text-[#FCD34D] border border-[#D97706]/40">
+            SEC Rule 17a-4 · Retention
+          </span>
+        </div>
+      </section>
+
+      {/* ============================================================
+          SECTION 1.3 — HOW IT WORKS (three-screen workflow)
+          First detailed beat after the regulatory framing. Each step
+          maps to a real surface in the product (rules, submit,
+          examiner) and links there directly via the demo bypass.
+         ============================================================ */}
+      <section className="py-20 px-6 md:px-12 bg-white border-t border-[#E2E8F0]">
+        <div className="max-w-[1100px] mx-auto">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2 text-center">
+            How it works
+          </div>
+          <div
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-3xl font-light text-[#0F172A] mb-12 text-center"
+          >
+            Three steps. Under two minutes.
           </div>
 
-          {/* Explanatory paragraph removed pre-launch — the scenario card
-              in Section 2 demonstrates this end-to-end, no need to
-              describe it twice. */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                step: "01",
+                title: "Configure your governance",
+                desc: "The CCO or GC sets up rules — from scratch, from templates, or by importing existing WSPs. ERA CUE extracts rules automatically. Every rule is authorized by a named principal.",
+                detail: "WSP import · FINRA templates · AI-assisted rule creation",
+                color: "text-[#1A56DB]",
+                href: "/rules",
+              },
+              {
+                step: "02",
+                title: "Check before you publish",
+                desc: "Any executive pastes a draft. ERA CUE runs five governance checks in under one second — rule matching, consistency, quiet period, alignment, agent origin. Verdict: CLEAR, REVIEW, ESCALATE, or BLOCK.",
+                detail: "5 checks · Under 1 second · Named principal review",
+                color: "text-[#C2410C]",
+                href: "/submit",
+              },
+              {
+                step: "03",
+                title: "The record that proves you checked",
+                desc: "ERA CUE generates an immutable communication record — named principal, structured decision, SHA-256 locked audit trail. FINRA-ready. Downloadable as PDF.",
+                detail: "SHA-256 · Append-only · FINRA Rule 3110",
+                color: "text-[#166534]",
+                href: `/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`,
+              },
+            ].map((item) => (
+              <div key={item.step}>
+                <div className={`font-mono text-3xl font-bold mb-3 ${item.color}`}>
+                  {item.step}
+                </div>
+                <div className="text-lg font-semibold text-[#0F172A] mb-3 leading-snug">
+                  {item.title}
+                </div>
+                <div className="text-sm text-[#374151] leading-relaxed mb-3">
+                  {item.desc}
+                </div>
+                <div className="font-mono text-[10px] text-[#94A3B8]">
+                  {item.detail}
+                </div>
+                <a
+                  href={item.href}
+                  className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors mt-3 inline-block"
+                >
+                  See it →
+                </a>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -506,6 +637,58 @@ export default async function Home() {
                 checked before it goes out. Every approval on record.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          SECTION 3.1 — FEATURE GRID
+          Twelve features in a 4-col hairline grid (gap-px on a slate
+          background gives the Bloomberg-terminal look). Sits after
+          the role cards so the audience-fit narrative flows
+          "who uses it → what's in it → why it gets smarter".
+         ============================================================ */}
+      <section className="py-16 px-6 md:px-12 bg-[#F8F9FB] border-t border-[#E2E8F0]">
+        <div className="max-w-[1100px] mx-auto">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            What ERA CUE includes
+          </div>
+          <div
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-2xl font-light text-[#0F172A] mb-8"
+          >
+            Everything in one governance layer.
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[#E2E8F0] border border-[#E2E8F0] rounded-sm overflow-hidden">
+            {[
+              // Governance checks
+              { name: "Rule Check", desc: "Keyword + pattern matching against active rules" },
+              { name: "Consistency Check", desc: "New drafts checked against approved corpus" },
+              { name: "Quiet Period Enforcement", desc: "Time-bounded communication restrictions" },
+              { name: "Agent Origin Check", desc: "AI involvement declared and recorded" },
+
+              // Workflow
+              { name: "Named Principal Review", desc: "Structured decision with documented basis" },
+              { name: "WSP Enforcement", desc: "Rules cite the WSP section they implement" },
+              { name: "Campaign Records", desc: "All communications under one campaign view" },
+              { name: "Batch Submission", desc: "Multiple drafts checked simultaneously" },
+
+              // Records
+              { name: "SHA-256 Audit Trail", desc: "Append-only, tamper-evident, database-enforced" },
+              { name: "Communication Record", desc: "Plain English summary + full compliance view" },
+              { name: "PDF Export", desc: "Downloadable for regulators, lawyers, boards" },
+              { name: "Supervisory Memory", desc: "Corpus grows with every principal approval" },
+            ].map((feature) => (
+              <div key={feature.name} className="bg-white p-4">
+                <div className="text-sm font-semibold text-[#0F172A] mb-1">
+                  {feature.name}
+                </div>
+                <div className="font-mono text-[10px] text-[#64748B] leading-relaxed">
+                  {feature.desc}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
