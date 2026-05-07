@@ -186,37 +186,64 @@ export default async function Home() {
           </h1>
 
           <p className="text-lg md:text-xl font-normal text-white/70 max-w-2xl leading-relaxed mb-10">
-            AI drafts. Executives post. Nobody has a record that anyone
-            checked — or that the messaging was consistent with last week.
-            ERA CUE changes that.
+            AI drafts. Executives post. Nobody has a record that a human checked. ERA CUE changes that.
           </p>
 
-          <div className="mb-8">
-            <Link
-              href="/submit"
-              className="inline-flex items-center bg-[#1A56DB] text-white text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#1447C0] transition"
-            >
-              See it working →
-            </Link>
-
-            {/* Three-word workflow strip — sits directly under the CTA so
-                a visitor's first scan answers "what's the loop?" without
-                them having to read further. CCO recognizes "Configure
-                rules" as her job; speaker recognizes "Check every
-                draft"; everyone sees "Record approved" as the outcome. */}
-            <div className="flex items-center gap-6 mt-4 flex-wrap justify-center">
-              {["Configure rules", "Check every draft", "Record approved"].map((step, i) => (
-                <div key={step} className="flex items-center gap-2">
-                  {i > 0 && (
-                    <span className="text-white/20 font-mono" aria-hidden>
-                      →
-                    </span>
-                  )}
-                  <span className="font-mono text-xs text-white/50 uppercase tracking-widest">
-                    {step}
+          {/* Three-word workflow strip — first scan answers "what's the
+              loop?" without prose. CCO sees "Configure rules" as her job;
+              speaker sees "Check every draft"; everyone sees "Record
+              approved" as the outcome. */}
+          <div className="flex items-center gap-6 mb-10 flex-wrap justify-center">
+            {["Configure rules", "Check every draft", "Record approved"].map((step, i) => (
+              <div key={step} className="flex items-center gap-2">
+                {i > 0 && (
+                  <span className="text-white/20 font-mono" aria-hidden>
+                    →
                   </span>
-                </div>
-              ))}
+                )}
+                <span className="font-mono text-xs text-white/50 uppercase tracking-widest">
+                  {step}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* THE LIVE PRODUCT — moved up from the bottom of the page so
+              the primary CTA is part of the hero scan, not buried below
+              the scenario / role cards / moat / examiner section. The
+              demo bypass in middleware makes "Try it now →" land
+              directly on a pre-filled draft; "Get ERA CUE for your team
+              →" routes to signup for visitors who've already seen
+              enough. */}
+          <div className="text-center max-w-[600px] mx-auto mb-10">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-white/40 mb-3">
+              THE LIVE PRODUCT
+            </div>
+            <div
+              style={{ fontFamily: "var(--font-newsreader)" }}
+              className="text-2xl font-light text-white mb-2"
+            >
+              Try ERA CUE right now.
+            </div>
+            <div className="text-sm text-white/60 mb-6 max-w-md mx-auto leading-relaxed">
+              No login required. Submit a real draft, see a real governance check, open the communication record. The full product, live, in under two minutes.
+            </div>
+            <div className="flex gap-3 justify-center flex-wrap">
+              <a
+                href="/submit"
+                className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-6 py-3 rounded-sm hover:bg-[#1447C0] transition-colors"
+              >
+                Try it now →
+              </a>
+              <a
+                href="/auth/signup"
+                className="bg-white/10 text-white border border-white/20 font-mono text-sm font-medium px-6 py-3 rounded-sm hover:bg-white/20 transition-colors"
+              >
+                Get ERA CUE for your team →
+              </a>
+            </div>
+            <div className="font-mono text-xs text-white/30 mt-3 text-center">
+              or email hello@eracue.com
             </div>
           </div>
 
@@ -844,46 +871,9 @@ export default async function Home() {
         </div>
       </footer>
 
-      {/* ============================================================
-          SECTION 6.5 — REQUEST EARLY ACCESS
-          Sits between the demo footer and the regulatory references
-          so a reader who's read the page and wants to act has a
-          single primary CTA before the legal small-print closes
-          things out.
-         ============================================================ */}
-      <section className="bg-[#0F172A] py-20 px-6 md:px-12 text-center">
-        <div className="text-center max-w-[600px] mx-auto">
-          <div
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-white mb-3"
-          >
-            Ready to see it work?
-          </div>
-
-          <div className="text-sm text-white/60 mb-8 leading-relaxed">
-            Try the live product now — no login required. Or get ERA CUE running for your team in 10 minutes.
-          </div>
-
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            <a
-              href="/submit"
-              className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-6 py-3 rounded-sm hover:bg-[#1447C0] transition-colors"
-            >
-              Try it now →
-            </a>
-            <a
-              href="/auth/signup"
-              className="bg-white/10 text-white font-mono text-sm font-medium px-6 py-3 rounded-sm border border-white/20 hover:bg-white/20 transition-colors"
-            >
-              Get ERA CUE for your team →
-            </a>
-          </div>
-
-          <div className="font-mono text-xs text-white/30 mt-4">
-            or email hello@eracue.com
-          </div>
-        </div>
-      </section>
+      {/* SECTION 6.5 (Request Access) was here. Moved into the hero
+          as "THE LIVE PRODUCT" so the primary CTA is part of the
+          opening scan instead of buried at the page bottom. */}
 
       {/* ============================================================
           SECTION 7 — REGULATORY REFERENCES
