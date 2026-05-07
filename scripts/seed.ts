@@ -154,7 +154,7 @@ async function main() {
   console.log("  drafts inserted:", drafts.length);
 
   console.log("Step 7: seeding ~120 actions (4 per draft on average)...");
-  const actionsToInsert: any[] = [];
+  const actionsToInsert: Record<string, unknown>[] = [];
   for (const draft of drafts) {
     actionsToInsert.push({ org_id: org.id, draft_id: draft.id, action_type: "submitted", actor_id: draft.speaker_id, actor_kind: "user", payload: { source_origin: draft.source_origin } });
     actionsToInsert.push({ org_id: org.id, draft_id: draft.id, action_type: "check_ran", actor_kind: "ai_check", payload: { check: "rule_check", verdict: draft.status === "blocked" ? "block" : "clear" }, model_version: "claude-sonnet-4-6" });

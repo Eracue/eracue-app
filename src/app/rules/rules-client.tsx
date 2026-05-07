@@ -4,6 +4,11 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AddRulePanel } from "./add-rule-panel";
 import { deactivateRuleAction } from "./actions";
+import {
+  extractRulesFromWsp,
+  authorizeSuggestedRulesAction,
+  type SuggestedRule,
+} from "./wsp-import-action";
 
 export type RuleRow = {
   id: string;
@@ -94,6 +99,64 @@ export function RulesClient({ rules, corpusCount = 0 }: Props) {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // WSP import state. The panel toggles open from the header; once
+  // suggested rules come back the user picks which to authorize via the
+  // checkbox set, then the action inserts the curated subset in one shot.
+  const [wspOpen, setWspOpen] = useState(false);
+  const [wspText, setWspText] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [wspError, setWspError] = useState<string | null>(null);
+  const [suggestedRules, setSuggestedRules] = useState<SuggestedRule[]>([]);
+  const [selectedRules, setSelectedRules] = useState<Set<number>>(new Set());
+  const [authorizing, setAuthorizing] = useState(false);
+
+  async function handleWspImport() {
+    if (!wspText.trim() || importing) return;
+    setImporting(true);
+    setWspError(null);
+    setSuggestedRules([]);
+    setSelectedRules(new Set());
+    try {
+      const result = await extractRulesFromWsp(wspText);
+      if (!result.ok) {
+        setWspError(result.error);
+        return;
+      }
+      setSuggestedRules(result.suggested_rules);
+      // Default: every extracted rule selected — the user opts out of any
+      // they don't want rather than opting in.
+      setSelectedRules(new Set(result.suggested_rules.map((_, i) => i)));
+    } catch (e) {
+      setWspError(e instanceof Error ? e.message : "Import failed.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function handleAuthorizeSelected() {
+    if (selectedRules.size === 0 || authorizing) return;
+    const picks = suggestedRules.filter((_, i) => selectedRules.has(i));
+    setAuthorizing(true);
+    setWspError(null);
+    try {
+      const result = await authorizeSuggestedRulesAction(picks);
+      if (!result.ok) {
+        setWspError(result.error);
+        return;
+      }
+      // Reset and close the panel; refresh so the new rules appear.
+      setWspText("");
+      setSuggestedRules([]);
+      setSelectedRules(new Set());
+      setWspOpen(false);
+      router.refresh();
+    } catch (e) {
+      setWspError(e instanceof Error ? e.message : "Authorization failed.");
+    } finally {
+      setAuthorizing(false);
+    }
+  }
 
   const now = Date.now();
   const classified = useMemo(() => {
@@ -201,16 +264,138 @@ export function RulesClient({ rules, corpusCount = 0 }: Props) {
             </button>
             <button
               type="button"
-              disabled
-              className="bg-white border border-[#E2E8F0] text-[#64748B] text-sm px-4 py-2 rounded-sm relative cursor-default"
+              onClick={() => setWspOpen((o) => !o)}
+              className="bg-white border border-[#E2E8F0] text-[#0F172A] text-sm px-4 py-2 rounded-sm hover:bg-[#F8F9FB] transition cursor-pointer"
             >
-              Import from document
-              <span className="ml-2 font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] px-1.5 py-0.5 rounded-sm">
-                Soon
-              </span>
+              Import from WSP
             </button>
           </div>
         </div>
+
+        {/* WSP import panel — collapsible. Lives between the header and
+            the stats strip so the extraction UI sits in front of the rule
+            cards while it's open. */}
+        {wspOpen && (
+          <div className="bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm p-5 mb-6 mt-6">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#1A56DB] mb-2">
+              Import rules from your WSPs
+            </div>
+
+            <div className="text-sm text-[#374151] mb-4 leading-relaxed">
+              Paste your Written Supervisory Procedures section on communications supervision.
+              ERA CUE will suggest rules based on your existing compliance procedures.
+            </div>
+
+            <textarea
+              value={wspText}
+              onChange={(e) => setWspText(e.target.value)}
+              placeholder={`Paste your WSP section here...
+
+Example: 'All associated persons must submit social media posts for principal review 24 hours before publication. Posts containing performance claims, testimonials, or forward-looking statements require CCO approval...'`}
+              className="w-full border border-[#BAE6FD] rounded-sm px-3 py-3 text-sm text-[#0F172A] bg-white h-32 focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8] resize-none"
+            />
+
+            <button
+              type="button"
+              onClick={handleWspImport}
+              disabled={!wspText.trim() || importing}
+              className="mt-3 bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#1447C0] disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              {importing ? (
+                <>
+                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                  Analyzing WSP...
+                </>
+              ) : (
+                "Extract rules from WSP →"
+              )}
+            </button>
+
+            {wspError && (
+              <div className="font-mono text-xs text-[#B91C1C] mt-3">{wspError}</div>
+            )}
+
+            {suggestedRules.length > 0 && (
+              <div className="mt-5 pt-5 border-t border-[#BAE6FD]">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#1A56DB] mb-3">
+                  Suggested rules · {suggestedRules.length} found
+                </div>
+                {suggestedRules.map((rule, i) => (
+                  <div
+                    key={`${rule.name}-${i}`}
+                    className="bg-white border border-[#E2E8F0] rounded-sm p-4 mb-2 flex items-start gap-3"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedRules.has(i)}
+                      onChange={(e) => {
+                        const next = new Set(selectedRules);
+                        if (e.target.checked) next.add(i);
+                        else next.delete(i);
+                        setSelectedRules(next);
+                      }}
+                      className="mt-1 w-4 h-4 accent-[#1A56DB] cursor-pointer"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span
+                          className={`font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm border ${
+                            rule.rule_type === "block"
+                              ? "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]"
+                              : rule.rule_type === "escalate"
+                                ? "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]"
+                                : rule.rule_type === "guide"
+                                  ? "bg-[#F5F3FF] text-[#6D28D9] border-[#DDD6FE]"
+                                  : "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]"
+                          }`}
+                        >
+                          {rule.rule_type}
+                        </span>
+                        <span className="text-sm font-semibold text-[#0F172A]">{rule.name}</span>
+                      </div>
+                      <div className="text-sm text-[#374151] mb-1">{rule.description}</div>
+                      <div className="font-mono text-[10px] text-[#94A3B8]">
+                        {rule.wsp_reference}
+                        {rule.wsp_reference && rule.regulatory_basis ? " · " : ""}
+                        {rule.regulatory_basis}
+                      </div>
+                      {rule.keywords.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {rule.keywords.map((kw) => (
+                            <span
+                              key={kw}
+                              className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
+                            >
+                              {kw}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={handleAuthorizeSelected}
+                  disabled={selectedRules.size === 0 || authorizing}
+                  className="w-full bg-[#0F172A] text-white font-mono text-sm font-medium py-3 rounded-sm hover:bg-[#1E293B] disabled:opacity-50 transition-colors cursor-pointer mt-2"
+                >
+                  {authorizing
+                    ? "Authorizing..."
+                    : `Authorize ${selectedRules.size} selected rule${selectedRules.size !== 1 ? "s" : ""} →`}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Stats strip — Total dropped because it included deactivated rules
             (misleading); Active is now the primary stat. Deactivated lives at

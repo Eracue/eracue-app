@@ -1077,6 +1077,14 @@ function FullView({
                     Matched keyword: <span className="font-mono bg-neutral-100 px-1.5 py-0.5 rounded">{c.matched_keyword}</span>
                   </div>
                 )}
+                {/* Stage 2 reasoning — surfaces ERA CUE's contextual
+                    evaluation of the keyword match so FINRA examiners can
+                    see ERA CUE evaluated context, not just keywords. */}
+                {c.context_evaluation && (
+                  <div className="font-mono text-[10px] text-[#64748B] mt-1 italic">
+                    Context: {c.context_evaluation}
+                  </div>
+                )}
                 {c.check_name === "Consistency Check" && typeof c.corpus_size === "number" && (
                   <div className="font-mono text-[10px] text-[#64748B] mt-1 ml-4">
                     Corpus at submission: {c.corpus_size} approved statements from this speaker

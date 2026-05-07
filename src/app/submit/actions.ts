@@ -8,7 +8,35 @@ import {
   getSupabaseAdmin,
   buildChecksArray,
 } from "@/lib/checks";
-import type { CheckEntry, Verdict } from "@/lib/checks";
+import type { CheckEntry, CommunicationCategory, Verdict } from "@/lib/checks";
+
+// Channels that are inherently public reach a retail audience and can never
+// downgrade to correspondence / institutional. Used as the auto-set rule
+// when the form doesn't pass an explicit category.
+const PUBLIC_CHANNELS = new Set(["linkedin", "twitter", "blog", "press_release"]);
+
+/**
+ * Resolve the FINRA Rule 2210 communication category for a submission.
+ * The form passes an explicit category when the user picked one — that
+ * always wins. Otherwise we fall back to channel + audience_size:
+ *   • audience_size ≤ 25                 → correspondence
+ *   • email without size                 → correspondence (default)
+ *   • linkedin/twitter/blog/press_release → retail (public reach)
+ *   • anything else                      → retail (conservative default)
+ */
+function resolveCommunicationCategory(
+  channel: string,
+  audienceSize: number | null | undefined,
+  explicit: CommunicationCategory | undefined,
+): CommunicationCategory {
+  if (explicit) return explicit;
+  if (typeof audienceSize === "number" && audienceSize <= 25) return "correspondence";
+  if (PUBLIC_CHANNELS.has(channel)) return "retail";
+  if (channel === "email" && (audienceSize === null || audienceSize === undefined)) {
+    return "correspondence";
+  }
+  return "retail";
+}
 
 type SubmitInput = {
   draftText: string;
@@ -24,6 +52,13 @@ type SubmitInput = {
   // is omitted from the insert (so older schemas without the column don't
   // 500 on this code path).
   promptUsed?: string;
+  // FINRA Rule 2210 category. The submit form picks one; absent →
+  // computed from channel + audience_size.
+  communicationCategory?: CommunicationCategory;
+  // Optional headcount of intended retail recipients. Used for the
+  // "≤25 retail investors" correspondence rule when no explicit category
+  // is supplied.
+  audienceSize?: number | null;
 };
 
 export type SubmitSuccess = {
@@ -72,10 +107,24 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
   const finalSourceOrigin =
     input.submissionType === "agent" ? "agent_submitted" : input.sourceOrigin;
 
-  // 1. Insert draft. The form no longer collects FINRA Rule 2210 classification
-  //    fields, so we default to retail/static/public — the strictest standard.
-  //    `prompt_used` is conditionally spread so the insert remains compatible
-  //    with schemas that haven't yet had the FINRA-2026 column added.
+  // 1. Insert draft. The submit form now collects the FINRA Rule 2210
+  //    category explicitly; if absent we fall back to channel + audience_size
+  //    heuristics. content_type / intended_audience still default to the
+  //    strictest standard pending dedicated form fields.
+  const communicationCategory = resolveCommunicationCategory(
+    input.channel,
+    input.audienceSize,
+    input.communicationCategory,
+  );
+  // intended_audience is the column-side analogue of the category — keep
+  // them aligned so the examiner record (which reads intended_audience)
+  // stays consistent with the verdict logic (which reads category).
+  const intendedAudience: "public" | "limited" | "institutional" =
+    communicationCategory === "institutional"
+      ? "institutional"
+      : communicationCategory === "correspondence"
+        ? "limited"
+        : "public";
   const trimmedPrompt = input.promptUsed?.trim();
   const { data: draft, error: draftErr } = await sb.from("drafts").insert({
     org_id: DEMO_ORG_ID,
@@ -87,9 +136,9 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     ai_model_used: finalSourceOrigin === "human" ? null : "claude-sonnet-4-6",
     prompt_hash: finalSourceOrigin === "human" ? null : "0".repeat(64),
     status: "pending",
-    communication_category: "retail",
+    communication_category: communicationCategory,
     content_type: "static",
-    intended_audience: "public",
+    intended_audience: intendedAudience,
     ...(trimmedPrompt ? { prompt_used: trimmedPrompt } : {}),
   }).select("id, submitted_at").single();
 
@@ -110,8 +159,18 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     },
   });
 
-  // 3. Run checks
-  const result = await runChecks(sb, DEMO_ORG_ID, input.draftText, draft.submitted_at);
+  // 3. Run checks. The category drives Stage 3 of the rule check — a hard
+  //    BLOCK on a non-retail communication relaxes to ESCALATE under
+  //    FINRA Rule 2210 (no pre-approval bar for correspondence /
+  //    institutional). Stage 2 (Claude context evaluation) runs inside
+  //    runChecks when ANTHROPIC_API_KEY is set.
+  const result = await runChecks(
+    sb,
+    DEMO_ORG_ID,
+    input.draftText,
+    draft.submitted_at,
+    communicationCategory,
+  );
 
   // 4. rule_check action
   await sb.from("actions").insert({
@@ -153,7 +212,9 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     input.draftText,
   );
 
-  // 7. verdict_issued action
+  // 7. verdict_issued action. Includes the Stage 1 base verdict + Stage 2
+  //    context evaluation reasoning + the category so the examiner record
+  //    can fully reconstruct how the final verdict was reached.
   const checks = buildChecksArray(result, finalSourceOrigin, consistencyResult);
   await sb.from("actions").insert({
     org_id: DEMO_ORG_ID,
@@ -162,9 +223,17 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     actor_kind: "system",
     payload: {
       verdict: result.verdict,
+      base_verdict: result.base_verdict,
       primary_match: result.primary_match,
+      communication_category: communicationCategory,
       checks_passed: ["rule_check", "timing_check"],
       checks,
+      ...(result.context_evaluation
+        ? { context_evaluation: result.context_evaluation }
+        : {}),
+      ...(result.context_unavailable_reason
+        ? { context_unavailable_reason: result.context_unavailable_reason }
+        : {}),
       ...(consistencyResult.result === "warn"
         ? { consistency_warning: consistencyResult.detail }
         : {}),

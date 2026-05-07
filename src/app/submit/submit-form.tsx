@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { submitDraftAction } from "./actions";
-import type { CheckEntry } from "@/lib/checks";
+import type { CheckEntry, CommunicationCategory } from "@/lib/checks";
 
 // ---------- Constants ----------------------------------------------------
 
@@ -55,6 +55,10 @@ export function SubmitForm() {
   const [draftText, setDraftText]           = useState(DEMO_DRAFT);
   const [speaker, setSpeaker]               = useState("Marcus Rivera");
   const [channel, setChannel]               = useState("linkedin");
+  // FINRA Rule 2210 communication category — drives whether a hard BLOCK
+  // applies (retail) or relaxes to ESCALATE (correspondence + institutional
+  // are subject to supervision but not principal pre-approval).
+  const [commCategory, setCommCategory]     = useState<CommunicationCategory>("retail");
   const [submissionType, setSubmissionType] = useState<"human" | "agent">("human");
   const [aiDeclaration, setAiDeclaration]   = useState(true);
   const [promptUsed, setPromptUsed]         = useState("");
@@ -68,6 +72,19 @@ export function SubmitForm() {
   const currentChannel = CHANNELS.find((c) => c.value === channel);
   const charLimit = currentChannel?.limit ?? null;
   const overLimit = charLimit !== null && charCount > charLimit;
+
+  // Auto-set the FINRA category based on channel selection. Public
+  // channels (linkedin/twitter/blog/press_release) reach a retail
+  // audience by definition; email defaults to correspondence (≤25 retail
+  // investors is the typical case). Users can still override manually
+  // after the auto-set fires.
+  useEffect(() => {
+    if (["linkedin", "twitter", "blog", "press_release"].includes(channel)) {
+      setCommCategory("retail");
+    } else if (channel === "email") {
+      setCommCategory("correspondence");
+    }
+  }, [channel]);
 
   async function handleSubmit() {
     if (!draftText.trim()) {
@@ -89,6 +106,8 @@ export function SubmitForm() {
         campaignName: campaign || null,
         // Only meaningful when AI is declared; the action ignores empty values.
         promptUsed: aiDeclaration ? promptUsed : undefined,
+        // Drives the verdict adjustment (Stage 3) in the rule check.
+        communicationCategory: commCategory,
       });
 
       if ("error" in result && result.error) {
@@ -424,6 +443,61 @@ export function SubmitForm() {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Card 2b — Communication type (FINRA Rule 2210). Drives whether
+              a hard BLOCK actually applies (retail) or relaxes to ESCALATE
+              (correspondence and institutional don't require principal
+              pre-approval under 2210). Auto-set from channel; user can
+              override. */}
+          <div className="bg-white border border-[#E2E8F0] rounded-sm p-4">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
+              Communication type
+            </div>
+            <div className="font-mono text-[10px] text-[#94A3B8] mb-3">
+              Affects which FINRA rules apply
+            </div>
+
+            <div className="space-y-1.5">
+              {[
+                {
+                  value: "retail" as const,
+                  label: "Retail communication",
+                  desc: "More than 25 retail investors · Pre-approval required",
+                },
+                {
+                  value: "correspondence" as const,
+                  label: "Correspondence",
+                  desc: "25 or fewer retail investors · Supervision required",
+                },
+                {
+                  value: "institutional" as const,
+                  label: "Institutional",
+                  desc: "Institutional investors only · Review recommended",
+                },
+              ].map((opt) => {
+                const selected = commCategory === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setCommCategory(opt.value)}
+                    className={`w-full text-left px-3 py-2.5 rounded-sm border text-sm transition-colors cursor-pointer ${
+                      selected
+                        ? "bg-[#EFF8FF] border-[#BAE6FD]"
+                        : "bg-white border-[#E2E8F0] hover:bg-[#F8F9FB]"
+                    }`}
+                  >
+                    <div className="font-medium text-[#0F172A] text-sm">{opt.label}</div>
+                    <div className="font-mono text-[10px] text-[#64748B] mt-0.5">{opt.desc}</div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="font-mono text-[10px] text-[#94A3B8] mt-2">
+              Default: Retail (conservative). Public channels (LinkedIn, Twitter, Blog) are always Retail.
             </div>
           </div>
 

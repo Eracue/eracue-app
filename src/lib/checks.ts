@@ -34,7 +34,16 @@ export type CheckEntry = {
   // time. Persisted on the verdict_issued payload so the examiner
   // record can show "Corpus at submission: N" without re-querying.
   corpus_size?: number;
+  // Stage 2 contextual reasoning written by the Rule Check when an
+  // ANTHROPIC_API_KEY is available. Shown on the examiner record so
+  // FINRA reviewers can see ERA CUE evaluated context, not just keywords.
+  context_evaluation?: string;
 };
+
+// FINRA Rule 2210(a) communication categories. Drives whether a rule-based
+// BLOCK actually applies (retail) or relaxes to ESCALATE (correspondence
+// and institutional don't require pre-approval under 2210).
+export type CommunicationCategory = "retail" | "institutional" | "correspondence";
 
 export const CHECK_NAMES = [
   "Rule Check",
@@ -58,14 +67,32 @@ export function buildChecksArray(
 ): CheckEntry[] {
   const pm = result.primary_match;
   const isQuietPeriod = pm ? /quiet period/i.test(pm.rule_name) : false;
+  const ctx = result.context_evaluation ?? null;
 
+  // Rule Check entry. Stage 2 (contextual evaluation) can downgrade a
+  // keyword match from "fail" to "warn" with reasoning attached. When the
+  // API key is missing we still mark the check as fail (deterministic
+  // Stage 1 only) and append an unavailability note.
   const ruleCheck: CheckEntry = pm
-    ? {
-        check_name: "Rule Check",
-        result: "fail",
-        detail: `Matched: ${pm.rule_name}`,
-        matched_keyword: pm.matched_keyword,
-      }
+    ? ctx && !ctx.confirmed
+      ? {
+          check_name: "Rule Check",
+          result: "warn",
+          detail: `Keyword matched but context evaluated as low risk: ${ctx.reasoning}`,
+          matched_keyword: pm.matched_keyword,
+          context_evaluation: ctx.reasoning,
+        }
+      : {
+          check_name: "Rule Check",
+          result: "fail",
+          detail: ctx
+            ? `Matched: ${pm.rule_name}`
+            : result.context_unavailable_reason
+              ? `Matched: ${pm.rule_name} · ${result.context_unavailable_reason}`
+              : `Matched: ${pm.rule_name}`,
+          matched_keyword: pm.matched_keyword,
+          ...(ctx ? { context_evaluation: ctx.reasoning } : {}),
+        }
     : { check_name: "Rule Check", result: "pass", detail: null };
 
   const quietPeriodCheck: CheckEntry = isQuietPeriod && pm
@@ -251,9 +278,170 @@ export type CheckResult = {
     submitted_at: string;
   };
   verdict: Verdict;
+  // The Stage 1 (keyword-only) verdict — preserved so the audit trail can
+  // show what the deterministic rule engine produced before Stage 2 / the
+  // category adjustment. Equal to `verdict` when neither downgrade fires.
+  base_verdict: Verdict;
   primary_match: RuleMatch | null;
   rules_active: string[];
+  communication_category: CommunicationCategory;
+  // Stage 2 — populated only when ANTHROPIC_API_KEY is set AND a
+  // primary_match exists. Captures whether Claude confirmed the keyword
+  // match as a real violation, plus its one-sentence reasoning.
+  context_evaluation?: {
+    confirmed: boolean;
+    reasoning: string;
+    adjusted_verdict: string | null;
+  };
+  // Set when Stage 2 was skipped (no API key) so the audit trail can record
+  // *why* contextual evaluation didn't run.
+  context_unavailable_reason?: string;
 };
+
+// Adjust the keyword-derived verdict to the regulatory category. Under FINRA
+// Rule 2210, only retail communications require principal pre-approval —
+// correspondence (≤25 retail investors) and institutional are subject to
+// supervision but not the same pre-approval bar, so a hard BLOCK relaxes
+// to ESCALATE for human review.
+export function adjustVerdictForCategory(
+  baseVerdict: Verdict,
+  _ruleType: Rule["rule_type"],
+  category: CommunicationCategory,
+): Verdict {
+  // Correspondence: BLOCK → ESCALATE
+  // Pre-approval not required for ≤25 retail investors (FINRA Rule 2210)
+  if (category === "correspondence" && baseVerdict === "block") {
+    return "escalate";
+  }
+  // Institutional: BLOCK → ESCALATE
+  // Institutional communications don't require pre-approval under Rule 2210
+  if (category === "institutional" && baseVerdict === "block") {
+    return "escalate";
+  }
+  // Retail: full verdict applies
+  return baseVerdict;
+}
+
+// ---------- Stage 2 — Context evaluation -----------------------------------
+
+type ContextEvaluation = {
+  confirmed: boolean;
+  reasoning: string;
+  adjusted_verdict: string | null;
+};
+
+const CONTEXT_SYSTEM_PROMPT = `You are a FINRA compliance reviewer evaluating whether a communication violates a governance rule.
+
+Be precise. A keyword match alone is not a violation. Evaluate the full context.
+
+Rules:
+- FINRA Rule 2210 prohibits false, misleading, promissory, or exaggerated statements
+- Performance projections are prohibited in retail communications
+- Guaranteed returns are prohibited
+- Testimonials without disclosures are prohibited
+
+Respond with JSON only:
+{
+  "confirmed": true | false,
+  "reasoning": "one sentence",
+  "adjusted_verdict": "block" | "escalate" | "review" | "clear" | null
+}
+
+If confirmed is false, adjusted_verdict should be "clear" or "review" depending on risk level.
+If confirmed is true, keep the original verdict.`;
+
+/**
+ * Stage 2 of the Rule Check. Asks Claude whether a Stage-1 keyword match is
+ * a genuine violation in context, or a false positive. Errors are absorbed
+ * by treating the match as confirmed (conservative) so a Claude outage
+ * never silently downgrades a real violation.
+ */
+export async function evaluateContextually(
+  draftText: string,
+  matchedRule: { name: string; description: string },
+  matchedKeyword: string,
+  communicationCategory: string,
+): Promise<ContextEvaluation> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // Caller is expected to gate on the key, but defend here too so the
+  // function is safe to invoke directly.
+  if (!apiKey) {
+    return {
+      confirmed: true,
+      reasoning: "Unable to evaluate context",
+      adjusted_verdict: null,
+    };
+  }
+
+  let response: Response;
+  try {
+    response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 300,
+        system: CONTEXT_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: `Draft: "${draftText}"
+
+Rule violated: ${matchedRule.name}
+Rule description: ${matchedRule.description}
+Matched keyword: "${matchedKeyword}"
+Communication type: ${communicationCategory}
+
+Is this a genuine violation of the rule, or is the keyword match a false positive?`,
+          },
+        ],
+      }),
+    });
+  } catch {
+    return { confirmed: true, reasoning: "Unable to evaluate context", adjusted_verdict: null };
+  }
+
+  if (!response.ok) {
+    return { confirmed: true, reasoning: "Unable to evaluate context", adjusted_verdict: null };
+  }
+
+  let data: { content?: Array<{ type: string; text?: string }> };
+  try {
+    data = (await response.json()) as { content?: Array<{ type: string; text?: string }> };
+  } catch {
+    return { confirmed: true, reasoning: "Unable to evaluate context", adjusted_verdict: null };
+  }
+
+  const text = (data.content ?? [])
+    .filter((b) => b.type === "text")
+    .map((b) => b.text || "")
+    .join("");
+
+  try {
+    const clean = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(clean) as Partial<ContextEvaluation>;
+    return {
+      confirmed: typeof parsed.confirmed === "boolean" ? parsed.confirmed : true,
+      reasoning:
+        typeof parsed.reasoning === "string" && parsed.reasoning.trim().length > 0
+          ? parsed.reasoning
+          : "Unable to evaluate context",
+      adjusted_verdict:
+        typeof parsed.adjusted_verdict === "string" ? parsed.adjusted_verdict : null,
+    };
+  } catch {
+    // If parsing fails, conservative: keep original verdict
+    return { confirmed: true, reasoning: "Unable to evaluate context", adjusted_verdict: null };
+  }
+}
+
+function isVerdict(v: string | null): v is Verdict {
+  return v === "block" || v === "escalate" || v === "review" || v === "guide" || v === "clear";
+}
 
 const VERDICT_PRIORITY: Record<Verdict, number> = {
   block: 5,
@@ -271,7 +459,8 @@ export async function runChecks(
   sb: SupabaseClient,
   orgId: string,
   draftText: string,
-  submittedAt: string
+  submittedAt: string,
+  communicationCategory: CommunicationCategory = "retail",
 ): Promise<CheckResult> {
   // Fetch all rules for this org
   const { data: rules, error } = await sb
@@ -295,7 +484,8 @@ export async function runChecks(
     return true;
   });
 
-  // Rule check: among active rules, which keywords match the draft text?
+  // STAGE 1 — Keyword match (deterministic, fast). Among active rules,
+  // which keywords match the draft text?
   const lowerText = draftText.toLowerCase();
   const matches: RuleMatch[] = [];
   for (const rule of activeRules) {
@@ -317,15 +507,49 @@ export async function runChecks(
     }
   }
 
-  // Verdict aggregation: highest priority wins
-  let verdict: Verdict = "clear";
+  // Verdict aggregation: highest priority wins. Stage 1 verdict.
+  let baseVerdict: Verdict = "clear";
   let primaryMatch: RuleMatch | null = null;
   for (const m of matches) {
-    if (VERDICT_PRIORITY[m.rule_type] > VERDICT_PRIORITY[verdict]) {
-      verdict = m.rule_type;
+    if (VERDICT_PRIORITY[m.rule_type] > VERDICT_PRIORITY[baseVerdict]) {
+      baseVerdict = m.rule_type;
       primaryMatch = m;
     }
   }
+
+  // STAGE 2 — Context evaluation (Claude). Only fires when Stage 1
+  // produced a primary match. Without an API key we fall through to the
+  // Stage 1 verdict and surface a "context evaluation unavailable" note.
+  let contextEvaluation: CheckResult["context_evaluation"] | undefined;
+  let contextUnavailableReason: string | undefined;
+  let postStage2Verdict: Verdict = baseVerdict;
+
+  if (primaryMatch) {
+    if (process.env.ANTHROPIC_API_KEY) {
+      const evaluation = await evaluateContextually(
+        draftText,
+        { name: primaryMatch.rule_name, description: primaryMatch.rule_description },
+        primaryMatch.matched_keyword,
+        communicationCategory,
+      );
+      contextEvaluation = evaluation;
+      if (!evaluation.confirmed) {
+        // Downgrade — adjusted_verdict from Claude wins; default to "review".
+        const candidate = evaluation.adjusted_verdict;
+        postStage2Verdict = isVerdict(candidate) ? candidate : "review";
+      }
+    } else {
+      contextUnavailableReason =
+        "Context evaluation unavailable — keyword match only";
+    }
+  }
+
+  // STAGE 3 — Category adjustment. BLOCK on a non-retail category relaxes
+  // to ESCALATE under FINRA Rule 2210 (no pre-approval requirement for
+  // correspondence / institutional).
+  const finalVerdict: Verdict = primaryMatch
+    ? adjustVerdictForCategory(postStage2Verdict, primaryMatch.rule_type, communicationCategory)
+    : postStage2Verdict;
 
   return {
     rule_check: { matches },
@@ -334,9 +558,13 @@ export async function runChecks(
       rules_inactive_count: allRules.length - activeRules.length,
       submitted_at: submittedAt,
     },
-    verdict,
+    verdict: finalVerdict,
+    base_verdict: baseVerdict,
     primary_match: primaryMatch,
     rules_active: activeRules.map((r) => r.id),
+    communication_category: communicationCategory,
+    ...(contextEvaluation ? { context_evaluation: contextEvaluation } : {}),
+    ...(contextUnavailableReason ? { context_unavailable_reason: contextUnavailableReason } : {}),
   };
 }
 
