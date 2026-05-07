@@ -40,6 +40,15 @@ function isPublicPath(path: string): boolean {
 }
 
 export async function middleware(req: NextRequest) {
+  // Demo bypass: when NEXT_PUBLIC_DEMO_MODE === "true" the entire
+  // product surface is public — no auth gate, no org-membership
+  // redirect, no principal-only enforcement. The hosted demo deploy
+  // ships with this on so prospects can click through every page
+  // without an account; production deployments leave it unset.
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === "true") {
+    return NextResponse.next();
+  }
+
   let res = NextResponse.next({ request: req });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
