@@ -19,23 +19,16 @@ const CCO_EXAMINER_DRAFT_ID = "afe14696-5336-4336-a0b7-c3410477ec31";
 
 // ---------- Moat data --------------------------------------------------
 
-type TopRule = {
-  name: string;
-  times_triggered: number;
-  effectiveness_score: number | null;
-};
-
 type MoatData = {
   corpusCount: number;
   decisionCount: number;
-  topRule: TopRule | null;
 };
 
 /**
- * Pull the three live numbers the moat section surfaces: corpus size,
- * total reviewer decisions, and the most-triggered rule (with its
- * effectiveness score derived from the same draft-status join the
- * dashboard uses).
+ * Pull the two live numbers the "What ERA CUE records" section
+ * surfaces: corpus size and total reviewer decisions. The third tile
+ * (records altered) is a hardcoded 0 — that one's a database invariant,
+ * not a count.
  *
  * Failures fall back to zeroes so the homepage renders cleanly even
  * when Supabase env vars aren't configured (e.g. local first-time
@@ -44,7 +37,7 @@ type MoatData = {
 async function getMoatData(): Promise<MoatData> {
   try {
     const sb = getSupabaseAdmin();
-    const [corpusRes, decisionRes, draftsRes, verdictsRes] = await Promise.all([
+    const [corpusRes, decisionRes] = await Promise.all([
       sb
         .from("drafts")
         .select("*", { count: "exact", head: true })
@@ -60,55 +53,14 @@ async function getMoatData(): Promise<MoatData> {
         .eq("org_id", DEMO_ORG_ID)
         .eq("action_type", "reviewer_decided")
         .in("payload->>decision", ["override", "confirm_block", "approve", "reject"]),
-      sb.from("drafts").select("id, status").eq("org_id", DEMO_ORG_ID),
-      sb
-        .from("actions")
-        .select("draft_id, payload")
-        .eq("org_id", DEMO_ORG_ID)
-        .eq("action_type", "verdict_issued"),
     ]);
 
-    const corpusCount = corpusRes.count ?? 0;
-    const decisionCount = decisionRes.count ?? 0;
-
-    // Compute trigger counts + override counts per rule_name (matched
-    // through verdict_issued.payload.primary_match.rule_name). Effectiveness
-    // = (matches − overrides) / matches × 100. Mirrors the dashboard
-    // computation so the homepage and dashboard tell the same story.
-    const draftStatusById = new Map<string, string>();
-    for (const d of (draftsRes.data ?? []) as Array<{ id: string; status: string }>) {
-      draftStatusById.set(d.id, d.status);
-    }
-    const stats = new Map<string, { matches: number; overrides: number }>();
-    type VerdictRow = { draft_id: string; payload: { primary_match?: { rule_name?: string } | null } };
-    for (const v of (verdictsRes.data ?? []) as VerdictRow[]) {
-      const name = v.payload?.primary_match?.rule_name;
-      if (!name) continue;
-      const cur = stats.get(name) ?? { matches: 0, overrides: 0 };
-      cur.matches++;
-      if (draftStatusById.get(v.draft_id) === "overridden") cur.overrides++;
-      stats.set(name, cur);
-    }
-
-    let topRule: TopRule | null = null;
-    let max = 0;
-    for (const [name, s] of stats.entries()) {
-      if (s.matches > max) {
-        max = s.matches;
-        topRule = {
-          name,
-          times_triggered: s.matches,
-          effectiveness_score:
-            s.matches > 0
-              ? Math.round(((s.matches - s.overrides) / s.matches) * 100)
-              : null,
-        };
-      }
-    }
-
-    return { corpusCount, decisionCount, topRule };
+    return {
+      corpusCount: corpusRes.count ?? 0,
+      decisionCount: decisionRes.count ?? 0,
+    };
   } catch {
-    return { corpusCount: 0, decisionCount: 0, topRule: null };
+    return { corpusCount: 0, decisionCount: 0 };
   }
 }
 
@@ -138,21 +90,6 @@ function VerdictEscalateBadge() {
   );
 }
 
-function CheckRow({ name, result }: { name: string; result: "PASS" | "FAIL" }) {
-  const dotColor = result === "PASS" ? "#166534" : "#B91C1C";
-  return (
-    <li className="flex items-center gap-2 text-sm font-mono mt-2">
-      <span
-        aria-hidden
-        className="inline-block rounded-full"
-        style={{ width: 6, height: 6, backgroundColor: dotColor }}
-      />
-      <span className="text-[#0F172A]">{name}</span>
-      <span className="text-[#64748B]">· {result}</span>
-    </li>
-  );
-}
-
 function KeywordChip({ children }: { children: React.ReactNode }) {
   return (
     <span className="font-mono text-xs bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-sm">
@@ -164,7 +101,7 @@ function KeywordChip({ children }: { children: React.ReactNode }) {
 // ---------- Page ----------------------------------------------------------
 
 export default async function Home() {
-  const { corpusCount, decisionCount, topRule } = await getMoatData();
+  const { corpusCount, decisionCount } = await getMoatData();
   return (
     <div className="bg-[#F8F9FB] min-h-screen">
       {/* v2-homepage-2026-redesign */}
@@ -196,13 +133,16 @@ export default async function Home() {
               between AI and publish.
             </h1>
 
-            <p className="text-base text-white/60 max-w-lg mb-3 leading-relaxed">
+            <p className="text-base text-white/70 max-w-lg mb-2 leading-relaxed">
               Every AI draft your team creates gets checked against your governance rules, reviewed by a named principal, and locked in an immutable record — before anyone publishes anything.
             </p>
-
-            <div className="font-mono text-xs text-white/30 mb-8">
-              FINRA Rule 3110 · SEC Reg FD · EU AI Act Art. 50 · SHA-256
-            </div>
+            {/* Two-buyer framing — the same product reads differently to a
+                FINRA-regulated firm (supervisory evidence) versus a brand
+                governance buyer (responsible-comms record). The single
+                paragraph below carries both pitches in one breath. */}
+            <p className="font-mono text-sm text-white/40 max-w-lg mb-8">
+              For regulated firms: FINRA-ready supervisory evidence. For everyone else: the approval record that proves your team communicated responsibly.
+            </p>
 
             <div className="flex gap-3 flex-wrap">
               <a
@@ -409,114 +349,101 @@ export default async function Home() {
       </section>
 
       {/* ============================================================
-          SECTION 2 — THE GOVERNED MOMENT
+          SECTION 2 — WHY ERA CUE EXISTS (three problem cards)
+          Replaces the single CEO scenario with three short narratives —
+          regulatory, brand, and agentic — each ending in a green
+          "With ERA CUE" callout. Same persuasive structure as a single
+          scenario card but covers three buyer modes in one section.
          ============================================================ */}
-      <section className="bg-white border-y border-[#E2E8F0] py-16">
-        <div className="max-w-[1100px] mx-auto px-6">
-          <Eyebrow>THE GOVERNED MOMENT</Eyebrow>
-          <h2
-            className="text-2xl font-light text-[#0F172A] mt-2 mb-1"
+      <section className="py-20 px-6 md:px-12 bg-white border-t border-[#E2E8F0]">
+        <div className="max-w-[1100px] mx-auto">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            Why ERA CUE exists
+          </div>
+          <div
             style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-3xl font-light text-[#0F172A] mb-12 max-w-2xl"
           >
-            Tuesday, 8:47 AM. The CEO posted during a quiet period.
-          </h2>
-          <p className="text-sm text-[#64748B] mb-8">
-            ERA CUE caught it before it went live. Here is the complete record.
-          </p>
+            Three moments where the absence of a governance record becomes a problem.
+          </div>
 
-          {/* Evidence artifact — left blue rule grounds the card to the
-              brand accent and visually anchors the verdict that follows. */}
-          <div className="bg-white border border-[#E2E8F0] border-l-4 border-l-[#1A56DB] rounded-sm p-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Column 1 — Draft */}
-              <div>
-                <Eyebrow>DRAFT · CEO · LINKEDIN · AI ASSISTED</Eyebrow>
-                <p
-                  className="italic text-lg md:text-xl text-[#0F172A] mt-3 leading-snug"
-                  style={{ fontFamily: "var(--font-newsreader)" }}
-                >
-                  &ldquo;We&apos;re aggressively hiring across engineering and
-                  sales — exciting times ahead for the team.&rdquo;
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Problem 1 — Compliance risk (red top accent) */}
+            <div className="border border-[#E2E8F0] rounded-sm p-6 border-t-4 border-t-[#B91C1C]">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#B91C1C] mb-4">
+                Compliance risk
+              </div>
+              <div className="text-sm text-[#374151] leading-relaxed mb-6 space-y-2">
+                <p>A registered rep posts on LinkedIn without pre-approval.</p>
+                <p>FINRA asks for the supervision record during examination.</p>
+                <p className="font-medium text-[#0F172A]">
+                  The firm has an email chain from six months ago.
                 </p>
               </div>
+              <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-3">
+                <div className="font-mono text-[10px] text-[#166534] uppercase tracking-widest mb-1">
+                  With ERA CUE
+                </div>
+                <div className="text-xs text-[#374151]">
+                  Named principal decision. Structured basis. SHA-256 locked. FINRA Rule 3110-ready on day one.
+                </div>
+              </div>
+            </div>
 
-              {/* Column 2 — Verdict */}
-              <div>
-                <Eyebrow>SYSTEM VERDICT</Eyebrow>
-                <div className="mt-3">
-                  <VerdictBlockBadge />
-                </div>
-                <div className="text-sm font-medium text-[#0F172A] mt-3">
-                  Series B Quiet Period
-                </div>
-                <p className="text-sm text-[#374151] mt-1 leading-relaxed">
-                  No hiring, growth, or fundraising language during quiet period.
+            {/* Problem 2 — Messaging inconsistency (orange top accent) */}
+            <div className="border border-[#E2E8F0] rounded-sm p-6 border-t-4 border-t-[#C2410C]">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#C2410C] mb-4">
+                Messaging inconsistency
+              </div>
+              <div className="text-sm text-[#374151] leading-relaxed mb-6 space-y-2">
+                <p>VP Sales posts that pricing is &ldquo;industry-leading.&rdquo;</p>
+                <p>The CEO said &ldquo;competitive&rdquo; two weeks earlier.</p>
+                <p className="font-medium text-[#0F172A]">
+                  An analyst notices. The story runs in the press.
                 </p>
-                <div className="mt-3">
-                  <span className="font-mono text-xs bg-[#F1F5F9] text-[#1A56DB] px-2 py-0.5 rounded-sm inline-block">
-                    hiring
-                  </span>
+              </div>
+              <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-3">
+                <div className="font-mono text-[10px] text-[#166534] uppercase tracking-widest mb-1">
+                  With ERA CUE
+                </div>
+                <div className="text-xs text-[#374151]">
+                  Consistency check catches the contradiction against the CEO&apos;s approved statement. Flagged before publication.
                 </div>
               </div>
+            </div>
 
-              {/* Column 3 — Five checks */}
-              <div>
-                <Eyebrow>CHECKS PERFORMED</Eyebrow>
-                <ul>
-                  <CheckRow name="Rule Check" result="FAIL" />
-                  <CheckRow name="Quiet Period Check" result="FAIL" />
-                  <CheckRow name="Consistency Check" result="PASS" />
-                  <CheckRow name="Alignment Check" result="PASS" />
-                  <CheckRow name="Agent Origin Check" result="PASS" />
-                </ul>
+            {/* Problem 3 — Agentic publishing (violet top accent) */}
+            <div className="border border-[#E2E8F0] rounded-sm p-6 border-t-4 border-t-[#7C3AED]">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#7C3AED] mb-4">
+                Agentic publishing
+              </div>
+              <div className="text-sm text-[#374151] leading-relaxed mb-6 space-y-2">
+                <p>AI agent drafts and schedules 8 posts for the week.</p>
+                <p>Three contain forward guidance. No human reviews them.</p>
+                <p className="font-medium text-[#0F172A]">
+                  They all publish. The CCO finds out from a client.
+                </p>
+              </div>
+              <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-3">
+                <div className="font-mono text-[10px] text-[#166534] uppercase tracking-widest mb-1">
+                  With ERA CUE
+                </div>
+                <div className="text-xs text-[#374151]">
+                  ERA CUE is the agent gateway. Every agent-drafted post requires a clearance token. No token, no publish.
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Lane 2 — brand governance / non-FINRA flavour. Different
-              verdict (ESCALATE), different rule type (consistency
-              against an approved statement), different speaker. Shows
-              the platform handles more than just regulatory blocks. */}
-          <div className="mt-4 bg-white border border-[#E2E8F0] rounded-sm p-5 border-l-4 border-l-[#7C3AED]">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
-              Monday, 2:14 PM · VP Sales · LinkedIn · Campaign: Q3 Launch
-            </div>
-
-            <div className="text-sm italic text-[#374151] mb-4 leading-relaxed">
-              &ldquo;Our enterprise pricing is the most competitive in the market — no one comes close.&rdquo;
-            </div>
-
-            <div className="flex items-center gap-2 mb-3">
-              <span className="font-mono text-xs font-bold uppercase px-2 py-1 rounded-sm bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA]">
-                ESCALATE
-              </span>
-              <span className="text-sm text-[#374151]">
-                Pricing Claims · GC review required
-              </span>
-            </div>
-
-            <div className="font-mono text-[10px] text-[#94A3B8]">
-              Consistency Check: contradicts approved statement from Lena Brooks (May 4) — &ldquo;competitive pricing across all tiers&rdquo;
-            </div>
-          </div>
-
-          <div className="text-xs font-mono text-[#64748B] mt-4">
-            SHA-256 locked · append-only · record cannot be altered
-          </div>
-
-          {/* Transition into the governance flow — closes the scenario
-              with the principal review + examiner record outcome and
-              hands the reader off to the live record. */}
-          <div className="mt-6 pt-6 border-t border-[#E2E8F0] text-sm text-[#374151] leading-relaxed">
-            That verdict routes to the principal&apos;s queue. Sarah Chen
-            reviews it, makes a structured decision with a documented
-            basis, and ERA CUE generates an immutable examiner record —
-            automatically.{" "}
+          {/* Live-product handoff — the demo bypass means /submit is
+              reachable without auth, so this lands the reader directly
+              on the same engine the problem narratives describe. */}
+          <div className="mt-8 text-center">
             <a
-              href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
-              className="text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+              href="/submit"
+              className="font-mono text-sm font-medium text-[#1A56DB] hover:text-[#1447C0] transition-colors"
             >
-              See the full record →
+              See ERA CUE catch a violation in real time →
             </a>
           </div>
         </div>
@@ -642,6 +569,102 @@ export default async function Home() {
       </section>
 
       {/* ============================================================
+          SECTION 3.05 — COORDINATED COMMUNICATIONS (campaign view)
+          Dark mini campaign-record card. Sits between the role cards
+          (audience) and the feature grid (capabilities) so the team-
+          coordination story lands before the surface-level feature
+          enumeration. Mini stats grid (12 / 9 / 3 / 0) + four speaker
+          rows. Replaces the old multi-speaker snapshot.
+         ============================================================ */}
+      <section className="py-20 px-6 md:px-12 bg-[#0F172A]">
+        <div className="max-w-[1100px] mx-auto">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-white/30 mb-2">
+            Coordinated communications
+          </div>
+          <div
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-3xl font-light text-white mb-4 max-w-2xl"
+          >
+            Govern an entire campaign — not just one draft.
+          </div>
+          <div className="text-sm text-white/50 mb-12 max-w-xl leading-relaxed">
+            PR agencies, comms teams, and regulated firms use ERA CUE to govern every communication across a campaign window — tracking who said what, when, on which platform, and who approved it.
+          </div>
+
+          {/* Mini campaign record card */}
+          <div className="bg-white/5 border border-white/10 rounded-sm p-6 max-w-2xl mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-white/30 mb-1">
+                  Campaign record
+                </div>
+                <div className="text-white font-semibold text-lg">Series B Announce</div>
+                <div className="font-mono text-[10px] text-white/30 mt-1">
+                  Apr 15 – Jun 30, 2026 · Governed by Sarah Chen, GC
+                </div>
+              </div>
+              <Link
+                href="/campaigns/Series%20B%20Announce"
+                className="font-mono text-xs text-[#1A56DB] hover:text-[#60A5FA] transition-colors whitespace-nowrap"
+              >
+                View full record →
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-4 gap-4 mb-6 pb-6 border-b border-white/10">
+              {[
+                { n: "12", l: "Total" },
+                { n: "9", l: "Approved", c: "text-[#4ADE80]" },
+                { n: "3", l: "Flagged", c: "text-[#FCA5A5]" },
+                { n: "0", l: "Pending", c: "text-white" },
+              ].map((s) => (
+                <div key={s.l}>
+                  <div className={`font-mono text-2xl font-light mb-1 ${s.c ?? "text-white"}`}>
+                    {s.n}
+                  </div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-white/30">
+                    {s.l}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { name: "Marcus Rivera", role: "CEO", drafts: 4, flagged: 2 },
+                { name: "Lena Brooks", role: "Chief Comms Officer", drafts: 3, flagged: 1 },
+                { name: "James Kim", role: "Head of IR", drafts: 3, flagged: 0 },
+                { name: "Priya Patel", role: "Chief Marketing Officer", drafts: 2, flagged: 0 },
+              ].map((s) => (
+                <div key={s.name} className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <span className="text-sm text-white/80 font-medium">{s.name}</span>
+                    <span className="font-mono text-[10px] text-white/30 ml-2">{s.role}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="font-mono text-[10px] text-white/40">
+                      {s.drafts} drafts
+                    </span>
+                    {s.flagged > 0 ? (
+                      <span className="font-mono text-[10px] text-[#FCA5A5]">
+                        {s.flagged} flagged
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[10px] text-[#4ADE80]">all clear</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="font-mono text-xs text-white/30">
+            Every communication. Every speaker. Every channel. One campaign governance record.
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
           SECTION 3.1 — FEATURE GRID
           Twelve features in a 4-col hairline grid (gap-px on a slate
           background gives the Bloomberg-terminal look). Sits after
@@ -703,39 +726,39 @@ export default async function Home() {
       <section className="py-16 px-6 md:px-12 border-t border-[#E2E8F0]">
         <div className="max-w-[1100px] mx-auto">
           <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
-            The moat
+            What ERA CUE records
           </div>
           <div
             style={{ fontFamily: "var(--font-newsreader)" }}
             className="text-2xl font-light text-[#0F172A] mb-10"
           >
-            ERA CUE becomes smarter with every decision your team makes.
+            Every decision. Permanently.
           </div>
 
           {/* gap-px + a slate background reads as a hairline grid in light
               mode, which feels closer to the "Bloomberg terminal" demo
               ethos than padded floating cards. */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[#E2E8F0] border border-[#E2E8F0] rounded-sm overflow-hidden">
-            {/* Moat moment 1 — Corpus */}
+            {/* Card 1 — Corpus (live count) */}
             <div className="bg-white p-6">
               <div className="font-mono text-4xl font-light text-[#1A56DB] mb-2">
                 {corpusCount}
               </div>
               <div className="text-sm font-semibold text-[#0F172A] mb-2">
-                Approved statements in corpus
+                Principal-approved statements
               </div>
               <div className="text-sm text-[#64748B] leading-relaxed">
-                Every approved communication enters the governance corpus. New drafts are checked against it automatically — catching contradictions before anyone else sees them.
+                Every communication approved through ERA CUE enters the governance corpus — checked against every future draft from the same speaker automatically.
               </div>
               <div className="font-mono text-[10px] text-[#94A3B8] mt-3 pt-3 border-t border-[#F1F5F9]">
                 Corpus is principal-approved only. No unreviewed content enters.
               </div>
             </div>
 
-            {/* Moat moment 2 — Immutability. Hardcoded zero is honest:
-                the actions table's append-only trigger refuses UPDATE
-                and DELETE at the database level, so this number is
-                literally a database invariant, not a count. */}
+            {/* Card 2 — Immutability. Hardcoded zero is honest: the
+                actions table's append-only triggers refuse UPDATE and
+                DELETE at the database level, so this number is literally
+                a database invariant, not a count. */}
             <div className="bg-white p-6">
               <div className="font-mono text-4xl font-light text-[#166534] mb-2">
                 0
@@ -744,136 +767,160 @@ export default async function Home() {
                 Records altered since launch
               </div>
               <div className="text-sm text-[#64748B] leading-relaxed">
-                Every governance decision is SHA-256 locked the moment it&apos;s made. The database enforces append-only — UPDATE and DELETE are refused at the database level, not just the application.
+                Every governance decision is SHA-256 locked at insert. The database refuses UPDATE and DELETE — not the application. The record is permanent by design.
               </div>
               <div className="font-mono text-[10px] text-[#94A3B8] mt-3 pt-3 border-t border-[#F1F5F9]">
-                Not a claim. A database constraint.
+                Not a policy. A database constraint.
               </div>
             </div>
 
-            {/* Moat moment 3 — Calibration */}
+            {/* Card 3 — Decisions (live count). Top-rule footer dropped
+                since it surfaced a single rule's effectiveness number
+                that read random without context. The new footer makes
+                the calibration claim directly. */}
             <div className="bg-white p-6">
               <div className="font-mono text-4xl font-light text-[#7C3AED] mb-2">
                 {decisionCount}
               </div>
               <div className="text-sm font-semibold text-[#0F172A] mb-2">
-                Decisions training governance
+                Governance decisions recorded
               </div>
               <div className="text-sm text-[#64748B] leading-relaxed">
-                Every reviewer decision — override, escalation, approval — updates ERA CUE&apos;s understanding of what your organization actually tolerates. Rules get smarter. False positives decrease.
+                Every override, escalation, approval, and rejection is stored with reviewer identity, duration, basis, and timestamp — teaching ERA CUE what each organization actually tolerates.
               </div>
               <div className="font-mono text-[10px] text-[#94A3B8] mt-3 pt-3 border-t border-[#F1F5F9]">
-                {topRule
-                  ? `${topRule.name}: ${topRule.effectiveness_score ?? 0}% effective`
-                  : "Calibration active"}
+                Decisions train calibration. Calibration reduces false positives.
               </div>
-            </div>
-          </div>
-
-          {/* The one-liner — sits below the grid as the takeaway. */}
-          <div className="mt-8 text-center">
-            <div className="font-mono text-sm text-[#64748B] italic">
-              &ldquo;ERA CUE becomes the system of record for human supervision of agentic communication.&rdquo;
             </div>
           </div>
         </div>
       </section>
 
+      {/* Section 3.5 (multi-speaker snapshot) removed — replaced by
+          the dark "Coordinated communications" campaign card above. */}
+
       {/* ============================================================
-          SECTION 3.5 — MULTI-SPEAKER CAMPAIGN SNAPSHOT
-          Static demo data; no Supabase query.
+          SECTION 3.4 — API / INTEGRATIONS
+          For engineering teams. Three-column flow shows ERA CUE as the
+          gateway between AI generation and publishing platforms; the
+          dark code snippet shows the actual API contract — input
+          (POST body) plus output (BLOCK verdict + rule + null token).
          ============================================================ */}
-      <section className="bg-white border-y border-[#E2E8F0] py-16">
-        <div className="max-w-[1100px] mx-auto px-6">
-          <div className="font-mono text-xs uppercase tracking-widest text-[#64748B] mb-4">
-            ONE PRINCIPAL · FOUR EXECUTIVES · ONE CAMPAIGN WINDOW
+      <section className="py-20 px-6 md:px-12 bg-white border-t border-[#E2E8F0]">
+        <div className="max-w-[1100px] mx-auto">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            For engineering teams
           </div>
-          <h2
-            className="font-light text-2xl md:text-3xl text-[#0F172A] mb-2"
+          <div
             style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-3xl font-light text-[#0F172A] mb-4 max-w-2xl"
           >
-            ERA CUE governs your entire team — simultaneously.
-          </h2>
-          <p className="text-sm text-[#64748B] max-w-xl mb-10 leading-relaxed">
-            One CCO or General Counsel overseeing every executive&apos;s public
-            communications — across teams, campaigns, and regulatory requirements.
-            Every draft checked. Every conflict surfaced. Every decision on record —
-            before anything goes live.
-          </p>
-
-          {/* Campaign header strip */}
-          <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm px-5 py-3 flex justify-between items-center mb-1">
-            <div className="flex items-baseline">
-              <span className="font-mono text-xs text-[#64748B] uppercase tracking-widest">
-                Campaign
-              </span>
-              <span className="text-sm font-medium text-[#0F172A] ml-3">
-                Series B Announce
-              </span>
-            </div>
-            <span className="font-mono text-xs text-[#64748B]">
-              Active window · Jun 30, 2026
-            </span>
+            ERA CUE sits between AI generation and publication.
+          </div>
+          <div className="text-sm text-[#64748B] mb-12 max-w-xl leading-relaxed">
+            Any AI tool that drafts content can submit to ERA CUE via API before publishing. ERA CUE checks the draft, routes violations to the principal, and issues a clearance token on approval. No token, no publish.
           </div>
 
-          {/* Speaker rows */}
-          {[
-            { name: "Marcus Rivera", role: "CEO",                            drafts: 6, blocked: 4, escalated: 1, highest: true },
-            { name: "Lena Brooks",   role: "Chief Communications Officer",   drafts: 5, blocked: 3, escalated: 0, highest: false },
-            { name: "James Kim",     role: "Head of Investor Relations",     drafts: 4, blocked: 1, escalated: 2, highest: false },
-            { name: "Priya Patel",   role: "Chief Marketing Officer",        drafts: 3, blocked: 2, escalated: 1, highest: false },
-          ].map((s) => (
-            <div
-              key={s.name}
-              className="bg-white border border-[#E2E8F0] rounded-sm px-5 py-4 flex items-center justify-between mb-1"
+          {/* Integration flow */}
+          <div className="flex items-center gap-4 flex-wrap mb-12">
+            {/* AI tools */}
+            <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-4 flex-1 min-w-[160px]">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+                AI tools
+              </div>
+              {["Claude", "ChatGPT", "Jasper", "Copilot"].map((tool) => (
+                <div key={tool} className="font-mono text-xs text-[#374151] py-1">
+                  {tool}
+                </div>
+              ))}
+            </div>
+
+            <div className="font-mono text-xl text-[#94A3B8] px-2" aria-hidden>
+              →
+            </div>
+
+            {/* ERA CUE */}
+            <div className="bg-[#0F172A] rounded-sm p-4 flex-1 min-w-[180px]">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-white/40 mb-3">
+                ERA CUE API
+              </div>
+              <div className="font-mono text-xs text-[#4ADE80] mb-1">
+                POST /v1/check
+              </div>
+              <div className="font-mono text-[10px] text-white/30">
+                5 checks · &lt;1s · principal review if needed
+              </div>
+              <div className="font-mono text-[10px] text-[#60A5FA] mt-2">
+                → clearance token issued
+              </div>
+            </div>
+
+            <div className="font-mono text-xl text-[#94A3B8] px-2" aria-hidden>
+              →
+            </div>
+
+            {/* Publishing platforms */}
+            <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-4 flex-1 min-w-[160px]">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+                Publishing
+              </div>
+              {["LinkedIn", "Twitter / X", "Press release", "Email", "CMS"].map(
+                (p) => (
+                  <div key={p} className="font-mono text-xs text-[#374151] py-1">
+                    {p}
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
+
+          {/* API contract snippet — dangerouslySetInnerHTML mirrors the
+              same trick used elsewhere in the app to bypass any
+              downstream MDX/markdown processing of curly braces and
+              quotes inside JSX children. Payload is a fixed literal. */}
+          <pre
+            style={{
+              backgroundColor: "#0F172A",
+              color: "#7DD3FC",
+              fontFamily: "ui-monospace, monospace",
+              fontSize: "11px",
+              lineHeight: "1.6",
+              padding: "16px",
+              borderRadius: "4px",
+              overflowX: "auto",
+              maxWidth: "480px",
+              whiteSpace: "pre",
+              margin: "0",
+            }}
+            dangerouslySetInnerHTML={{
+              __html: [
+                "POST https://api.eracue.com/v1/check",
+                "Authorization: Bearer {org_api_key}",
+                "",
+                "{",
+                "  &quot;speaker&quot;: &quot;ceo&quot;,",
+                "  &quot;draft&quot;: &quot;We are aggressively hiring...&quot;,",
+                "  &quot;channel&quot;: &quot;linkedin&quot;,",
+                "  &quot;campaign&quot;: &quot;series_b_announce&quot;",
+                "}",
+                "",
+                "→ { &quot;verdict&quot;: &quot;BLOCK&quot;,",
+                "    &quot;rule&quot;: &quot;Series B Quiet Period&quot;,",
+                "    &quot;token&quot;: null,",
+                "    &quot;review_required&quot;: true }",
+              ].join("\n"),
+            }}
+          />
+
+          <div className="font-mono text-xs text-[#94A3B8] mt-4">
+            API access available in Professional and Enterprise plans ·{" "}
+            <a
+              href="mailto:hello@eracue.com?subject=ERA%20CUE%20API%20Access"
+              className="text-[#1A56DB] hover:text-[#1447C0] ml-1"
             >
-              <div>
-                <div className="text-sm font-medium text-[#0F172A]">{s.name}</div>
-                <div className="font-mono text-xs text-[#64748B]">{s.role}</div>
-              </div>
-              <div className="flex items-center gap-6">
-                <span className="font-mono text-xs text-[#64748B]">{s.drafts} drafts</span>
-                {s.blocked > 0 ? (
-                  <span className="font-mono text-xs px-2 py-0.5 rounded-sm border bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]">
-                    {s.blocked} blocked
-                  </span>
-                ) : (
-                  <span className="font-mono text-xs text-[#64748B]">0 blocked</span>
-                )}
-                {s.escalated > 0 ? (
-                  <span className="font-mono text-xs px-2 py-0.5 rounded-sm border bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]">
-                    {s.escalated} escalated
-                  </span>
-                ) : (
-                  <span className="font-mono text-xs text-[#64748B]">0 escalated</span>
-                )}
-              </div>
-              <div className="w-32 text-right">
-                {s.highest && (
-                  <span className="font-mono text-[10px] text-[#B91C1C] uppercase tracking-wide">
-                    Highest exposure
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {/* Governance summary strip */}
-          <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm px-5 py-3 mt-1 flex justify-between items-center">
-            <span className="font-mono text-xs text-[#64748B]">
-              38 drafts · 14 blocked · 5 escalated · 2 overridden
-            </span>
-            <span className="font-mono text-xs text-[#64748B]">
-              Supervised by: Sarah Chen · General Counsel · Designated Principal · FINRA Rule 3110(a)
-            </span>
+              Request API access →
+            </a>
           </div>
-
-          <Link
-            href="/dashboard"
-            className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-6 transition-colors"
-          >
-            View live dashboard →
-          </Link>
         </div>
       </section>
 
@@ -1047,8 +1094,11 @@ export default async function Home() {
             <Link href="/rules" className="text-[#64748B] hover:text-[#0F172A] transition-colors">
               Rules
             </Link>
-            <Link href="/dashboard" className="text-[#64748B] hover:text-[#0F172A] transition-colors">
-              Dashboard
+            <Link
+              href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
+              className="text-[#64748B] hover:text-[#0F172A] transition-colors"
+            >
+              Examiner
             </Link>
           </div>
         </div>
