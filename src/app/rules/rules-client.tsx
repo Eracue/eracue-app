@@ -223,7 +223,7 @@ function classifyFreshness(
   return { freshness: "healthy", daysUntilExpiry };
 }
 
-type Tab = "all" | "active" | "expired" | "deactivated";
+type Tab = "all" | "active" | "deactivated";
 
 const VERDICT_BADGE: Record<string, { bg: string; text: string; border: string; label: string }> = {
   block:    { bg: "bg-[#FEF2F2]", text: "text-[#B91C1C]", border: "border-[#FECACA]", label: "BLOCK" },
@@ -266,18 +266,11 @@ function classifyRule(r: RuleRow, now: number): "active" | "expired" | "deactiva
   return "active";
 }
 
-function buildFooterText(r: RuleRow, classification: "active" | "expired" | "deactivated"): string {
-  let prefix: string;
-  if (classification === "deactivated") {
-    prefix = `Deactivated ${fmtDate(r.deactivated_at)}`;
-  } else if (classification === "expired") {
-    prefix = `Expired ${fmtDate(r.effective_until)}`;
-  } else if (r.effective_until) {
-    prefix = `Active until ${fmtDate(r.effective_until)}`;
-  } else {
-    prefix = "Active — no end date";
-  }
-  return `${prefix} · Authorized by Sarah Chen, GC · Applies to: ${scopeLabel(r.scope)} · Rule 2210(d)`;
+function statusPrefix(r: RuleRow, classification: "active" | "expired" | "deactivated"): string {
+  if (classification === "deactivated") return `Deactivated ${fmtDate(r.deactivated_at)}`;
+  if (classification === "expired") return `Expired ${fmtDate(r.effective_until)}`;
+  if (r.effective_until) return `Active until ${fmtDate(r.effective_until)}`;
+  return "Active — no end date";
 }
 
 type Props = {
@@ -503,9 +496,10 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   return (
     <main className="min-h-screen bg-[#F8F9FB]">
       <div className="max-w-[1100px] mx-auto px-6 pt-10 pb-6">
-        {/* PAGE HEADER — copy adapts to whether any rules exist yet so
-            the page reads "configure ERA CUE" on first visit and
-            "<N> rules governing your team" once policies are active. */}
+        {/* PAGE HEADER — demo-mode framing is "configure your governance"
+            regardless of count so a visitor sees the setup story; once
+            this isn't a demo deploy, the headline names the count of
+            active rules and the paragraph reads as a status report. */}
         <div className="mb-6">
           <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
             Governance rules
@@ -514,14 +508,14 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
             style={{ fontFamily: "var(--font-newsreader)" }}
             className="text-3xl font-light text-[#0F172A] mb-2"
           >
-            {counts.active > 0
-              ? `${counts.active} rule${counts.active !== 1 ? "s" : ""} governing your team's communications.`
-              : "Configure ERA CUE before checking any draft."}
+            {IS_DEMO_MODE
+              ? "Configure your governance before checking any draft."
+              : `${counts.active} rule${counts.active !== 1 ? "s" : ""} governing your team's communications.`}
           </h1>
           <p className="text-sm text-[#64748B] max-w-2xl leading-relaxed">
-            {counts.active > 0
-              ? "Every draft your team submits is checked against these rules before publication."
-              : "Rules are ERA CUE's enforcement layer. Configure your governance policies first — then check your team's communications."}
+            {IS_DEMO_MODE
+              ? "Rules are ERA CUE's enforcement layer. Set them up once — ERA CUE checks every draft against them automatically. Start by importing your existing policies or choosing templates for your firm type."
+              : "Every draft your team submits is checked against these rules before publication. Add rules, set expiry dates, and monitor their effectiveness."}
           </p>
         </div>
 
@@ -548,7 +542,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                   : "bg-white border-[#E2E8F0] text-[#374151] hover:bg-[#F8F9FB]"
               }`}
             >
-              {showImport ? "× Close import" : "↑ Import policies"}
+              {showImport ? "× Close" : "↑ Import policies"}
             </button>
           </div>
           {counts.active > 0 && (
@@ -607,10 +601,10 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               {/* TAB: Templates — pre-built rules per firm type. */}
               {importMode === "templates" && (
                 <div>
-                  {/* Firm type selector — switches the templates pool
-                      without leaving the page. Resets the confirmed
+                  {/* Firm type selector — FIRST. Switches the templates
+                      pool without leaving the page. Resets the confirmed
                       set so checks don't carry over across firm types. */}
-                  <div className="mb-5">
+                  <div className="mb-4">
                     <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
                       My organization is a
                     </div>
@@ -636,6 +630,18 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                         );
                       })}
                     </div>
+                    <div className="font-mono text-[10px] text-[#94A3B8] mt-2">
+                      Templates are tailored to your firm type and regulatory framework.
+                    </div>
+                  </div>
+
+                  {/* Helper text — explains what the cards below are
+                      and that authorizing them isn't a final commit
+                      (every rule stays editable afterward). */}
+                  <div className="text-sm text-[#374151] mb-3 leading-relaxed">
+                    Pre-built rules based on your firm type. Each is cited to the regulation
+                    it enforces. Review each one and check the ones that apply to your
+                    organization. You can customize any rule after authorizing.
                   </div>
 
                   <div className="space-y-2 mb-4">
@@ -895,10 +901,12 @@ Block posts mentioning specific fund performance`}
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-[#0F172A] mb-1">
-                    {authorizedCount} rule{authorizedCount !== 1 ? "s" : ""} authorized and active
+                    {authorizedCount} rule{authorizedCount !== 1 ? "s" : ""} active
                   </div>
                   <div className="text-sm text-[#374151]">
-                    ERA CUE will now enforce these rules on every draft your team submits.
+                    ERA CUE will now check every draft against{" "}
+                    {authorizedCount === 1 ? "this rule" : "these rules"}. You can add
+                    more rules at any time — there&apos;s no limit.
                   </div>
                 </div>
               </div>
@@ -936,33 +944,41 @@ Block posts mentioning specific fund performance`}
             see the "rules need attention" amber list below the Coming
             Soon sections. */}
 
-        {/* Stats strip — Total dropped because it included deactivated rules
-            (misleading); Active is now the primary stat. Deactivated lives at
-            the end in muted slate so it reads as "not governing right now." */}
-        <div className="flex gap-6 mt-6 pb-6 border-b border-[#E2E8F0] items-end flex-wrap">
-          {[
-            { value: counts.active,      label: "Active rules", muted: false },
-            { value: counts.firing,      label: "Firing",       muted: false },
-            { value: counts.silent,      label: "Silent",       muted: false },
-            { value: counts.deactivated, label: "Deactivated",  muted: true  },
-          ].map((s) => (
-            <div key={s.label}>
-              <div
-                className={`font-mono text-3xl font-light ${
-                  s.muted ? "text-[#94A3B8]" : "text-[#0F172A]"
-                }`}
-              >
-                {s.value}
+        {/* Stats strip — three primary signals (Active / Firing / Silent).
+            Deactivated dropped here; the filter tab below covers it. The
+            right-side coverage line reads as the engine's commitment so
+            the principal sees what every draft gets without scrolling. */}
+        <div className="flex items-center justify-between mt-6 mb-4 flex-wrap gap-3">
+          <div className="flex items-center gap-5">
+            <div className="text-center">
+              <div className="text-2xl font-light font-mono text-[#0F172A]">
+                {counts.active}
               </div>
-              <div className="font-mono text-xs uppercase text-[#64748B] mt-1">{s.label}</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+                Active
+              </div>
             </div>
-          ))}
-          <div className="ml-auto font-mono text-xs text-[#374151]">
-            5 checks run on every draft · 2 deterministic · 3 AI-powered
+            <div className="text-center">
+              <div className="text-2xl font-light font-mono text-[#C2410C]">
+                {counts.firing}
+              </div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+                Firing
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-light font-mono text-[#94A3B8]">
+                {counts.silent}
+              </div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+                Silent
+              </div>
+            </div>
+          </div>
+          <div className="font-mono text-[10px] text-[#94A3B8]">
+            5 checks · 2 deterministic · 3 AI-powered
             {corpusCount > 0 && (
-              <span className="text-[#64748B]">
-                {" "}· Consistency comparing against {corpusCount} approved statements
-              </span>
+              <span> · {corpusCount} approved statements in corpus</span>
             )}
           </div>
         </div>
@@ -972,13 +988,15 @@ Block posts mentioning specific fund performance`}
             banner after authorization. Two surfaces telling the same
             story were one too many. */}
 
-        {/* Filter tabs */}
-        <div className="flex gap-1 mt-6 border-b border-[#E2E8F0]">
+        {/* Filter tabs — All / Active / Deactivated. Expired rules merge
+            into the All view (they still need to be visible) but don't
+            get their own tab; in practice they're rare and the count
+            label muddied the strip. Only "All" shows a count badge. */}
+        <div className="flex gap-1 mb-4 border-b border-[#E2E8F0]">
           {([
-            { key: "all" as const,         label: `All (${counts.total})` },
-            { key: "active" as const,      label: `Active (${counts.active})` },
-            { key: "expired" as const,     label: `Expired (${counts.expired})` },
-            { key: "deactivated" as const, label: `Deactivated (${counts.deactivated})` },
+            { key: "all" as const,         label: "All" },
+            { key: "active" as const,      label: "Active" },
+            { key: "deactivated" as const, label: "Deactivated" },
           ]).map(({ key, label }) => {
             const selected = tab === key;
             return (
@@ -986,17 +1004,30 @@ Block posts mentioning specific fund performance`}
                 key={key}
                 type="button"
                 onClick={() => setTab(key)}
-                className={`font-mono text-sm pb-3 px-1 border-b-2 transition ${
+                className={`font-mono text-xs px-4 py-2 transition-colors border-b-2 -mb-px cursor-pointer ${
                   selected
                     ? "border-[#1A56DB] text-[#1A56DB]"
                     : "border-transparent text-[#64748B] hover:text-[#0F172A]"
                 }`}
               >
                 {label}
+                {key === "all" && (
+                  <span className="ml-1.5 text-[#94A3B8]">{rules.length}</span>
+                )}
               </button>
             );
           })}
         </div>
+
+        {/* Demo label — single muted strip above the rules list, only in
+            demo mode, so a visitor reads the seeded rules as examples
+            instead of someone else's authorized policies. */}
+        {IS_DEMO_MODE && (
+          <div className="font-mono text-[10px] text-[#94A3B8] mb-3 pb-3 border-b border-[#F1F5F9] flex items-center justify-between">
+            <span>Example governance rules — showing what ERA CUE can enforce</span>
+            <span className="text-[#64748B]">Add your own rules above</span>
+          </div>
+        )}
 
         {/* Rule cards — inline edit panel expands below the card when
             Edit is toggled. Deactivate uses a window.confirm() prompt
@@ -1004,7 +1035,7 @@ Block posts mentioning specific fund performance`}
             modal). The card body itself surfaces verdict badge, name,
             description, keyword chips, status footer, trigger /
             effectiveness inline, and a freshness signal. */}
-        <div className="flex flex-col gap-2 mt-6">
+        <div className="flex flex-col gap-2">
           {filtered.length === 0 ? (
             <div className="bg-white border border-[#E2E8F0] rounded-sm p-12 text-center text-[#64748B] text-sm">
               No rules in this view.
@@ -1098,13 +1129,28 @@ Block posts mentioning specific fund performance`}
                       </div>
                     )}
 
-                    {/* Status line */}
-                    <div className="font-mono text-[10px] text-[#94A3B8] flex items-center gap-2 flex-wrap">
-                      <span>{buildFooterText(r, classification)}</span>
+                    {/* Status line — date · scope · wsp · authored-by.
+                        The "Authorized by Sarah Chen, GC" attribution is
+                        gated behind !IS_DEMO_MODE so a demo visitor doesn't
+                        see someone else's name on every rule. */}
+                    <div className="font-mono text-[10px] text-[#94A3B8] flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span>{statusPrefix(r, classification)}</span>
+                      {r.scope && (
+                        <>
+                          <span className="text-[#E2E8F0]" aria-hidden>·</span>
+                          <span>{scopeLabel(r.scope)}</span>
+                        </>
+                      )}
                       {r.wsp_reference && (
                         <>
-                          <span aria-hidden>·</span>
-                          <span className="text-[#1447C0]">WSP: {r.wsp_reference}</span>
+                          <span className="text-[#E2E8F0]" aria-hidden>·</span>
+                          <span className="text-[#1A56DB]">{r.wsp_reference}</span>
+                        </>
+                      )}
+                      {!IS_DEMO_MODE && (
+                        <>
+                          <span className="text-[#E2E8F0]" aria-hidden>·</span>
+                          <span>Authorized by Sarah Chen, GC</span>
                         </>
                       )}
                     </div>
@@ -1272,79 +1318,26 @@ Block posts mentioning specific fund performance`}
           </div>
         )}
 
-        {/* Coming-soon — Message House. Sits above the AI-detection card so
-            the alignment narrative reads as the lens through which the
-            forthcoming Alignment Check will compare each draft. */}
-        {(tab === "active" || tab === "all") && (
-          <div className="mt-6 bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-6 mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
-                Message House
-              </div>
-              <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#94A3B8] px-2 py-0.5 rounded-sm border border-[#E2E8F0]">
-                Coming soon
-              </span>
+        {/* WSP callout — closes the page by reframing the rules above
+            as enforcement of the firm's existing supervisory procedures,
+            not a parallel layer. Sits below governance health so it reads
+            as a foundation note rather than a coming-soon teaser. */}
+        <div className="mt-6 border border-[#E2E8F0] rounded-sm p-4 flex items-start gap-3 bg-[#F8F9FB]">
+          <div className="shrink-0 mt-0.5 text-[#64748B]" aria-hidden>
+            ⊞
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-[#0F172A] mb-1">
+              Each rule references your WSPs.
             </div>
-            <div className="text-sm font-medium text-[#0F172A] mb-2">
-              Define your organization&apos;s messaging pillars. Enforce them on every draft.
-            </div>
-            <div className="text-sm text-[#374151] leading-relaxed mb-4">
-              Set 3–7 positioning statements that define what your organization stands for.
-              ERA CUE&apos;s Alignment Check compares every draft against your message house
-              — flagging contradictions before they reach the public.
-            </div>
-            <div className="space-y-2">
-              {[
-                "We are the governance layer for AI communications",
-                "We prioritize human oversight over automation",
-                "Compliance is a competitive advantage",
-              ].map((pillar, i) => (
-                <div key={pillar} className="flex items-start gap-2">
-                  <span className="font-mono text-[10px] text-[#94A3B8] shrink-0 mt-0.5 w-4">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span className="text-sm text-[#94A3B8] italic">
-                    &ldquo;{pillar}&rdquo;
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="font-mono text-[10px] text-[#94A3B8] mt-4">
-              Alignment Check will enforce these pillars on every submission — automatically.
+            <div className="text-sm text-[#374151] leading-relaxed">
+              ERA CUE enforces your existing supervisory procedures — not alongside
+              them. Add a WSP section reference when creating or editing any rule
+              to create a direct link between your documented policies and ERA
+              CUE&apos;s enforcement layer.
             </div>
           </div>
-        )}
-
-        {/* Coming-soon — AI content detection. Shown only on tabs where active
-            rules are visible (Active or All). */}
-        {(tab === "active" || tab === "all") && (
-          <div className="mt-6 bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-6">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
-              COMING SOON — AI CONTENT DETECTION
-            </div>
-            <div className="text-sm font-medium text-[#0F172A] mb-2">
-              Automatic AI-generated content detection and routing
-            </div>
-            <p className="text-sm text-[#64748B] mb-4 leading-relaxed">
-              ERA CUE will automatically detect AI-generated content and route
-              it for principal review — without requiring manual declaration.
-              Agent submission fingerprinting ensures every autonomous post has
-              a human checkpoint.
-            </p>
-            <div className="space-y-2">
-              {[
-                "LLM-generated content detection",
-                "Agent submission fingerprinting",
-                "Automatic EU AI Act Article 50 disclosure flagging",
-              ].map((item) => (
-                <div key={item} className="flex items-center gap-2">
-                  <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-[#D97706] shrink-0" />
-                  <span className="font-mono text-xs text-[#64748B]">{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
       <AddRulePanel
