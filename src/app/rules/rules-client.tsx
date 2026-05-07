@@ -281,6 +281,14 @@ type Props = {
   firmType?: string | null;
 };
 
+// Demo mode. NEXT_PUBLIC_* env vars are inlined at build time so this
+// const evaluates to a literal in the client bundle. When on, the page
+// header drops the "Sarah Chen" attribution, opens the import panel by
+// default, and labels the seeded rules as examples — so a demo
+// visitor sees "configure your governance" framing instead of someone
+// else's authorized policy list.
+const IS_DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("active");
@@ -288,11 +296,11 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Import panel state. The panel collapses by default; once expanded
-  // the user picks one of four input modes, hits extract/convert (for
-  // paste/upload/manual) or authorize directly (templates), and the
-  // selected subset gets inserted via createRulesFromImport.
-  const [showImport, setShowImport] = useState(false);
+  // Import panel state. In demo mode the panel opens by default so the
+  // first thing a visitor sees is HOW to add rules, not someone else's
+  // authorized rules. Outside demo mode it stays collapsed until the
+  // principal toggles it.
+  const [showImport, setShowImport] = useState<boolean>(IS_DEMO_MODE);
   const [importMode, setImportMode] = useState<ImportMode>("templates");
   const [importText, setImportText] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -302,6 +310,11 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   const [confirmed, setConfirmed] = useState<Set<number>>(new Set());
   const [authorizing, setAuthorizing] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  // Post-authorization success state. Set on the next tick after the
+  // import action returns ok; powers the green success card with the
+  // "Check your first draft →" CTA.
+  const [justAuthorized, setJustAuthorized] = useState(false);
+  const [authorizedCount, setAuthorizedCount] = useState(0);
 
   const templateRules = useMemo(() => templatesFor(firmType), [firmType]);
 
@@ -374,6 +387,9 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
         setImportError(result.error);
         return;
       }
+      // Capture the count BEFORE wiping confirmed so the success card
+      // can render "N rules authorized and active" with the right N.
+      const count = picks.length;
       // Reset all import state on success and close the panel.
       setCandidates([]);
       setConfirmed(new Set());
@@ -381,6 +397,10 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
       setManualRules("");
       setUploadedFile(null);
       setShowImport(false);
+      // Surface the success state — sticks until the user navigates
+      // away or runs another import.
+      setAuthorizedCount(count);
+      setJustAuthorized(true);
       router.refresh();
     } catch (e) {
       setImportError(e instanceof Error ? e.message : "Authorization failed.");
@@ -445,58 +465,89 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
         <div className="flex justify-between items-start gap-6">
           <div>
             <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-              GOVERNANCE RULES · AUTHORIZED BY SARAH CHEN, GC
+              {IS_DEMO_MODE
+                ? "GOVERNANCE RULES"
+                : "GOVERNANCE RULES · AUTHORIZED BY SARAH CHEN, GC"}
             </div>
             <h1
               style={{ fontFamily: "var(--font-newsreader)" }}
               className="font-light text-3xl text-[#0F172A] mt-2"
             >
-              Your rules govern every speaker, every draft.
+              {IS_DEMO_MODE
+                ? "Configure what ERA CUE enforces before checking any drafts."
+                : "Your rules govern every speaker, every draft."}
             </h1>
-            <p className="text-sm text-[#64748B] max-w-xl mt-2 leading-relaxed">
-              One principal. Every speaker on your team checks against these
-              policies before anything goes live. Add a rule and it takes
-              effect immediately.
-            </p>
+            {!IS_DEMO_MODE && (
+              <p className="text-sm text-[#64748B] max-w-xl mt-2 leading-relaxed">
+                One principal. Every speaker on your team checks against these
+                policies before anything goes live. Add a rule and it takes
+                effect immediately.
+              </p>
+            )}
 
-            {/* WSP framing — positions ERA CUE as the enforcement layer of
-                an existing supervisory framework rather than a replacement.
-                Lives between the subtitle and the stats strip so it reads
-                as the lens through which the page is meant to be read. */}
-            <div className="mt-4 bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm px-5 py-4 flex items-start gap-4 max-w-2xl">
-              <div className="shrink-0 mt-0.5">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#1A56DB"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+            {/* Framing notice. In demo mode this reads "rules before drafts"
+                — the entry point for visitors clicking through. In
+                production it stays as the WSP framing so authorized
+                principals see the regulatory positioning instead. */}
+            {IS_DEMO_MODE ? (
+              <div className="mt-4 bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm px-5 py-4 flex items-start gap-4 max-w-2xl">
+                <div
+                  className="shrink-0 mt-0.5 font-mono text-[#1A56DB] text-lg"
                   aria-hidden
                 >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
-                  <polyline points="10 9 9 9 8 9" />
-                </svg>
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-[#0F172A] mb-1">
-                  ERA CUE enforces your Written Supervisory Procedures.
+                  ←
                 </div>
-                <div className="text-sm text-[#374151] leading-relaxed">
-                  Each rule references the WSP section it implements. ERA CUE
-                  becomes the enforcement layer of your existing supervisory
-                  framework — not a replacement for it.
-                </div>
-                <div className="font-mono text-xs text-[#1A56DB] mt-2">
-                  Add a WSP reference when creating or editing any rule →
+                <div>
+                  <div className="text-sm font-semibold text-[#0F172A] mb-1">
+                    Start here. Rules before drafts.
+                  </div>
+                  <div className="text-sm text-[#374151]">
+                    ERA CUE checks every draft against your active rules.
+                    Configure your governance policies first — then check
+                    your team&apos;s communications.
+                  </div>
+                  <div className="font-mono text-[10px] text-[#64748B] mt-2">
+                    The example rules below show what ERA CUE can enforce.
+                    Import your own policies to get started.
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="mt-4 bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm px-5 py-4 flex items-start gap-4 max-w-2xl">
+                <div className="shrink-0 mt-0.5">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#1A56DB"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                    <polyline points="10 9 9 9 8 9" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-[#0F172A] mb-1">
+                    ERA CUE enforces your Written Supervisory Procedures.
+                  </div>
+                  <div className="text-sm text-[#374151] leading-relaxed">
+                    Each rule references the WSP section it implements. ERA CUE
+                    becomes the enforcement layer of your existing supervisory
+                    framework — not a replacement for it.
+                  </div>
+                  <div className="font-mono text-xs text-[#1A56DB] mt-2">
+                    Add a WSP reference when creating or editing any rule →
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex gap-2 shrink-0">
             <button
@@ -584,8 +635,8 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               {/* TAB: Templates — pre-built rules per firm type. */}
               {importMode === "templates" && (
                 <div>
-                  <div className="text-sm text-[#374151] mb-3">
-                    Pre-built rules for your firm type. Review and confirm which ones apply.
+                  <div className="text-sm text-[#374151] mb-4 leading-relaxed">
+                    Pre-built rules based on your firm type. Each is cited to the specific regulation it enforces. Review each rule and check the ones that apply to your organization.
                   </div>
                   {templateRules.map((rule, i) => (
                     <CandidateRuleCard
@@ -609,9 +660,17 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                   <textarea
                     value={importText}
                     onChange={(e) => setImportText(e.target.value)}
-                    placeholder={`Example:\n\n"All registered representatives must submit LinkedIn posts for CCO review 48 hours before publication. Posts containing performance data or forward-looking statements require written CCO approval..."`}
+                    placeholder={`Paste your Written Supervisory Procedures, social media policy, or any compliance document.
+
+Example:
+"All associated persons must obtain prior written approval from a registered principal before posting on LinkedIn, Twitter, or any public social media platform. Posts containing performance claims, testimonials, forward-looking statements, or references to specific securities require CCO review and FINRA filing consideration under Rule 2210(b). All approved communications must be retained for 3 years per SEC Rule 17a-4."`}
                     className="w-full border border-[#BAE6FD] rounded-sm px-3 py-3 text-sm text-[#0F172A] bg-white h-36 resize-none focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
                   />
+                  <div className="font-mono text-[10px] text-[#94A3B8] mt-2 space-y-1">
+                    <div>✓ ERA CUE reads any policy format — WSPs, social media policies, legal memos, compliance manuals</div>
+                    <div>✓ Extracts specific rules with keywords and verdict types</div>
+                    <div>✓ You review and authorize each rule before it goes live</div>
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleExtract("paste")}
@@ -681,11 +740,13 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                       {extracting ? "Extracting..." : "Extract rules →"}
                     </button>
                   )}
-                  {/* Best-effort note: binary PDFs/Word docs read as text
-                      yield noisy results; the placeholder still works for
-                      plain-text uploads. */}
-                  <div className="font-mono text-[10px] text-[#94A3B8] mt-3 leading-relaxed">
-                    Best results with plain-text uploads. PDF/Word are read as text — extraction quality may vary.
+                  {/* Helper bullets — best-effort note about plain-text
+                      uploads is folded into the bullet list. */}
+                  <div className="font-mono text-[10px] text-[#94A3B8] mt-3 space-y-1">
+                    <div>✓ PDF, Word (.docx), or text files</div>
+                    <div>✓ ERA CUE reads your document and extracts governance rules</div>
+                    <div>✓ Works with WSPs, compliance manuals, policy handbooks</div>
+                    <div>✓ You review every extracted rule before it becomes active</div>
                   </div>
                 </div>
               )}
@@ -699,9 +760,22 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
                   <textarea
                     value={manualRules}
                     onChange={(e) => setManualRules(e.target.value)}
-                    placeholder={`Block any post mentioning specific return percentages\nEscalate client testimonials for GC review\nFlag competitor comparisons for compliance check\nBlock forward guidance during earnings quiet period`}
+                    placeholder={`One rule per line. Describe what to block or flag.
+
+Examples:
+Block any mention of guaranteed returns
+Escalate posts during earnings quiet periods
+Flag competitor comparisons for GC review
+Block forward guidance about revenue or growth
+Escalate client testimonials for compliance check
+Block posts mentioning specific fund performance`}
                     className="w-full border border-[#BAE6FD] rounded-sm px-3 py-3 text-sm text-[#0F172A] bg-white h-36 resize-none font-mono focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
                   />
+                  <div className="font-mono text-[10px] text-[#94A3B8] mt-2 space-y-1">
+                    <div>✓ Write rules in plain English</div>
+                    <div>✓ ERA CUE converts each line into a structured governance rule</div>
+                    <div>✓ Assigns verdict type (BLOCK / ESCALATE / REVIEW / GUIDE) based on language</div>
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleExtract("manual")}
@@ -752,6 +826,30 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
             </div>
           )}
         </div>
+
+        {/* Post-authorization success card — sits between the import
+            panel and the rest of the page so the next-step CTA is the
+            first thing the user sees after the page reloads. Persists
+            until the next import run or a navigation away. */}
+        {justAuthorized && (
+          <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-6 mb-6 text-center">
+            <div className="text-2xl mb-2" aria-hidden>
+              ✓
+            </div>
+            <div className="text-base font-semibold text-[#0F172A] mb-1">
+              {authorizedCount} rule{authorizedCount !== 1 ? "s" : ""} authorized and active
+            </div>
+            <div className="text-sm text-[#374151] mb-4">
+              ERA CUE will now enforce these rules on every draft submitted by your team.
+            </div>
+            <a
+              href="/submit"
+              className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-sm font-medium px-6 py-3 rounded-sm hover:bg-[#1447C0] transition-colors"
+            >
+              Check your first draft →
+            </a>
+          </div>
+        )}
 
         {/* Governance drift summary — only renders when at least one
             active rule needs calibration or is within its expiry
@@ -847,6 +945,21 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
             );
           })}
         </div>
+
+        {/* Demo-only label above the rule list — frames the seeded
+            rules as examples rather than the visitor's own authorized
+            policy. Renders only in demo mode and only when there are
+            rules to label. */}
+        {IS_DEMO_MODE && rules.length > 0 && (
+          <div className="flex items-center justify-between mb-4 mt-6 flex-wrap gap-2">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8]">
+              Example rules — showing what ERA CUE can enforce
+            </div>
+            <div className="font-mono text-[10px] text-[#94A3B8]">
+              Your rules will replace these
+            </div>
+          </div>
+        )}
 
         {/* Rule cards */}
         <div className="flex flex-col gap-3 mt-6">
