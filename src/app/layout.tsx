@@ -29,7 +29,7 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "ERA CUE — Pre-publication governance for executive communications",
   description:
-    "ERA CUE checks every executive draft against your governance rules before publication. Named principal approval. Immutable audit trail. FINRA-ready communication record.",
+    "ERA CUE checks every executive communication against your governance rules before publication. Named principal approval. Immutable audit trail. Communication record.",
 };
 
 export default function RootLayout({

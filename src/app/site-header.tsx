@@ -112,9 +112,8 @@ export function SiteHeader() {
 
         {/* Desktop nav — hidden below md, where the hamburger takes
             over. Authed users get Review / Rules / Archive + user
-            menu. Unauthed users see only the wordmark on the left;
-            the homepage hero and submit page's own banner carry the
-            CTAs, so the header stays clean. The authed === null case
+            menu. Unauthed users see only "Set up your rules →" on the
+            right (correct flow: rules first). The authed === null case
             (still hydrating) renders nothing on the right so we don't
             flash unauthed state for logged-in users. */}
         <nav className="hidden md:flex items-center gap-6">
@@ -127,6 +126,15 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
+
+          {authed === false && (
+            <Link
+              href="/rules"
+              className="bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-1.5 rounded-sm hover:bg-[#1447C0] transition-colors whitespace-nowrap"
+            >
+              Set up your rules →
+            </Link>
+          )}
 
           {authed === true && (
             <div className="relative" ref={menuRef}>
@@ -215,9 +223,8 @@ export function SiteHeader() {
 
       {/* Mobile dropdown — anchored to the header's relative wrapper so
           it spans the full width below the row. Each tap closes it.
-          Authed users get the app nav + Sign out; unauthed users see
-          an empty dropdown (closed by default; the hamburger only
-          opens to reveal these slots). */}
+          Authed users get the app nav + Sign out; unauthed users get
+          the "Set up your rules →" CTA. */}
       {open && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-[#E2E8F0] shadow-sm z-50 py-3 px-6">
           <div className="flex flex-col gap-1">
@@ -231,6 +238,15 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
+            {authed === false && (
+              <Link
+                href="/rules"
+                onClick={() => setOpen(false)}
+                className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-4 py-3 rounded-sm text-center hover:bg-[#1447C0] transition-colors mt-2"
+              >
+                Set up your rules →
+              </Link>
+            )}
             {authed === true && (
               <form action="/auth/signout" method="post" className="mt-3">
                 <button
