@@ -49,6 +49,10 @@ export type RuleRow = {
   // (matches − overrides) / matches × 100 — null when the rule has
   // never fired. Drives the freshness signal below.
   effectiveness_score?: number | null;
+  // Optional principal-of-record. Renders as "Authorized by …" on
+  // the rule card outside demo mode; demo always hides this surface
+  // because the seeded value would name a fictional principal.
+  authorized_by?: string | null;
 };
 
 // Governance-drift freshness for a rule. Computed locally so the
@@ -87,11 +91,26 @@ function classifyFreshness(
 
 type Tab = "all" | "active" | "deactivated";
 
+// Demo rules surfaced in the rules list. Curated to one rule per
+// verdict type so a visitor sees the full spread (Block / Route to
+// review / Flag / Guide) without scrolling. Names must match the
+// seed data — anything missing from the seed simply doesn't render.
+const DEMO_RULE_NAMES: ReadonlyArray<string> = [
+  "Series B Quiet Period",
+  "Earnings Quiet Period — Q2 2026",
+  "Competitor Mentions",
+  "Pricing Claims",
+];
+
+// Plain-English verdict labels rendered on the rule cards. The badge
+// is mixed-case (no CSS uppercase) so a non-compliance reader gets
+// "Block" / "Route to review" / "Flag" / "Guide" instead of the old
+// SHOUTY all-caps tags.
 const VERDICT_BADGE: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  block:    { bg: "bg-[#FEF2F2]", text: "text-[#B91C1C]", border: "border-[#FECACA]", label: "BLOCK" },
-  escalate: { bg: "bg-[#FFF7ED]", text: "text-[#C2410C]", border: "border-[#FED7AA]", label: "ESCALATE" },
-  review:   { bg: "bg-[#EFF6FF]", text: "text-[#1D4ED8]", border: "border-[#BFDBFE]", label: "REVIEW" },
-  guide:    { bg: "bg-[#F5F3FF]", text: "text-[#6D28D9]", border: "border-[#DDD6FE]", label: "GUIDE" },
+  block:    { bg: "bg-[#FEE2E2]", text: "text-[#B91C1C]", border: "border-[#FECACA]", label: "Block" },
+  escalate: { bg: "bg-[#FFF7ED]", text: "text-[#C2410C]", border: "border-[#FED7AA]", label: "Route to review" },
+  review:   { bg: "bg-[#E8F0FE]", text: "text-[#1A56DB]", border: "border-[#BFDBFE]", label: "Flag" },
+  guide:    { bg: "bg-[#F0FDF4]", text: "text-[#166534]", border: "border-[#BBF7D0]", label: "Guide" },
 };
 
 function fmtDate(iso: string | null): string {
@@ -144,11 +163,12 @@ type Props = {
 };
 
 // Demo mode. NEXT_PUBLIC_* env vars are inlined at build time so this
-// const evaluates to a literal in the client bundle. When on, the page
-// header drops the "Sarah Chen" attribution, opens the import panel by
-// default, and labels the seeded rules as examples — so a demo
-// visitor sees "configure your governance" framing instead of someone
-// else's authorized policy list.
+// const evaluates to a literal in the client bundle. When on, the
+// page hides the principal-of-record attribution, the stats strip,
+// the filter tabs, and the success banner; the rules list is curated
+// to four representative templates; and the import panel stays
+// closed by default — every signal stays focused on "configure your
+// governance" rather than someone else's authorized policy list.
 const IS_DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) {
@@ -177,11 +197,10 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
     activatedFromConfirm || initialActiveCount > 0 ? "managing" : "setup",
   );
 
-  // Import panel state. In demo mode the panel opens by default so the
-  // first thing a visitor sees is HOW to add rules, not someone else's
-  // authorized rules. Outside demo mode it stays collapsed until the
-  // principal toggles it.
-  const [showImport, setShowImport] = useState<boolean>(IS_DEMO_MODE);
+  // Import panel state. Always closed by default — visitors should
+  // see the rules list first and toggle the import panel open when
+  // they want to add policies. Demo mode is no exception.
+  const [showImport, setShowImport] = useState<boolean>(false);
   const [importMode, setImportMode] = useState<ImportMode>("templates");
   const [importText, setImportText] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -336,15 +355,19 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   }, [classified, rules.length]);
 
   const filtered = useMemo(() => {
-    if (tab === "all") {
-      // Demo mode: keep the All view focused on what ERA CUE is currently
-      // enforcing — deactivated rules still live on the Deactivated tab,
-      // they just don't clutter the headline list a visitor lands on.
-      if (IS_DEMO_MODE) {
-        return classified.filter((c) => c.classification !== "deactivated");
-      }
-      return classified;
+    // Demo mode shows a curated list of four rules — one per verdict
+    // type — so a visitor sees what ERA CUE can enforce without being
+    // overwhelmed by every seeded rule. Deactivated and expired rules
+    // are dropped automatically because none of the curated names
+    // belong to those classifications.
+    if (IS_DEMO_MODE) {
+      return classified.filter(
+        ({ rule, classification }) =>
+          classification === "active" &&
+          DEMO_RULE_NAMES.includes(rule.name),
+      );
     }
+    if (tab === "all") return classified;
     return classified.filter((c) => c.classification === tab);
   }, [classified, tab]);
 
@@ -656,9 +679,9 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               ? "Configure your governance rules."
               : `${counts.active} rule${counts.active !== 1 ? "s" : ""} governing your team's communications.`}
           </h1>
-          <p className="text-sm text-[#64748B] max-w-2xl leading-relaxed mt-2">
+          <p className="text-sm text-[#374151] max-w-xl leading-relaxed mt-2">
             {IS_DEMO_MODE
-              ? "ERA CUE checks every draft your team submits against these rules before publication. Import your existing policies or add rules below — there's no limit."
+              ? "ERA CUE checks every draft your team submits against these rules before publication. Import your existing compliance policies or choose templates below — there is no limit on rules."
               : "Every draft is checked against these rules before publication."}
           </p>
         </div>
@@ -689,23 +712,14 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               {showImport ? "× Close" : "↑ Import policies"}
             </button>
           </div>
-          <div className="flex items-center gap-4 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setView("setup")}
-              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+          {counts.active > 0 && (
+            <a
+              href="/submit"
+              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
             >
-              Set up rules from scratch →
-            </button>
-            {counts.active > 0 && (
-              <a
-                href="/submit"
-                className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
-              >
-                Check a draft →
-              </a>
-            )}
-          </div>
+              Check a draft →
+            </a>
+          )}
         </div>
 
         {/* Import existing policies — four-tab panel. The wrapper drops
@@ -1041,13 +1055,12 @@ Block posts mentioning specific fund performance`}
           </div>
         )}
 
-        {/* Post-authorization success banner — fires for both the
-            in-page import-panel flow and the /rules/confirm redirect.
-            Dismiss strips the `?activated=true` query so a refresh
-            doesn't re-show it. "Add more rules" jumps to the setup
-            view rather than re-opening the import panel — keeps the
-            two-step setup story coherent for first-time visitors. */}
-        {justAuthorized && (
+        {/* Post-authorization success banner — only renders for real
+            users. In demo mode the action bar already has the
+            "Check a draft →" link, so the banner would just repeat
+            framing the page already carries. Dismiss strips the
+            `?activated=true` query so a refresh doesn't re-show it. */}
+        {!IS_DEMO_MODE && justAuthorized && (
           <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-5 mb-6">
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
@@ -1165,17 +1178,23 @@ Block posts mentioning specific fund performance`}
           </div>
         )}
 
-        {/* Labeled separator between configuration and the rules list.
-            The label flips based on context: "Example rules" in demo
-            mode (the seeded list is illustrative), "Active rules" for
-            real users (the live enforcement set). */}
-        <div className="flex items-center gap-3 my-6">
-          <div className="flex-1 border-t border-[#E2E8F0]" />
-          <span className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8]">
-            {IS_DEMO_MODE ? "Example rules" : "Active rules"}
-          </span>
-          <div className="flex-1 border-t border-[#E2E8F0]" />
-        </div>
+        {/* Demo label — single muted sentence above the rules list
+            in demo mode. Outside demo, the labeled separator names
+            the live enforcement set ("Active rules"). */}
+        {IS_DEMO_MODE ? (
+          <div className="font-mono text-[10px] text-[#9CA3AF] mb-4 pb-3 border-b border-[#E5E7EB]">
+            Example rules showing how ERA CUE works. Import your own
+            policies above to replace these.
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 border-t border-[#E2E8F0]" />
+            <span className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8]">
+              Active rules
+            </span>
+            <div className="flex-1 border-t border-[#E2E8F0]" />
+          </div>
+        )}
 
         {/* Rule cards — inline edit panel expands below the card when
             Edit is toggled. Deactivate uses a window.confirm() prompt
@@ -1209,7 +1228,7 @@ Block posts mentioning specific fund performance`}
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <span
-                          className={`font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm border shrink-0 ${badge.bg} ${badge.text} ${badge.border}`}
+                          className={`font-mono text-[9px] font-bold px-2 py-0.5 rounded-sm border shrink-0 ${badge.bg} ${badge.text} ${badge.border}`}
                         >
                           {badge.label}
                         </span>
@@ -1275,27 +1294,27 @@ Block posts mentioning specific fund performance`}
                     )}
 
                     {/* Status line — date · scope · wsp · authored-by.
-                        The "Authorized by Sarah Chen, GC" attribution is
-                        gated behind !IS_DEMO_MODE so a demo visitor doesn't
-                        see someone else's name on every rule. */}
+                        The authored-by segment renders only outside demo
+                        mode and only when the rule actually carries a
+                        principal-of-record value. */}
                     <div className="font-mono text-[10px] text-[#94A3B8] flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span>{statusPrefix(r, classification)}</span>
                       {r.scope && (
                         <>
-                          <span className="text-[#E2E8F0]" aria-hidden>·</span>
+                          <span className="text-[#E5E7EB]" aria-hidden>·</span>
                           <span>{scopeLabel(r.scope)}</span>
                         </>
                       )}
                       {r.wsp_reference && (
                         <>
-                          <span className="text-[#E2E8F0]" aria-hidden>·</span>
+                          <span className="text-[#E5E7EB]" aria-hidden>·</span>
                           <span className="text-[#1A56DB]">{r.wsp_reference}</span>
                         </>
                       )}
-                      {!IS_DEMO_MODE && (
+                      {!IS_DEMO_MODE && r.authorized_by && (
                         <>
-                          <span className="text-[#E2E8F0]" aria-hidden>·</span>
-                          <span>Authorized by Sarah Chen, GC</span>
+                          <span className="text-[#E5E7EB]" aria-hidden>·</span>
+                          <span>Authorized by {r.authorized_by}</span>
                         </>
                       )}
                     </div>
