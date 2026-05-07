@@ -145,22 +145,28 @@ export default async function Home() {
             </p>
 
             <div className="flex gap-3 flex-wrap">
+              {/* Primary leads with the correct flow — configure rules
+                  first. The middleware demo bypass means /rules is
+                  reachable without auth, so this lands the visitor on
+                  the live rules surface, not a signup wall. */}
               <a
-                href="/submit"
+                href="/rules"
                 className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-6 py-3 rounded-sm hover:bg-[#1447C0] transition-colors"
               >
-                Try it now →
+                Start with your rules →
               </a>
+              {/* Secondary jumps straight to the live engine for the
+                  visitor who'd rather see it work before reading. */}
               <a
-                href="mailto:hello@eracue.com?subject=ERA%20CUE%20Demo%20Request"
+                href="/submit"
                 className="bg-white/10 text-white border border-white/20 font-mono text-sm font-medium px-6 py-3 rounded-sm hover:bg-white/20 transition-colors"
               >
-                Request a demo →
+                Try the demo →
               </a>
             </div>
 
             <div className="font-mono text-[10px] text-white/20 mt-3">
-              No login required to try · Regulated firms request a demo
+              No login required · Demo data is real, governance constraints are real
             </div>
           </div>
 

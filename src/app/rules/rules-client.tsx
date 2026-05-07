@@ -794,6 +794,34 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
           </div>
         </div>
 
+        {/* "Rules active" next-step prompt — sits between the stats
+            strip and the filter tabs so the principal sees the obvious
+            next action (check a draft against these rules) without
+            scrolling. Renders only when at least one rule is active. */}
+        {counts.active > 0 && (
+          <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm px-5 py-4 mb-6 mt-6 flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-[#166534] text-lg" aria-hidden>
+                ✓
+              </span>
+              <div>
+                <div className="text-sm font-semibold text-[#0F172A]">
+                  {counts.active} rule{counts.active !== 1 ? "s" : ""} active
+                </div>
+                <div className="font-mono text-[10px] text-[#64748B]">
+                  Your governance is configured. Ready to check your first draft.
+                </div>
+              </div>
+            </div>
+            <a
+              href="/submit"
+              className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#1447C0] transition-colors whitespace-nowrap"
+            >
+              Check a draft now →
+            </a>
+          </div>
+        )}
+
         {/* Filter tabs */}
         <div className="flex gap-1 mt-6 border-b border-[#E2E8F0]">
           {([

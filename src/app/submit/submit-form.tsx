@@ -464,6 +464,94 @@ export function SubmitForm() {
             </div>
           )}
 
+          {/* "What happens next" panel — explicit walkthrough of the
+              flow downstream of the verdict. CLEAR drafts skip the
+              principal queue and go straight into the record; BLOCK /
+              ESCALATE land in the queue first. Bottom links route to
+              the live demo surfaces for both paths. */}
+          {verdictLower && (
+            <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-4 mt-4">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+                What happens next
+              </div>
+
+              {verdictLower === "clear" ? (
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <span className="text-[#166534] font-mono text-xs mt-0.5" aria-hidden>
+                      ✓
+                    </span>
+                    <div>
+                      <div className="text-sm font-medium text-[#0F172A]">
+                        Cleared for publication
+                      </div>
+                      <div className="font-mono text-[10px] text-[#64748B]">
+                        No violations found. This draft can publish.
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-[#1A56DB] font-mono text-xs mt-0.5" aria-hidden>
+                      →
+                    </span>
+                    <div>
+                      <div className="text-sm font-medium text-[#0F172A]">
+                        Communication record created
+                      </div>
+                      <div className="font-mono text-[10px] text-[#64748B]">
+                        SHA-256 locked. Immutable. Available in the archive.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <span className="text-[#C2410C] font-mono text-xs mt-0.5" aria-hidden>
+                      →
+                    </span>
+                    <div>
+                      <div className="text-sm font-medium text-[#0F172A]">
+                        Routed to principal review
+                      </div>
+                      <div className="font-mono text-[10px] text-[#64748B]">
+                        Sarah Chen, GC will review this draft and make a structured decision.
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-[#94A3B8] font-mono text-xs mt-0.5" aria-hidden>
+                      →
+                    </span>
+                    <div>
+                      <div className="text-sm font-medium text-[#0F172A]">
+                        Communication record created
+                      </div>
+                      <div className="font-mono text-[10px] text-[#64748B]">
+                        The full governance chain is recorded — verdict, rule, reviewer decision.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 mt-4 pt-3 border-t border-[#E2E8F0] flex-wrap">
+                <Link
+                  href="/dashboard"
+                  className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+                >
+                  See the review queue →
+                </Link>
+                <Link
+                  href="/drafts"
+                  className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors"
+                >
+                  View all communications →
+                </Link>
+              </div>
+            </div>
+          )}
+
           {/* Demo-mode conversion prompt. Sits as a sibling below the
               verdict card so a visitor who just saw the engine fire has
               an obvious next step toward setting it up for their team.
