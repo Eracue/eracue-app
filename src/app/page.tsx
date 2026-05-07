@@ -214,12 +214,14 @@ export default function Home() {
               Three regulations. Real consequences.
             </h2>
             <p className="text-sm text-[#64748B] max-w-xl leading-relaxed">
-              Each of these enforcement actions happened in the last 18 months. Each involved communications that were not reviewed before publication.
+              Real cases. Last 18 months. No communication was reviewed before it was published.
             </p>
           </div>
 
           {/* Three panels — uniform structure, panel-specific palette
-              on the badge / penalty / Col 3 header. */}
+              on the badge / fine / right column. Each panel body is a
+              60/40 split: the case sits next to its resolution, no
+              middle "the rule" column to reread on the way through. */}
           <div className="space-y-3">
             {/* Panel 1 — DraftKings / Reg FD */}
             <div className="border border-[#E2E8F0] rounded-sm overflow-hidden">
@@ -233,41 +235,29 @@ export default function Home() {
                   </span>
                 </div>
                 <span className="font-mono text-[10px] font-bold text-[#B91C1C]">
-                  $200,000 penalty
+                  $200,000 fine
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
-                <div className="p-5 md:border-r border-[#E2E8F0]">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
+                <div className="md:col-span-3 p-5 md:border-r border-[#E2E8F0]">
                   <div className="font-mono text-[9px] uppercase tracking-widest text-[#94A3B8] mb-3">
                     What happened
                   </div>
                   <p className="text-sm text-[#374151] leading-relaxed">
-                    DraftKings&apos; PR firm posted on the CEO&apos;s personal LinkedIn and X accounts during an earnings quiet period — disclosing revenue growth data before Q2 results were released. Posts were live 30 minutes. DraftKings&apos; own social media policy required prior written approval.
+                    DraftKings&apos; PR firm posted on the CEO&apos;s LinkedIn during an earnings quiet period — disclosing revenue growth data before Q2 results. Posts were live 30 minutes. The firm&apos;s own policy required prior written approval.
                   </p>
                   <div className="font-mono text-[9px] text-[#94A3B8] mt-3">
-                    SEC Release No. 34-101130 · September 26, 2024
+                    SEC Release 34-101130 · Sep 26, 2024
                   </div>
                 </div>
 
-                <div className="p-5 md:border-r border-[#E2E8F0]">
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#94A3B8] mb-3">
-                    The rule
-                  </div>
-                  <p className="text-sm font-semibold text-[#0F172A] mb-2">
-                    SEC Regulation FD
-                  </p>
-                  <p className="text-sm text-[#374151] leading-relaxed">
-                    Prohibits selective disclosure of material nonpublic information. Applies to posts by persons acting on a company&apos;s behalf — including PR firms posting on executive personal accounts.
-                  </p>
-                </div>
-
-                <div className="p-5 bg-[#F0FDF4]">
+                <div className="md:col-span-2 p-5 bg-[#F0FDF4]">
                   <div className="font-mono text-[9px] uppercase tracking-widest text-[#166534] mb-3">
                     With ERA CUE
                   </div>
                   <p className="text-sm text-[#374151] leading-relaxed">
-                    The PR firm submits the draft. The quiet period rule fires. The draft is blocked. A named principal reviews before anything reaches LinkedIn. The record is created automatically.
+                    The quiet period rule fires on submission. The draft is blocked before it reaches LinkedIn — and the principal&apos;s decision is on record.
                   </p>
                 </div>
               </div>
@@ -278,7 +268,7 @@ export default function Home() {
               <div className="bg-[#F8F9FB] px-5 py-2.5 border-b border-[#E2E8F0] flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA]">
-                    Broker-Dealer
+                    Broker-dealer
                   </span>
                   <span className="font-mono text-[10px] text-[#64748B]">
                     FINRA Rules 2210(b) + 3110
@@ -289,37 +279,25 @@ export default function Home() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
-                <div className="p-5 md:border-r border-[#E2E8F0]">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
+                <div className="md:col-span-3 p-5 md:border-r border-[#E2E8F0]">
                   <div className="font-mono text-[9px] uppercase tracking-widest text-[#94A3B8] mb-3">
                     What happened
                   </div>
                   <p className="text-sm text-[#374151] leading-relaxed">
-                    A broker-dealer paid social media influencers to promote the firm. No registered principal reviewed or approved content before posting. No records were maintained. FINRA&apos;s first disciplinary action involving social media influencer supervision.
+                    A broker-dealer paid social media influencers to promote the firm. No registered principal reviewed any post before publication. No records were maintained.
                   </p>
                   <div className="font-mono text-[9px] text-[#94A3B8] mt-3">
                     FINRA Enforcement · March 18, 2024
                   </div>
                 </div>
 
-                <div className="p-5 md:border-r border-[#E2E8F0]">
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#94A3B8] mb-3">
-                    The rule
-                  </div>
-                  <p className="text-sm font-semibold text-[#0F172A] mb-2">
-                    FINRA Rules 2210(b) + 3110
-                  </p>
-                  <p className="text-sm text-[#374151] leading-relaxed">
-                    Retail communications require registered principal pre-approval. Firms must establish written supervisory procedures for social media — including third-party communications on the firm&apos;s behalf.
-                  </p>
-                </div>
-
-                <div className="p-5 bg-[#F0FDF4]">
+                <div className="md:col-span-2 p-5 bg-[#F0FDF4]">
                   <div className="font-mono text-[9px] uppercase tracking-widest text-[#166534] mb-3">
                     With ERA CUE
                   </div>
                   <p className="text-sm text-[#374151] leading-relaxed">
-                    Every influencer or agency submits drafts through ERA CUE before posting. A registered principal reviews and approves each one. The named principal record satisfies Rule 3110 — automatically.
+                    Every influencer or agency submits through ERA CUE before posting. A registered principal approves — and the named review record satisfies Rule 3110.
                   </p>
                 </div>
               </div>
@@ -341,37 +319,25 @@ export default function Home() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
-                <div className="p-5 md:border-r border-[#E2E8F0]">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
+                <div className="md:col-span-3 p-5 md:border-r border-[#E2E8F0]">
                   <div className="font-mono text-[9px] uppercase tracking-widest text-[#94A3B8] mb-3">
-                    The requirement
+                    The gap
                   </div>
                   <p className="text-sm text-[#374151] leading-relaxed">
-                    AI-generated communications must be disclosed as artificially generated. Organizations must ensure AI-drafted content is marked, traceable, and subject to human oversight before it reaches the public.
+                    AI drafts content. Executives post it. There is no record that a human reviewed it before publication — and Article 50 requires one.
                   </p>
                   <div className="font-mono text-[9px] text-[#94A3B8] mt-3">
-                    EU AI Act Art. 50 · Effective August 2, 2026
+                    EU AI Act Art. 50 · Aug 2, 2026
                   </div>
                 </div>
 
-                <div className="p-5 md:border-r border-[#E2E8F0]">
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#94A3B8] mb-3">
-                    What&apos;s missing
-                  </div>
-                  <p className="text-sm font-semibold text-[#0F172A] mb-2">
-                    Most organizations have no record.
-                  </p>
-                  <p className="text-sm text-[#374151] leading-relaxed">
-                    AI drafts content. Executives post it. No disclosure. No approval trail. No evidence that a human reviewed it before publication. Article 50 requires all three.
-                  </p>
-                </div>
-
-                <div className="p-5 bg-[#F0FDF4]">
+                <div className="md:col-span-2 p-5 bg-[#F0FDF4]">
                   <div className="font-mono text-[9px] uppercase tracking-widest text-[#166534] mb-3">
                     With ERA CUE
                   </div>
                   <p className="text-sm text-[#374151] leading-relaxed">
-                    ERA CUE records AI involvement at submission, documents the human review decision, and produces the disclosure trail Article 50 requires — automatically, for every governed draft.
+                    ERA CUE records AI origin, documents the human review decision, and produces the disclosure trail Article 50 requires — for every governed draft.
                   </p>
                 </div>
               </div>
@@ -401,39 +367,33 @@ export default function Home() {
           </div>
           <h2
             style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-[#0F172A] mb-3 text-center leading-tight"
+            className="text-3xl font-light text-[#0F172A] mb-12 text-center leading-tight"
           >
-            Three steps. Every draft. Every time.
+            Three steps. Every draft.
           </h2>
-          <p className="text-sm text-[#64748B] mb-12 max-w-xl mx-auto text-center leading-relaxed">
-            Configure the governance once. Every draft your team submits afterwards routes through it.
-          </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
                 step: "01",
                 title: "Configure your governance",
-                desc: "The CCO, GC, or comms lead sets up governance rules — from regulatory templates, from existing WSPs, or from scratch. Every rule is authorized by a named principal before it applies to anything.",
+                desc: "The CCO sets governance rules once — from regulatory templates, existing WSPs, or from scratch. Authorized by a named principal before anything is governed.",
                 detail: "WSP import · FINRA templates · AI-assisted creation",
                 color: "text-[#1A56DB]",
-                href: "/rules",
               },
               {
                 step: "02",
                 title: "Check before you publish",
-                desc: "Any executive — or any AI agent acting on their behalf — submits a draft. ERA CUE runs five checks: rule matching, consistency against prior approved statements, quiet period timing, alignment, and agent origin declaration. Verdict in seconds.",
+                desc: "Any executive — or AI agent acting on their behalf — submits a draft. ERA CUE checks it against active rules and prior approved statements. Verdict in seconds.",
                 detail: "Five checks · Verdict in seconds · Principal review if needed",
                 color: "text-[#C2410C]",
-                href: "/submit",
               },
               {
                 step: "03",
-                title: "The record that proves someone checked",
-                desc: "ERA CUE generates an immutable communication record — the principal's identity, their structured decision with documented basis, the rules active at submission, and a SHA-256 locked audit trail. Downloadable as PDF.",
+                title: "Record who approved",
+                desc: "ERA CUE generates an immutable communication record — named principal, structured decision, SHA-256 locked. Ready for any regulator, board, or client.",
                 detail: "SHA-256 locked · Append-only · FINRA Rule 3110",
                 color: "text-[#166534]",
-                href: `/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`,
               },
             ].map((item) => (
               <div key={item.step}>
@@ -449,12 +409,6 @@ export default function Home() {
                 <div className="font-mono text-[10px] text-[#94A3B8]">
                   {item.detail}
                 </div>
-                <a
-                  href={item.href}
-                  className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors mt-3 inline-block"
-                >
-                  See it →
-                </a>
               </div>
             ))}
           </div>
@@ -465,8 +419,10 @@ export default function Home() {
           SECTION 6 — CAMPAIGN GOVERNANCE (dark)
           Two-column. Left: a campaign-record card showing four named
           speakers with channel + topic + status + review timing. Right:
-          three "who sees what" cards translating the same record into
-          PR / CCO / examiner deliverables.
+          a clean role list — PR / CCO / FINRA examiner — naming the
+          slice of the record each audience actually reads. Replaces a
+          three-card stack whose identical "Who sees what" labels read
+          as a duplicate-render bug.
          ============================================================ */}
       <section className="bg-[#0A0F1E] py-16 md:py-20 px-6 md:px-12">
         <div className="max-w-[1100px] mx-auto">
@@ -477,10 +433,10 @@ export default function Home() {
             style={{ fontFamily: "var(--font-newsreader)" }}
             className="text-3xl font-light text-white mb-3 leading-tight max-w-2xl"
           >
-            Your whole team. Every campaign. One record.
+            Every executive. One view.
           </h2>
           <p className="text-sm text-white/40 mb-10 max-w-xl leading-relaxed">
-            ERA CUE tracks every communication across a campaign — who submitted, who approved, how long review took. The campaign record is your client deliverable.
+            See your whole team&apos;s communications at once — who approved, who&apos;s pending, and how long each review took.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
@@ -596,28 +552,40 @@ export default function Home() {
               </div>
             </div>
 
-            {/* RIGHT — three "who sees what" cards. Same record, three
-                audiences. The label repeats by design — each card
-                names the audience and the slice of the record they
-                actually need. */}
-            <div className="space-y-3">
-              {[
-                "PR agency → client deliverable showing every approval, timing, and principal decision",
-                "CCO → supervisory evidence for the full campaign window, ready for FINRA examination",
-                "FINRA examiner → named principal, review timing, decision basis per communication — downloadable as PDF",
-              ].map((body, i) => (
-                <div
-                  key={i}
-                  className="p-4 bg-white/[0.04] border border-white/[0.08] rounded-sm"
-                >
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-white/25 mb-2">
-                    Who sees what
+            {/* RIGHT — role list. One header, three rows: role on the
+                left in the column gutter, use case on the right. Same
+                content as the old three-card stack, without the
+                duplicated "Who sees what" label that made the stack
+                read as a render bug. */}
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-white/30 mb-4">
+                Who uses the campaign record
+              </div>
+              <div className="space-y-3">
+                {[
+                  {
+                    role: "PR agency",
+                    use: "Client deliverable showing every approval, timing, and principal decision",
+                  },
+                  {
+                    role: "CCO",
+                    use: "Supervisory evidence for the full campaign window, ready for FINRA examination",
+                  },
+                  {
+                    role: "FINRA examiner",
+                    use: "Named principal, review timing, decision basis — downloadable as PDF",
+                  },
+                ].map((item) => (
+                  <div key={item.role} className="flex gap-3">
+                    <div className="font-mono text-xs font-medium text-white/60 w-24 shrink-0 pt-0.5">
+                      {item.role}
+                    </div>
+                    <div className="text-sm text-white/40 leading-relaxed">
+                      {item.use}
+                    </div>
                   </div>
-                  <div className="text-sm text-white/55 leading-relaxed">
-                    {body}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
