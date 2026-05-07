@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { DEMO_ORG_ID } from "@/lib/demo-config";
+import { resolveOrgId } from "@/lib/auth-helpers";
 import { getSupabaseAdmin, type CheckEntry } from "@/lib/checks";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/app/site-header";
@@ -33,12 +33,13 @@ type ActionRow = {
 
 async function getDraftWithActions(id: string) {
  const sb = getSupabaseAdmin();
+ const orgId = await resolveOrgId();
 
  const { data: draft, error: dErr } = await sb
  .from("drafts")
  .select("id, draft_text, channel, source_origin, status, submitted_at, speaker_id, campaign_id, users(name, title), campaigns(name)")
  .eq("id", id)
- .eq("org_id", DEMO_ORG_ID)
+ .eq("org_id", orgId)
  .single();
 
  if (dErr || !draft) return null;

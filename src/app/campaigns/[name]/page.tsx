@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DEMO_ORG_ID } from "@/lib/demo-config";
+import { resolveOrgId } from "@/lib/auth-helpers";
 import { getSupabaseAdmin } from "@/lib/checks";
 import { SiteHeader } from "@/app/site-header";
 
@@ -115,6 +115,7 @@ function statusPill(status: string, hasDecision: boolean) {
 
 async function getCampaignData(campaignName: string) {
   const sb = getSupabaseAdmin();
+  const orgId = await resolveOrgId();
 
   // Fetch drafts joined with users + campaigns; filter by campaign in JS
   // since PostgREST can't WHERE on a related-table column without a
@@ -124,7 +125,7 @@ async function getCampaignData(campaignName: string) {
     .select(
       "id, draft_text, status, submitted_at, channel, users:speaker_id(name, title), campaigns(name)",
     )
-    .eq("org_id", DEMO_ORG_ID)
+    .eq("org_id", orgId)
     .order("submitted_at", { ascending: false });
 
   if (draftsRes.error) throw new Error("drafts: " + draftsRes.error.message);
@@ -140,7 +141,7 @@ async function getCampaignData(campaignName: string) {
   const actionsRes = await sb
     .from("actions")
     .select("draft_id, action_type, occurred_at, payload")
-    .eq("org_id", DEMO_ORG_ID)
+    .eq("org_id", orgId)
     .in("draft_id", draftIds)
     .in("action_type", ["submitted", "draft_submitted", "verdict_issued", "reviewer_decided"]);
 

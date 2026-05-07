@@ -1,6 +1,6 @@
 "use server";
 
-import { DEMO_ORG_ID } from "@/lib/demo-config";
+import { resolveOrgId } from "@/lib/auth-helpers";
 import {
   runChecks,
   runConsistencyCheck,
@@ -74,6 +74,7 @@ type SubmitResult = SubmitSuccess | { draftId?: undefined; error: string };
 
 export async function submitDraftAction(input: SubmitInput): Promise<SubmitResult> {
   const sb = getSupabaseAdmin();
+  const orgId = await resolveOrgId();
 
   if (!input.draftText.trim()) return { error: "Draft text cannot be empty." };
   if (!input.speakerName) return { error: "Speaker is required." };
@@ -82,7 +83,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
   const { data: speaker, error: speakerErr } = await sb
     .from("users")
     .select("id")
-    .eq("org_id", DEMO_ORG_ID)
+    .eq("org_id", orgId)
     .eq("name", input.speakerName)
     .maybeSingle();
   if (speakerErr) return { error: "Failed to resolve speaker: " + speakerErr.message };
@@ -95,7 +96,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     const { data: campaign } = await sb
       .from("campaigns")
       .select("id")
-      .eq("org_id", DEMO_ORG_ID)
+      .eq("org_id", orgId)
       .eq("name", input.campaignName)
       .maybeSingle();
     campaignId = (campaign?.id as string | undefined) ?? null;
@@ -127,7 +128,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
         : "public";
   const trimmedPrompt = input.promptUsed?.trim();
   const { data: draft, error: draftErr } = await sb.from("drafts").insert({
-    org_id: DEMO_ORG_ID,
+    org_id: orgId,
     speaker_id: speakerId,
     campaign_id: campaignId,
     channel: input.channel,
@@ -146,7 +147,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
 
   // 2. submitted action (records the actor + submission type)
   await sb.from("actions").insert({
-    org_id: DEMO_ORG_ID,
+    org_id: orgId,
     draft_id: draft.id,
     action_type: "submitted",
     actor_id: speakerId,
@@ -166,7 +167,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
   //    runChecks when ANTHROPIC_API_KEY is set.
   const result = await runChecks(
     sb,
-    DEMO_ORG_ID,
+    orgId,
     input.draftText,
     draft.submitted_at,
     communicationCategory,
@@ -174,7 +175,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
 
   // 4. rule_check action
   await sb.from("actions").insert({
-    org_id: DEMO_ORG_ID,
+    org_id: orgId,
     draft_id: draft.id,
     action_type: "check_ran",
     actor_kind: "ai_check",
@@ -188,7 +189,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
 
   // 5. timing_check action
   await sb.from("actions").insert({
-    org_id: DEMO_ORG_ID,
+    org_id: orgId,
     draft_id: draft.id,
     action_type: "check_ran",
     actor_kind: "ai_check",
@@ -207,7 +208,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
   //    verdict payload as `consistency_warning` so the reviewer sees it.
   const consistencyResult = await runConsistencyCheck(
     sb,
-    DEMO_ORG_ID,
+    orgId,
     speakerId,
     input.draftText,
   );
@@ -217,7 +218,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
   //    can fully reconstruct how the final verdict was reached.
   const checks = buildChecksArray(result, finalSourceOrigin, consistencyResult);
   await sb.from("actions").insert({
-    org_id: DEMO_ORG_ID,
+    org_id: orgId,
     draft_id: draft.id,
     action_type: "verdict_issued",
     actor_kind: "system",

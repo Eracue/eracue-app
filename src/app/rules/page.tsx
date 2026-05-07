@@ -1,4 +1,4 @@
-import { DEMO_ORG_ID } from "@/lib/demo-config";
+import { resolveOrgId } from "@/lib/auth-helpers";
 import { getSupabaseAdmin } from "@/lib/checks";
 import { SiteHeader } from "@/app/site-header";
 import { RulesClient, type RuleRow } from "./rules-client";
@@ -31,6 +31,7 @@ type VerdictAction = {
 
 async function getRulesData(): Promise<{ rules: RuleRow[]; corpusCount: number }> {
   const sb = getSupabaseAdmin();
+  const orgId = await resolveOrgId();
 
   const [rulesRes, actionsRes, corpusRes] = await Promise.all([
     sb
@@ -40,12 +41,12 @@ async function getRulesData(): Promise<{ rules: RuleRow[]; corpusCount: number }
       .select(
         "id, name, description, keywords, scope, rule_status, deactivated_at, deactivated_reason, wsp_reference, verdict:rule_type, effective_from, effective_until:effective_to"
       )
-      .eq("org_id", DEMO_ORG_ID)
+      .eq("org_id", orgId)
       .order("name"),
     sb
       .from("actions")
       .select("occurred_at, payload")
-      .eq("org_id", DEMO_ORG_ID)
+      .eq("org_id", orgId)
       .eq("action_type", "verdict_issued"),
     // Approved-draft count drives the Consistency Check status line
     // ("comparing against N approved statements"). head:true skips the
@@ -53,7 +54,7 @@ async function getRulesData(): Promise<{ rules: RuleRow[]; corpusCount: number }
     sb
       .from("drafts")
       .select("*", { count: "exact", head: true })
-      .eq("org_id", DEMO_ORG_ID)
+      .eq("org_id", orgId)
       .eq("status", "approved"),
   ]);
 

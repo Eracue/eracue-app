@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { DEMO_ORG_ID } from "@/lib/demo-config";
+import { resolveOrgId } from "@/lib/auth-helpers";
 import { getSupabaseAdmin } from "@/lib/checks";
 import { SiteHeader } from "@/app/site-header";
 import { ClearedDraftsBanner } from "./cleared-drafts-banner";
@@ -120,23 +120,24 @@ type QueueGroup = {
 
 async function getDashboardData() {
   const sb = getSupabaseAdmin();
+  const orgId = await resolveOrgId();
 
   const [draftsRes, rulesRes, verdictsRes, reviewerActionsRes, speakerStatsRes, queueRes] = await Promise.all([
-    sb.from("drafts").select("id, status, source_origin").eq("org_id", DEMO_ORG_ID),
+    sb.from("drafts").select("id, status, source_origin").eq("org_id", orgId),
     sb
       .from("rules")
       .select("id, name, rule_type, description, effective_from, effective_to")
-      .eq("org_id", DEMO_ORG_ID)
+      .eq("org_id", orgId)
       .order("rule_type"),
     sb
       .from("actions")
       .select("id, occurred_at, draft_id, payload")
-      .eq("org_id", DEMO_ORG_ID)
+      .eq("org_id", orgId)
       .eq("action_type", "verdict_issued"),
     sb
       .from("actions")
       .select("id, occurred_at, draft_id, payload, drafts(id, draft_text, users:speaker_id(name, title))")
-      .eq("org_id", DEMO_ORG_ID)
+      .eq("org_id", orgId)
       .eq("action_type", "reviewer_decided")
       // Strict filter: only real form-driven decisions. Seed.ts also wrote
       // reviewer_decided rows where payload.decision mirrors draft status —
@@ -147,12 +148,12 @@ async function getDashboardData() {
     sb
       .from("drafts")
       .select("status, submitted_at, users:speaker_id(id, name, title)")
-      .eq("org_id", DEMO_ORG_ID),
+      .eq("org_id", orgId),
     // Action queue — drafts blocked or escalated, awaiting principal decision.
     sb
       .from("drafts")
       .select("id, draft_text, channel, status, submitted_at, users(name, title), campaigns(name)")
-      .eq("org_id", DEMO_ORG_ID)
+      .eq("org_id", orgId)
       .in("status", ["blocked", "escalated"])
       .order("submitted_at", { ascending: false }),
   ]);

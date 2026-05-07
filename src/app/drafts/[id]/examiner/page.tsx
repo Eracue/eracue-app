@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { DEMO_ORG_ID } from "@/lib/demo-config";
+import { resolveOrgId } from "@/lib/auth-helpers";
 import { getSupabaseAdmin } from "@/lib/checks";
 import {
   ExaminerClient,
@@ -19,6 +19,7 @@ type PageProps = {
 
 async function getExaminerRecord(draftId: string) {
   const sb = getSupabaseAdmin();
+  const orgId = await resolveOrgId();
 
   const { data: draft, error: dErr } = await sb
     .from("drafts")
@@ -26,7 +27,7 @@ async function getExaminerRecord(draftId: string) {
       "id, draft_text, channel, source_origin, ai_model_used, prompt_hash, prompt_used, status, submitted_at, speaker_id, campaign_id, communication_category, content_type, intended_audience, users(name, title, email), campaigns(name)",
     )
     .eq("id", draftId)
-    .eq("org_id", DEMO_ORG_ID)
+    .eq("org_id", orgId)
     .single();
   if (dErr || !draft) return null;
 

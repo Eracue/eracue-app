@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { DEMO_ORG_ID } from "@/lib/demo-config";
+import { resolveOrgId } from "@/lib/auth-helpers";
 import { SiteHeader } from "@/app/site-header";
 import { DraftsClient, type DraftRecord } from "./drafts-client";
 
@@ -37,6 +37,8 @@ async function getDrafts(): Promise<{
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  const orgId = await resolveOrgId();
+
   // Three parallel queries: drafts, verdict_issued actions (to resolve the
   // most recent verdict per draft), and reviewer_decided actions (to mark
   // which drafts have a recorded principal decision — the archive renders
@@ -47,18 +49,18 @@ async function getDrafts(): Promise<{
       .select(
         "id, draft_text, channel, source_origin, status, submitted_at, speaker_id, campaign_id, communication_category, users(name, title), campaigns(name)",
       )
-      .eq("org_id", DEMO_ORG_ID)
+      .eq("org_id", orgId)
       .order("submitted_at", { ascending: false }),
     sb
       .from("actions")
       .select("draft_id, occurred_at, payload")
-      .eq("org_id", DEMO_ORG_ID)
+      .eq("org_id", orgId)
       .eq("action_type", "verdict_issued")
       .order("occurred_at", { ascending: true }),
     sb
       .from("actions")
       .select("draft_id")
-      .eq("org_id", DEMO_ORG_ID)
+      .eq("org_id", orgId)
       .eq("action_type", "reviewer_decided"),
   ]);
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DEMO_ORG_ID } from "@/lib/demo-config";
+import { resolveOrgId } from "@/lib/auth-helpers";
 import { getSupabaseAdmin, type CheckEntry } from "@/lib/checks";
 import { ReviewerDecisionForm } from "./reviewer-form";
 import { CheckDetailPanel } from "./check-detail-panel";
@@ -33,11 +33,12 @@ type ActionRow = {
 
 async function getDraft(id: string) {
   const sb = getSupabaseAdmin();
+  const orgId = await resolveOrgId();
   const { data: draft, error: dErr } = await sb
     .from("drafts")
     .select("id, draft_text, channel, source_origin, status, submitted_at, communication_category, users(name, title), campaigns(name)")
     .eq("id", id)
-    .eq("org_id", DEMO_ORG_ID)
+    .eq("org_id", orgId)
     .single();
   if (dErr || !draft) return null;
   const { data: actions } = await sb
