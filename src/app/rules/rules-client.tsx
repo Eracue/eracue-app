@@ -439,7 +439,15 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   }, [classified, rules.length]);
 
   const filtered = useMemo(() => {
-    if (tab === "all") return classified;
+    if (tab === "all") {
+      // Demo mode: keep the All view focused on what ERA CUE is currently
+      // enforcing — deactivated rules still live on the Deactivated tab,
+      // they just don't clutter the headline list a visitor lands on.
+      if (IS_DEMO_MODE) {
+        return classified.filter((c) => c.classification !== "deactivated");
+      }
+      return classified;
+    }
     return classified.filter((c) => c.classification === tab);
   }, [classified, tab]);
 
@@ -940,48 +948,61 @@ Block posts mentioning specific fund performance`}
           </div>
         )}
 
-        {/* Governance drift summary moved to the bottom of the page —
-            see the "rules need attention" amber list below the Coming
-            Soon sections. */}
+        {/* Visual separator between "configuration" (header / action bar /
+            import panel / success banner) and "your rules." Reads as a
+            clean handoff from setup to status. */}
+        <div className="mt-6 mb-5 border-t border-[#E2E8F0]" />
 
-        {/* Stats strip — three primary signals (Active / Firing / Silent).
-            Deactivated dropped here; the filter tab below covers it. The
-            right-side coverage line reads as the engine's commitment so
-            the principal sees what every draft gets without scrolling. */}
-        <div className="flex items-center justify-between mt-6 mb-4 flex-wrap gap-3">
-          <div className="flex items-center gap-5">
-            <div className="text-center">
-              <div className="text-2xl font-light font-mono text-[#0F172A]">
-                {counts.active}
-              </div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
-                Active
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-light font-mono text-[#C2410C]">
-                {counts.firing}
-              </div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
-                Firing
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-light font-mono text-[#94A3B8]">
-                {counts.silent}
-              </div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
-                Silent
-              </div>
-            </div>
-          </div>
-          <div className="font-mono text-[10px] text-[#94A3B8]">
-            5 checks · 2 deterministic · 3 AI-powered
+        {/* Stats strip vs. demo coverage line. In demo mode the big
+            counts (7 ACTIVE · 4 FIRING · 3 SILENT) describe seed data
+            the visitor doesn't own — surfacing them as headline numbers
+            makes the page read like someone else's dashboard. Drop down
+            to a single coverage line so a demo visitor sees ERA CUE's
+            commitment, not a stranger's stats. Real users keep the
+            full strip — the numbers are theirs and worth highlighting. */}
+        {IS_DEMO_MODE ? (
+          <div className="font-mono text-[10px] text-[#94A3B8] mb-4">
+            5 checks run on every draft · 2 deterministic · 3 AI-powered
             {corpusCount > 0 && (
               <span> · {corpusCount} approved statements in corpus</span>
             )}
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <div className="flex items-center gap-5">
+              <div className="text-center">
+                <div className="text-2xl font-light font-mono text-[#0F172A]">
+                  {counts.active}
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+                  Active
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-light font-mono text-[#C2410C]">
+                  {counts.firing}
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+                  Firing
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-light font-mono text-[#94A3B8]">
+                  {counts.silent}
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+                  Silent
+                </div>
+              </div>
+            </div>
+            <div className="font-mono text-[10px] text-[#94A3B8]">
+              5 checks · 2 deterministic · 3 AI-powered
+              {corpusCount > 0 && (
+                <span> · {corpusCount} approved statements in corpus</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* "Rules active" prompt removed — that nudge now lives on the
             action bar at the top ("Check a draft →") + the success
@@ -1011,21 +1032,18 @@ Block posts mentioning specific fund performance`}
                 }`}
               >
                 {label}
-                {key === "all" && (
-                  <span className="ml-1.5 text-[#94A3B8]">{rules.length}</span>
-                )}
               </button>
             );
           })}
         </div>
 
-        {/* Demo label — single muted strip above the rules list, only in
+        {/* Demo label — one muted line above the rules list, only in
             demo mode, so a visitor reads the seeded rules as examples
-            instead of someone else's authorized policies. */}
+            and knows exactly where to take the next step. */}
         {IS_DEMO_MODE && (
-          <div className="font-mono text-[10px] text-[#94A3B8] mb-3 pb-3 border-b border-[#F1F5F9] flex items-center justify-between">
-            <span>Example governance rules — showing what ERA CUE can enforce</span>
-            <span className="text-[#64748B]">Add your own rules above</span>
+          <div className="font-mono text-[10px] text-[#94A3B8] mb-4 pb-3 border-b border-[#F1F5F9]">
+            Example rules — these show how ERA CUE works. Import or add your own
+            rules using the buttons above.
           </div>
         )}
 
@@ -1055,17 +1073,17 @@ Block posts mentioning specific fund performance`}
                   className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden scroll-mt-6"
                 >
                   <div className="px-5 py-4">
-                    {/* Top row — verdict + name on the left, action
-                        buttons on the right. Always visible (Edit
-                        toggles to "× Close" when expanded). */}
-                    <div className="flex items-start justify-between gap-3 mb-2">
+                    {/* Row 1 — badge + name on the left, action buttons
+                        on the right. justify-between keeps Edit/Deactivate
+                        right-aligned even when the rule name wraps. */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <span
                           className={`font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm border shrink-0 ${badge.bg} ${badge.text} ${badge.border}`}
                         >
                           {badge.label}
                         </span>
-                        <span className="text-sm font-semibold text-[#0F172A] truncate">
+                        <span className="text-sm font-semibold text-[#0F172A] leading-snug">
                           {r.name}
                         </span>
                       </div>
@@ -1076,19 +1094,15 @@ Block posts mentioning specific fund performance`}
                             onClick={() =>
                               setEditingRuleId(isEditing ? null : r.id)
                             }
-                            className={`font-mono text-xs px-3 py-1.5 rounded-sm border transition-colors cursor-pointer ${
-                              isEditing
-                                ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0]"
-                                : "bg-white border-[#E2E8F0] text-[#64748B] hover:bg-[#F8F9FB]"
-                            }`}
+                            className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8F9FB] transition-colors cursor-pointer"
                           >
-                            {isEditing ? "× Close" : "Edit"}
+                            Edit
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDeactivate(r.id, r.name)}
                             disabled={pending}
-                            className="font-mono text-xs px-3 py-1.5 rounded-sm border border-[#E2E8F0] text-[#94A3B8] hover:border-[#FCA5A5] hover:text-[#B91C1C] transition-colors cursor-pointer disabled:opacity-50"
+                            className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#94A3B8] hover:border-[#FCA5A5] hover:text-[#B91C1C] transition-colors cursor-pointer disabled:opacity-50"
                           >
                             Deactivate
                           </button>
@@ -1098,17 +1112,18 @@ Block posts mentioning specific fund performance`}
                         <button
                           type="button"
                           onClick={() => setEditingRuleId(isEditing ? null : r.id)}
-                          className="font-mono text-xs px-3 py-1.5 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8F9FB] transition-colors cursor-pointer"
+                          className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8F9FB] transition-colors cursor-pointer"
                         >
                           Renew
                         </button>
                       )}
                     </div>
 
+                    {/* Row 2 — description */}
                     {r.description && (
-                      <div className="text-sm text-[#374151] mb-3 leading-relaxed">
+                      <p className="text-sm text-[#374151] leading-relaxed mb-3">
                         {r.description}
-                      </div>
+                      </p>
                     )}
 
                     {r.keywords && r.keywords.length > 0 && (
@@ -1199,11 +1214,13 @@ Block posts mentioning specific fund performance`}
                           ✓ Well-calibrated
                         </div>
                       )}
-                      {classification === "deactivated" && r.deactivated_reason && (
-                        <div className="font-mono text-[10px] text-[#64748B]">
-                          Reason: {r.deactivated_reason}
-                        </div>
-                      )}
+                      {classification === "deactivated" &&
+                        r.deactivated_reason &&
+                        r.deactivated_reason.trim().toLowerCase() !== "test" && (
+                          <div className="font-mono text-[10px] text-[#64748B]">
+                            Reason: {r.deactivated_reason}
+                          </div>
+                        )}
                     </div>
                   </div>
 
@@ -1323,18 +1340,21 @@ Block posts mentioning specific fund performance`}
             not a parallel layer. Sits below governance health so it reads
             as a foundation note rather than a coming-soon teaser. */}
         <div className="mt-6 border border-[#E2E8F0] rounded-sm p-4 flex items-start gap-3 bg-[#F8F9FB]">
-          <div className="shrink-0 mt-0.5 text-[#64748B]" aria-hidden>
-            ⊞
+          {/* Document indicator — three horizontal lines reads as a
+              page of supervisory procedures more cleanly than the
+              dotted-square glyph it replaces. */}
+          <div className="shrink-0 mt-0.5 font-mono text-[#64748B] text-base" aria-hidden>
+            ≡
           </div>
           <div>
             <div className="text-sm font-semibold text-[#0F172A] mb-1">
-              Each rule references your WSPs.
+              Rules reference your WSPs.
             </div>
-            <div className="text-sm text-[#374151] leading-relaxed">
-              ERA CUE enforces your existing supervisory procedures — not alongside
-              them. Add a WSP section reference when creating or editing any rule
-              to create a direct link between your documented policies and ERA
-              CUE&apos;s enforcement layer.
+            <div className="text-sm text-[#64748B] leading-relaxed">
+              ERA CUE is the enforcement layer for your existing supervisory
+              procedures. When creating or editing a rule, add the WSP section
+              it implements — this creates an auditable link between your
+              documented policies and ERA CUE&apos;s governance checks.
             </div>
           </div>
         </div>
