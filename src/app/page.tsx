@@ -191,111 +191,213 @@ export default function Home() {
       </section>
 
       {/* ============================================================
-          SECTION 2 — THE COST OF DOING NOTHING
-          Three problem cards (red / orange / violet) — each ends in a
-          green "With ERA CUE" callout. Same persuasive structure as a
-          single scenario card but covers three buyer modes. Footer
-          callout below grounds the abstraction in a real SEC action.
+          SECTION 2 — THE REGULATORY REALITY
+          Three named enforcement actions, each rendered as a panel
+          with a header strip (badge + rule + penalty), and a body
+          that splits into "what happened" / "the rule" / "with ERA
+          CUE". Replaces an abstract three-card layout that named
+          consequences without grounding them in named cases. The
+          DraftKings, FINRA influencer, and EU AI Act references move
+          out of the page-bottom footnotes into the section itself —
+          a reader sees the citation next to the claim it supports.
          ============================================================ */}
       <section className="py-20 px-6 md:px-12 bg-white border-t border-[#E2E8F0]">
         <div className="max-w-[1100px] mx-auto">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
-            The problem
-          </div>
-          <h2
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-[#0F172A] mb-3 max-w-2xl"
-          >
-            Three things that happen when nobody checks.
-          </h2>
-          <p className="text-sm text-[#64748B] mb-12 max-w-2xl leading-relaxed">
-            ERA CUE exists because each of these has happened — to real organizations, with real consequences.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Card 1 — Regulatory violation (red top accent) */}
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 border-t-4 border-t-[#B91C1C]">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#B91C1C] mb-4">
-                Regulatory violation
-              </div>
-              <div className="text-sm text-[#374151] leading-relaxed mb-4 space-y-2">
-                <p>A registered representative uses AI to draft LinkedIn posts about portfolio performance. No one reviews them before publication.</p>
-                <p>FINRA examines the firm. The supervisor cannot produce evidence of review.</p>
-                <p className="font-medium text-[#0F172A]">
-                  The firm pays the fine and retrofits compliance.
-                </p>
-              </div>
-              <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-3">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-1">
-                  With ERA CUE
-                </div>
-                <div className="text-xs text-[#374151]">
-                  Named principal review documented before every post. The supervisory evidence FINRA Rule 3110 requires — created automatically.
-                </div>
-              </div>
+          {/* Section header */}
+          <div className="mb-12">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+              The regulatory reality
             </div>
-
-            {/* Card 2 — Messaging contradiction (orange top accent) */}
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 border-t-4 border-t-[#C2410C]">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#C2410C] mb-4">
-                Messaging contradiction
-              </div>
-              <div className="text-sm text-[#374151] leading-relaxed mb-4 space-y-2">
-                <p>The VP Sales posts that pricing is &ldquo;industry-leading.&rdquo; The CEO said &ldquo;competitive&rdquo; two weeks earlier.</p>
-                <p>The inconsistency surfaces publicly.</p>
-                <p className="font-medium text-[#0F172A]">
-                  The story runs before anyone on the comms team notices.
-                </p>
-              </div>
-              <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-3">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-1">
-                  With ERA CUE
-                </div>
-                <div className="text-xs text-[#374151]">
-                  ERA CUE&apos;s consistency check compares every new draft against approved prior statements from the same team. Contradictions surface before publication — not after.
-                </div>
-              </div>
-            </div>
-
-            {/* Card 3 — Agent publishing (violet top accent) */}
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 border-t-4 border-t-[#7C3AED]">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#7C3AED] mb-4">
-                Agent publishing
-              </div>
-              <div className="text-sm text-[#374151] leading-relaxed mb-4 space-y-2">
-                <p>An AI agent drafts and schedules posts on behalf of the executive team. Three contain material information.</p>
-                <p>No human reviews them before they publish.</p>
-                <p className="font-medium text-[#0F172A]">
-                  The CCO finds out from a client.
-                </p>
-              </div>
-              <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-3">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-1">
-                  With ERA CUE
-                </div>
-                <div className="text-xs text-[#374151]">
-                  Every agent-submitted draft requires a human decision before ERA CUE clears it for publication. The clearance record shows who decided, when, and why.
-                </div>
-              </div>
-            </div>
+            <h2
+              style={{ fontFamily: "var(--font-newsreader)" }}
+              className="text-3xl md:text-4xl font-light text-[#0F172A] mb-3 leading-tight max-w-2xl"
+            >
+              Three regulations. Three consequences. One checkpoint.
+            </h2>
+            <p className="text-sm text-[#64748B] max-w-xl leading-relaxed">
+              Each of these enforcement actions happened in the last 18 months. Each involved communications that were not reviewed before publication.
+            </p>
           </div>
 
-          {/* SEC enforcement reference — grounds the three abstract
-              scenarios in a real $200K action. The superscript anchor
-              points at the existing footnote. */}
-          <div className="text-center mt-8">
-            <div className="font-mono text-sm text-[#64748B]">
-              In September 2024, the SEC charged a public company $200,000 after its CEO posted material nonpublic information on LinkedIn during a quiet period.
+          {/* Three panels */}
+          <div className="space-y-4">
+            {/* Panel 1 — DraftKings / Reg FD */}
+            <div className="border border-[#E2E8F0] rounded-sm overflow-hidden">
+              {/* Panel header */}
+              <div className="bg-[#F8F9FB] px-6 py-3 border-b border-[#E2E8F0] flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA]">
+                    Public company
+                  </span>
+                  <span className="font-mono text-[10px] text-[#64748B]">
+                    SEC Regulation FD
+                  </span>
+                </div>
+                <span className="font-mono text-[10px] font-bold text-[#B91C1C]">
+                  $200,000 penalty
+                </span>
+              </div>
+
+              {/* Panel body */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+                {/* The case */}
+                <div className="p-6 md:border-r border-[#E2E8F0]">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
+                    What happened
+                  </div>
+                  <p className="text-sm text-[#374151] leading-relaxed mb-2">
+                    DraftKings&apos; PR firm posted on the CEO&apos;s personal LinkedIn and X accounts during an earnings quiet period — disclosing revenue growth data before Q2 results were released.
+                  </p>
+                  <p className="text-sm text-[#374151] leading-relaxed">
+                    The posts were live 30 minutes. DraftKings&apos; own social media policy required prior written approval. It wasn&apos;t obtained.
+                  </p>
+                  <div className="font-mono text-[10px] text-[#94A3B8] mt-3">
+                    SEC Release No. 34-101130 · September 26, 2024
+                  </div>
+                </div>
+
+                {/* The regulation */}
+                <div className="p-6 md:border-r border-[#E2E8F0] bg-white">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
+                    The rule
+                  </div>
+                  <p className="text-sm font-semibold text-[#0F172A] mb-2">
+                    SEC Regulation FD
+                  </p>
+                  <p className="text-sm text-[#374151] leading-relaxed">
+                    Prohibits selective disclosure of material nonpublic information. Applies to posts by persons acting on a company&apos;s behalf — including PR firms posting on executive personal accounts.
+                  </p>
+                </div>
+
+                {/* ERA CUE response */}
+                <div className="p-6 bg-[#F0FDF4]">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-3">
+                    With ERA CUE
+                  </div>
+                  <p className="text-sm text-[#374151] leading-relaxed">
+                    The PR firm submits the draft to ERA CUE. The quiet period rule fires. The draft is blocked. A named principal reviews and decides. The record is created before anything reaches LinkedIn.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="font-mono text-xs text-[#94A3B8] mt-1">
-              SEC enforcement action, 2024.
-              <a href="#ref-6">
-                <sup className="font-mono text-[10px] text-[#94A3B8] ml-0.5 hover:text-[#1A56DB]">
-                  1
-                </sup>
-              </a>
-              {" "}ERA CUE checks for these violations before publication.
+
+            {/* Panel 2 — FINRA / Broker-Dealer */}
+            <div className="border border-[#E2E8F0] rounded-sm overflow-hidden">
+              <div className="bg-[#F8F9FB] px-6 py-3 border-b border-[#E2E8F0] flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA]">
+                    Broker-Dealer
+                  </span>
+                  <span className="font-mono text-[10px] text-[#64748B]">
+                    FINRA Rules 2210(b) + 3110
+                  </span>
+                </div>
+                <span className="font-mono text-[10px] font-bold text-[#C2410C]">
+                  $850,000 fine
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+                <div className="p-6 md:border-r border-[#E2E8F0]">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
+                    What happened
+                  </div>
+                  <p className="text-sm text-[#374151] leading-relaxed mb-2">
+                    A broker-dealer paid social media influencers to promote the firm. No registered principal reviewed or approved content before posting. No records were maintained.
+                  </p>
+                  <p className="text-sm text-[#374151] leading-relaxed">
+                    FINRA&apos;s first disciplinary action involving social media influencer supervision.
+                  </p>
+                  <div className="font-mono text-[10px] text-[#94A3B8] mt-3">
+                    FINRA Enforcement · March 18, 2024
+                  </div>
+                </div>
+
+                <div className="p-6 md:border-r border-[#E2E8F0]">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
+                    The rule
+                  </div>
+                  <p className="text-sm font-semibold text-[#0F172A] mb-2">
+                    FINRA Rules 2210(b) + 3110
+                  </p>
+                  <p className="text-sm text-[#374151] leading-relaxed">
+                    Retail communications require registered principal pre-approval. Firms must establish written supervisory procedures for social media — including communications by third parties acting on the firm&apos;s behalf.
+                  </p>
+                </div>
+
+                <div className="p-6 bg-[#F0FDF4]">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-3">
+                    With ERA CUE
+                  </div>
+                  <p className="text-sm text-[#374151] leading-relaxed">
+                    Every influencer or agency submits drafts through ERA CUE before posting. A registered principal reviews and approves each one. The record proves supervision occurred — exactly what FINRA Rule 3110 requires.
+                  </p>
+                </div>
+              </div>
             </div>
+
+            {/* Panel 3 — EU AI Act */}
+            <div className="border border-[#E2E8F0] rounded-sm overflow-hidden">
+              <div className="bg-[#F8F9FB] px-6 py-3 border-b border-[#E2E8F0] flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm bg-[#F5F3FF] text-[#7C3AED] border border-[#DDD6FE]">
+                    All organizations
+                  </span>
+                  <span className="font-mono text-[10px] text-[#64748B]">
+                    EU AI Act Article 50
+                  </span>
+                </div>
+                <span className="font-mono text-[10px] font-bold text-[#7C3AED]">
+                  Enforceable August 2026
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+                <div className="p-6 md:border-r border-[#E2E8F0]">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
+                    The requirement
+                  </div>
+                  <p className="text-sm text-[#374151] leading-relaxed mb-2">
+                    AI-generated communications must be disclosed as artificially generated. Organizations must ensure AI-drafted content is marked and traceable.
+                  </p>
+                  <p className="text-sm text-[#374151] leading-relaxed">
+                    The obligation applies to deployers — including organizations using AI to draft public communications on behalf of executives.
+                  </p>
+                  <div className="font-mono text-[10px] text-[#94A3B8] mt-3">
+                    EU AI Act Art. 50 · Effective August 2, 2026
+                  </div>
+                </div>
+
+                <div className="p-6 md:border-r border-[#E2E8F0]">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
+                    What&apos;s missing
+                  </div>
+                  <p className="text-sm font-semibold text-[#0F172A] mb-2">
+                    Most organizations have no record.
+                  </p>
+                  <p className="text-sm text-[#374151] leading-relaxed">
+                    AI drafts content. Executives post it. No disclosure. No approval trail. No evidence that a human reviewed it before publication. Article 50 requires all three.
+                  </p>
+                </div>
+
+                <div className="p-6 bg-[#F0FDF4]">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-3">
+                    With ERA CUE
+                  </div>
+                  <p className="text-sm text-[#374151] leading-relaxed">
+                    ERA CUE records AI involvement at the moment of submission, documents the human review decision, and produces the disclosure trail Article 50 requires — automatically, for every governed draft.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom line — single sentence framing the three panels
+              as one shared problem ERA CUE solves. */}
+          <div className="mt-8 text-center">
+            <p className="text-sm text-[#64748B] max-w-xl mx-auto leading-relaxed">
+              ERA CUE is the pre-publication checkpoint that produces the supervisory evidence each of these regulations requires — in one governed submission.
+            </p>
           </div>
         </div>
       </section>
@@ -459,10 +561,10 @@ export default function Home() {
       {/* ============================================================
           SECTION 5 — WHO IT'S FOR (five role cards)
           2×2 grid for cards 01–04 with card 05 spanning full width on
-          its own row. All five card bodies are link-free; the
-          superscript footnote in card 04 is kept (DraftKings reference)
-          but the inline footnote refs that used to live inside card 03
-          are removed for readability.
+          its own row. All five card bodies are link-free — the
+          regulatory framing now lives inside Section 2's three named
+          panels, so neither the body copy nor card 04 carries an
+          inline superscript anymore.
          ============================================================ */}
       <section className="bg-[#0F172A]">
         <div className="max-w-[1100px] mx-auto px-6 py-20">
@@ -504,9 +606,8 @@ export default function Home() {
             </div>
 
             {/* CARD 03 — CCO / GC / RIA / Broker-dealer · ERA CUE blue.
-                Inline footnote refs (ref-1, ref-2, ref-5) removed —
-                the body reads cleaner and the regulatory framing stays
-                in the footnotes section at the page bottom. */}
+                Body copy is link-free; FINRA Rule 3110 / 2210(b) framing
+                lives in Section 2's broker-dealer panel. */}
             <div className="bg-white/5 border border-white/10 border-l-4 border-l-[#1A56DB] rounded-sm p-6 flex flex-col">
               <div className="font-mono text-[10px] uppercase tracking-widest text-[#93C5FD] mb-3">
                 CCO · GENERAL COUNSEL · RIA · BROKER-DEALER
@@ -529,11 +630,6 @@ export default function Home() {
               </div>
               <p className="text-sm text-white/60 leading-relaxed mb-4 flex-1">
                 In 2024, the SEC charged a company $200,000 after its CEO posted material information on LinkedIn during a quiet period. ERA CUE checks for these violations before any executive communicates publicly.
-                <a href="#ref-6">
-                  <sup className="font-mono text-[10px] text-white/40 ml-0.5 hover:text-[#5EEAD4]">
-                    1
-                  </sup>
-                </a>
               </p>
             </div>
 
@@ -961,6 +1057,15 @@ export default function Home() {
           <div className="font-mono text-xs text-white/20 mt-3">
             or email hello@eracue.com
           </div>
+
+          {/* Legal disclaimer — replaces the page-bottom footnote
+              section. Cites the three enforcement actions named in
+              Section 2 and disclaims legal advice / compliance
+              guarantees in the same breath, so the legal framing
+              ends where the conversion ask ends. */}
+          <p className="font-mono text-[9px] text-white/15 mt-8 max-w-2xl mx-auto leading-relaxed text-center">
+            Enforcement actions cited: SEC v. DraftKings Inc., Release No. 34-101130 (Sept. 26, 2024) · FINRA v. M1 Finance LLC (March 18, 2024) · EU AI Act Article 50, effective August 2, 2026. ERA CUE produces supervisory records and governance evidence. ERA CUE does not provide legal advice or guarantee regulatory compliance.
+          </p>
         </div>
       </section>
 
@@ -990,98 +1095,6 @@ export default function Home() {
           )}
         </div>
       </footer>
-
-      {/* ============================================================
-          REGULATORY REFERENCES (footnotes)
-          Each row carries id="ref-N" so the inline superscripts in
-          Section 2 (SEC enforcement footnote) and Section 5 card 04
-          (DraftKings) jump straight here.
-         ============================================================ */}
-      <section className="border-t border-[#E2E8F0] bg-[#F8F9FB] px-6 py-8 md:px-12">
-        <div className="max-w-[1100px] mx-auto">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-4">
-            Regulatory references
-          </div>
-          <div className="space-y-2">
-            {[
-              {
-                num: 1,
-                text: "FINRA Rule 3110(b)(4) — Review of Correspondence and Internal Communications. Requires evidence of review identifying the reviewer, communication reviewed, date of review, and actions taken.",
-                url: "https://www.finra.org/rules-guidance/rulebooks/finra-rules/3110",
-                label: "finra.org/rules-guidance/rulebooks/finra-rules/3110",
-              },
-              {
-                num: 2,
-                text: "FINRA Rule 2210(b) — Requires principal pre-approval of retail communications with the public before first use.",
-                url: "https://www.finra.org/rules-guidance/rulebooks/finra-rules/2210",
-                label: "finra.org/rules-guidance/rulebooks/finra-rules/2210",
-              },
-              {
-                num: 3,
-                text: "EU AI Act Article 50(4) — Transparency obligations for AI-generated content. Human review exemption applies when content has undergone genuine editorial review by a natural or legal person. Obligations enforceable August 2026.",
-                url: "https://artificialintelligenceact.eu/article/50/",
-                label: "artificialintelligenceact.eu/article/50",
-              },
-              {
-                num: 4,
-                text: "SEC Regulation FD (Fair Disclosure) — Requires simultaneous public disclosure of material information provided to any investor. 17 CFR 243.100.",
-                url: "https://www.sec.gov/rules-regulations/regulations/reg-fd",
-                label: "sec.gov — Regulation FD",
-              },
-              {
-                num: 5,
-                text: "SEC Rule 204-2 — Investment Advisers Act. Requires registered investment advisers to maintain records of written communications relating to recommendations and advice for a minimum of 5 years.",
-                url: "https://www.ecfr.gov/current/title-17/chapter-II/part-275/section-275.204-2",
-                label: "ecfr.gov — SEC Rule 204-2",
-              },
-              {
-                num: 6,
-                text: "SEC v. DraftKings Inc. (Sept. 26, 2024) — SEC charged DraftKings with Reg FD violations after CEO posted material nonpublic information on personal LinkedIn and X accounts during an earnings quiet period. $200,000 civil penalty.",
-                url: "https://www.sec.gov/litigation/admin/2024/34-101107.pdf",
-                label: "sec.gov — DraftKings Reg FD action",
-              },
-              {
-                num: 7,
-                text: "FINRA 2026 Annual Regulatory Oversight Report — GenAI: Continuing and Emerging Trends. Recommends human-in-the-loop oversight for agentic AI, audit trails of agent actions, and explicit human checkpoints before execution.",
-                url: "https://www.finra.org/rules-guidance/guidance/reports/2026-finra-annual-regulatory-oversight-report/gen-ai",
-                label: "finra.org — 2026 Annual Regulatory Oversight Report",
-              },
-              {
-                num: 8,
-                text: "SEC Rule 17a-4(b) — Requires preservation of communications records for 3 years, with the first 2 years in an accessible location.",
-                url: "https://www.ecfr.gov/current/title-17/chapter-II/part-240/section-240.17a-4",
-                label: "ecfr.gov — SEC Rule 17a-4",
-              },
-            ].map((ref) => (
-              <div
-                key={ref.num}
-                id={`ref-${ref.num}`}
-                className="flex items-start gap-3 scroll-mt-6"
-              >
-                <span className="font-mono text-[10px] text-[#94A3B8] shrink-0 w-4 pt-0.5">
-                  {ref.num}
-                </span>
-                <div>
-                  <span className="font-mono text-[10px] text-[#64748B]">
-                    {ref.text}{" "}
-                  </span>
-                  <a
-                    href={ref.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono text-[10px] text-[#1A56DB] hover:text-[#1447C0] transition-colors"
-                  >
-                    {ref.label} ↗
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="font-mono text-[10px] text-[#94A3B8] mt-6 pt-4 border-t border-[#E2E8F0]">
-            ERA CUE is governance infrastructure, not legal advice. Firms should consult qualified legal counsel regarding their specific regulatory obligations. ERA CUE does not guarantee regulatory compliance.
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
