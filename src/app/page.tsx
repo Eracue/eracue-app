@@ -10,10 +10,9 @@ export const revalidate = 0;
 // because Vercel's ISR was serving a months-old prerender of this page.
 export const fetchCache = "force-no-store";
 
-const EXAMINER_DRAFT_ID = "e71b56c1-2e30-4a9c-bb78-f0db7ee1f651";
-// CCO role card links to a different blocked Marcus Rivera draft so the
-// communication record on that page demonstrates a different rule firing path
-// than the one in the Communication Record section below.
+// "See the full record →" link in Section 2 routes to a blocked Marcus
+// Rivera draft. Kept as a constant so the demo data id is changeable in
+// one place.
 const CCO_EXAMINER_DRAFT_ID = "afe14696-5336-4336-a0b7-c3410477ec31";
 
 // ---------- Small reusable pieces -----------------------------------------
@@ -198,6 +197,33 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Lane 2 — brand governance / non-FINRA flavour. Different
+              verdict (ESCALATE), different rule type (consistency
+              against an approved statement), different speaker. Shows
+              the platform handles more than just regulatory blocks. */}
+          <div className="mt-4 bg-white border border-[#E2E8F0] rounded-sm p-5 border-l-4 border-l-[#7C3AED]">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+              Monday, 2:14 PM · VP Sales · LinkedIn · Campaign: Q3 Launch
+            </div>
+
+            <div className="text-sm italic text-[#374151] mb-4 leading-relaxed">
+              &ldquo;Our enterprise pricing is the most competitive in the market — no one comes close.&rdquo;
+            </div>
+
+            <div className="flex items-center gap-2 mb-3">
+              <span className="font-mono text-xs font-bold uppercase px-2 py-1 rounded-sm bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA]">
+                ESCALATE
+              </span>
+              <span className="text-sm text-[#374151]">
+                Pricing Claims · GC review required
+              </span>
+            </div>
+
+            <div className="font-mono text-[10px] text-[#94A3B8]">
+              Consistency Check: contradicts approved statement from Lena Brooks (May 4) — &ldquo;competitive pricing across all tiers&rdquo;
+            </div>
+          </div>
+
           <div className="text-xs font-mono text-[#64748B] mt-4">
             SHA-256 locked · append-only · record cannot be altered
           </div>
@@ -252,12 +278,6 @@ export default function Home() {
                 second. If something&apos;s wrong, you see exactly why —
                 before it reaches anyone.
               </p>
-              <Link
-                href="/submit"
-                className="font-mono text-xs text-[#FCD34D] hover:text-white mt-auto transition-colors"
-              >
-                Check a draft →
-              </Link>
             </div>
 
             {/* CARD 02 — CMO / Comms / Brand · violet accent */}
@@ -274,12 +294,6 @@ export default function Home() {
                 new drafts against your team&apos;s approved statement
                 history — automatically.
               </p>
-              <Link
-                href="/dashboard"
-                className="font-mono text-xs text-[#C4B5FD] hover:text-white mt-auto transition-colors"
-              >
-                View the dashboard →
-              </Link>
             </div>
 
             {/* CARD 03 — CCO / GC / RIA / Broker-dealer · ERA CUE blue */}
@@ -308,12 +322,6 @@ export default function Home() {
                 requires records of all advisory communications. ERA CUE
                 produces all three — in one governed submission.
               </p>
-              <Link
-                href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
-                className="font-mono text-xs text-[#93C5FD] hover:text-white mt-auto transition-colors"
-              >
-                See the examiner record →
-              </Link>
             </div>
 
             {/* CARD 04 — IR / General Counsel / Public Co · teal accent */}
@@ -335,12 +343,6 @@ export default function Home() {
                 FD-sensitive language before any executive communicates
                 publicly.
               </p>
-              <Link
-                href="/rules"
-                className="font-mono text-xs text-[#5EEAD4] hover:text-white mt-auto transition-colors"
-              >
-                See active rules →
-              </Link>
             </div>
 
             {/* CARD 05 — Investment bank / PE / Hedge fund · slate accent · full width */}
@@ -358,13 +360,65 @@ export default function Home() {
                 and portfolio company executives. Every communication
                 checked before it goes out. Every approval on record.
               </p>
-              <Link
-                href="/rules"
-                className="font-mono text-xs text-[#CBD5E1] hover:text-white mt-auto transition-colors"
-              >
-                See how rules work →
-              </Link>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          SECTION 3.25 — WHY ERA CUE (MOAT)
+          Three-card moat callout. Sits between role cards (audience)
+          and campaign snapshot (proof) so the narrative reads
+          audience → differentiation → proof → mechanics.
+         ============================================================ */}
+      <section className="py-16 px-6 md:px-12 border-t border-[#E2E8F0] bg-[#F8F9FB]">
+        <div className="max-w-[1100px] mx-auto">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            Why ERA CUE
+          </div>
+          <div
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-2xl font-light text-[#0F172A] mb-10"
+          >
+            The governance layer that gets smarter with every decision.
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                num: "01",
+                title: "Supervisory memory",
+                body: "Every approved draft becomes part of your compliance corpus — checked against every future communication automatically. The corpus only contains principal-approved content. No hallucinations. No bad baselines.",
+                accent: "text-[#1A56DB]",
+              },
+              {
+                num: "02",
+                title: "Immutable audit trail",
+                body: "Every decision is SHA-256 locked the moment it's made. The record cannot be altered — not by you, not by ERA CUE, not by anyone. This is what makes it FINRA-ready and legally defensible.",
+                accent: "text-[#166534]",
+              },
+              {
+                num: "03",
+                title: "Behavioral calibration",
+                body: "Every reviewer decision teaches ERA CUE what your organization actually tolerates. Override a rule six times? ERA CUE suggests refining it. Approve everything in 3 seconds? ERA CUE flags it.",
+                accent: "text-[#7C3AED]",
+              },
+            ].map((item) => (
+              <div
+                key={item.num}
+                className="bg-white border border-[#E2E8F0] rounded-sm p-6"
+              >
+                <div className={`font-mono text-2xl font-bold mb-3 ${item.accent}`}>
+                  {item.num}
+                </div>
+                <div className="text-base font-semibold text-[#0F172A] mb-2">
+                  {item.title}
+                </div>
+                <div className="text-sm text-[#374151] leading-relaxed">
+                  {item.body}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -528,12 +582,6 @@ export default function Home() {
             </div>
           </div>
 
-          <Link
-            href="/rules"
-            className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-6 transition-colors"
-          >
-            View all 6 active rules →
-          </Link>
         </div>
       </section>
 
@@ -611,12 +659,6 @@ export default function Home() {
             ))}
           </div>
 
-          <Link
-            href={`/drafts/${EXAMINER_DRAFT_ID}/examiner`}
-            className="block font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] mt-8 transition-colors"
-          >
-            See a live examiner record →
-          </Link>
         </div>
       </section>
 
@@ -664,24 +706,34 @@ export default function Home() {
           things out.
          ============================================================ */}
       <section className="bg-[#0F172A] py-20 px-6 md:px-12 text-center">
-        <div className="max-w-[1100px] mx-auto">
+        <div className="text-center max-w-[600px] mx-auto">
           <div
             style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl md:text-4xl font-light text-white mb-3"
+            className="text-3xl font-light text-white mb-3"
           >
-            Ready to govern your communications?
+            Ready to see it work?
           </div>
-          <div className="text-base text-white/60 mb-8 max-w-md mx-auto leading-relaxed">
-            ERA CUE is in early access. Request a demo or ask about
-            deployment for your organization.
+
+          <div className="text-sm text-white/60 mb-8 leading-relaxed">
+            Try the live product now — no login required. Or get ERA CUE running for your team in 10 minutes.
           </div>
-          <a
-            href="mailto:hello@eracue.com?subject=ERA%20CUE%20Access%20Request"
-            className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-sm font-medium px-8 py-3.5 rounded-sm hover:bg-[#1447C0] transition-colors"
-          >
-            Request access →
-          </a>
-          <div className="font-mono text-xs text-white/40 mt-4">
+
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <a
+              href="/submit"
+              className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-6 py-3 rounded-sm hover:bg-[#1447C0] transition-colors"
+            >
+              Check a draft →
+            </a>
+            <a
+              href="/auth/signup"
+              className="bg-white/10 text-white font-mono text-sm font-medium px-6 py-3 rounded-sm border border-white/20 hover:bg-white/20 transition-colors"
+            >
+              Get ERA CUE for your team →
+            </a>
+          </div>
+
+          <div className="font-mono text-xs text-white/30 mt-4">
             or email hello@eracue.com
           </div>
         </div>

@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createBrowserClient } from "@/lib/supabase-client";
 
-// Authed users get the full app nav. Unauthed users see no nav links at
-// all in the pre-launch demo — only the "Check a draft →" CTA + a quiet
-// "Request access" mailto sit on the right of the header.
+// Authed users get the full app nav. Unauthed users see only the
+// "Check a draft →" CTA on the right — no other nav links, no demo
+// pill, no mailto. The middleware demo-bypass means the CTA actually
+// lands the visitor on the live submit form without an auth gate.
 const NAV_LINKS_AUTHED = [
   { href: "/dashboard", label: "Review" },
   { href: "/rules", label: "Rules" },
@@ -17,12 +18,6 @@ type Member = {
   org_name: string | null;
   display_name: string | null;
 };
-
-// Demo mode is gated by an env var so customer deployments can flip the
-// "demo" pills, footer disclaimers, and reviewer-note copy off without a
-// code change. NEXT_PUBLIC_* values are inlined at build time, so reading
-// it here in a client module is safe — no runtime fetch.
-const IS_DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
@@ -108,34 +103,25 @@ export function SiteHeader() {
             <span className="text-[#1A56DB] font-bold">ERA</span>
             <span className="text-[#1A56DB] italic font-normal"> CUE</span>
           </span>
-          {authed && member?.org_name ? (
+          {authed && member?.org_name && (
             <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] px-1.5 py-0.5 rounded-sm border border-[#E2E8F0] ml-2">
               {member.org_name}
             </span>
-          ) : (
-            // The "demo" pill only renders when the deployment is
-            // explicitly in demo mode. A production tenant on this same
-            // codebase but unauthenticated (e.g. landing on / while
-            // logged out) sees no pill at all — cleaner than tagging
-            // every public page with a demo label.
-            IS_DEMO_MODE && (
-              <span className="font-mono text-[10px] bg-[#F1F5F9] text-[#94A3B8] px-1.5 py-0.5 rounded-sm border border-[#E2E8F0] ml-2">
-                demo
-              </span>
-            )
           )}
         </Link>
 
         {/* Desktop nav — hidden below md, where the hamburger takes over.
-            "Check a draft →" renders for everyone (the middleware bounces
-            unauthed users to /auth/login when they click). Unauthed
-            visitors get a quiet "Request access" mailto next to it; no
-            other links in the pre-launch header. */}
+            "Check a draft →" renders for everyone once auth state has
+            resolved. Authed users also get Review / Rules / Archive +
+            user menu. Unauthed users see ONLY the Check a draft button
+            on the right. The authed === null case (still hydrating)
+            suppresses everything so we don't flash unauthed state for
+            logged-in users. */}
         <nav className="hidden md:flex items-center gap-6">
           {authed !== null && (
             <Link
               href="/submit"
-              className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-xs font-medium px-3 py-1.5 rounded-sm hover:bg-[#1447C0] transition-colors whitespace-nowrap"
+              className="inline-flex items-center bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-1.5 rounded-sm hover:bg-[#1447C0] transition-colors whitespace-nowrap"
             >
               Check a draft →
             </Link>
@@ -150,18 +136,6 @@ export function SiteHeader() {
             </Link>
           ))}
 
-          {/* Unauthed → ghost Request access. Authed → user menu (below).
-              The authed === null case (still hydrating) renders nothing
-              on this side so we don't flash unauthed state for logged-in
-              users. */}
-          {authed === false && (
-            <a
-              href="mailto:hello@eracue.com?subject=ERA%20CUE%20Access%20Request"
-              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors whitespace-nowrap"
-            >
-              Request access
-            </a>
-          )}
           {authed === true && (
             <div className="relative" ref={menuRef}>
               <button
@@ -250,8 +224,8 @@ export function SiteHeader() {
       {/* Mobile dropdown — anchored to the header's relative wrapper so it
           spans the full width below the row. Each tap closes it.
           Pre-launch surface: "Check a draft" (blue) for everyone +
-          "Request access" (ghost) for unauthed users + the authed app
-          nav and Sign out for authed users. */}
+          authed app nav + Sign out. Unauthed users see only the Check
+          a draft button. */}
       {open && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-[#E2E8F0] shadow-sm z-50 py-3 px-6">
           <div className="flex flex-col gap-1">
@@ -274,15 +248,6 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
-            {authed === false && (
-              <a
-                href="mailto:hello@eracue.com?subject=ERA%20CUE%20Access%20Request"
-                onClick={() => setOpen(false)}
-                className="font-mono text-sm text-[#64748B] hover:text-[#0F172A] transition-colors text-center py-2 mt-2"
-              >
-                Request access
-              </a>
-            )}
             {authed === true && (
               <form action="/auth/signout" method="post" className="mt-3">
                 <button

@@ -387,6 +387,25 @@ export function SubmitForm() {
               )}
             </div>
           )}
+
+          {/* Demo-mode conversion prompt. Sits as a sibling below the
+              verdict card so a visitor who just saw the engine fire has
+              an obvious next step toward setting it up for their team.
+              Renders for every verdict outcome — block / escalate /
+              clear / review / guide — once a verdict exists. */}
+          {verdictLower && (
+            <div className="mt-3 pt-3 border-t border-[#E2E8F0] flex items-center justify-between flex-wrap gap-2">
+              <div className="text-xs text-[#64748B]">
+                Want ERA CUE for your team?
+              </div>
+              <Link
+                href="/auth/signup"
+                className="font-mono text-xs font-medium text-[#1A56DB] hover:text-[#1447C0] transition-colors whitespace-nowrap"
+              >
+                Get started in 10 minutes →
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* CONTEXT PANEL — desktop col-span-2, mobile first */}

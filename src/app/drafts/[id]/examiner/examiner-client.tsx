@@ -1209,7 +1209,7 @@ function FullView({
         )}
 
         {/* Section 5 also surfaces the clearance token (when present)
-            so the FINRA-defensible record carries it inline alongside
+            so the FINRA-ready record carries it inline alongside
             the principal decision. */}
         <PublishTokenBlock draft={draft} variant="compact" />
       </section>
@@ -1253,6 +1253,29 @@ function FullView({
               );
             })}
         </ol>
+
+        {/* Tamper evidence callout — surfaces the database-level
+            guarantees the audit trail above relies on. The append-only
+            language and SHA-256 hash language below match the actual
+            triggers in db/01-schema.sql so an examiner can verify the
+            claims by querying pg_trigger / pg_proc directly. */}
+        <div className="mt-6 bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-5">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-2">
+            Tamper evidence
+          </div>
+          <div className="text-sm text-[#374151] leading-relaxed mb-3">
+            Every entry in this audit trail has a SHA-256 hash computed at the moment of database insert. The actions table enforces append-only at the database level — UPDATE and DELETE are refused by the database engine, not just the application.
+          </div>
+          <div className="font-mono text-xs text-[#166534]">
+            ✓ Append-only enforced at database level
+          </div>
+          <div className="font-mono text-xs text-[#166534]">
+            ✓ SHA-256 hash computed at insert time
+          </div>
+          <div className="font-mono text-xs text-[#166534]">
+            ✓ Record cannot be altered or deleted
+          </div>
+        </div>
       </section>
 
       {/* Section 7: Regulatory Compliance Attestation. Conditional on whether

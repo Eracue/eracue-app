@@ -18,12 +18,10 @@ export default function SubmitPage() {
             style={{ fontFamily: "var(--font-newsreader)" }}
             className="font-light text-3xl text-[#0F172A] mb-2"
           >
-            Check this draft before it goes live.
+            Check a draft
           </h1>
           <p className="text-sm text-[#64748B] max-w-xl mb-0">
-            Paste any executive communication. ERA CUE checks it against your
-            governance rules, flags violations, and routes it to your designated
-            principal — before it reaches the public.
+            Paste any executive communication. ERA CUE checks it against your active governance rules in under one second.
           </p>
 
           {/* Collapsible "What gets checked?" — native <details>, no JS. */}
