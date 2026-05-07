@@ -196,8 +196,28 @@ export default async function Home() {
               href="/submit"
               className="inline-flex items-center bg-[#1A56DB] text-white text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#1447C0] transition"
             >
-              Check a draft before it goes live →
+              See it working →
             </Link>
+
+            {/* Three-word workflow strip — sits directly under the CTA so
+                a visitor's first scan answers "what's the loop?" without
+                them having to read further. CCO recognizes "Configure
+                rules" as her job; speaker recognizes "Check every
+                draft"; everyone sees "Record approved" as the outcome. */}
+            <div className="flex items-center gap-6 mt-4 flex-wrap justify-center">
+              {["Configure rules", "Check every draft", "Record approved"].map((step, i) => (
+                <div key={step} className="flex items-center gap-2">
+                  {i > 0 && (
+                    <span className="text-white/20 font-mono" aria-hidden>
+                      →
+                    </span>
+                  )}
+                  <span className="font-mono text-xs text-white/50 uppercase tracking-widest">
+                    {step}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Six trust badges — solid colored pills, one regulatory family
@@ -849,7 +869,7 @@ export default async function Home() {
               href="/submit"
               className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-6 py-3 rounded-sm hover:bg-[#1447C0] transition-colors"
             >
-              Check a draft →
+              Try it now →
             </a>
             <a
               href="/auth/signup"
