@@ -504,26 +504,26 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   return (
     <main className="min-h-screen bg-[#F8F9FB]">
       <div className="max-w-[1100px] mx-auto px-6 pt-10 pb-6">
-        {/* PAGE HEADER — demo-mode framing is "configure your governance"
-            regardless of count so a visitor sees the setup story; once
-            this isn't a demo deploy, the headline names the count of
-            active rules and the paragraph reads as a status report. */}
+        {/* PAGE HEADER — demo mode reads as a configuration prompt with
+            no counts (the seed numbers describe data the visitor doesn't
+            own); a real deployment names the live rule count and frames
+            the paragraph as the status of their team's enforcement. */}
         <div className="mb-6">
           <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
             Governance rules
           </div>
           <h1
             style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-[#0F172A] mb-2"
+            className="text-3xl font-light text-[#0F172A]"
           >
             {IS_DEMO_MODE
-              ? "Configure your governance before checking any draft."
+              ? "Configure your governance rules."
               : `${counts.active} rule${counts.active !== 1 ? "s" : ""} governing your team's communications.`}
           </h1>
-          <p className="text-sm text-[#64748B] max-w-2xl leading-relaxed">
+          <p className="text-sm text-[#64748B] max-w-2xl leading-relaxed mt-2">
             {IS_DEMO_MODE
-              ? "Rules are ERA CUE's enforcement layer. Set them up once — ERA CUE checks every draft against them automatically. Start by importing your existing policies or choosing templates for your firm type."
-              : "Every draft your team submits is checked against these rules before publication. Add rules, set expiry dates, and monitor their effectiveness."}
+              ? "ERA CUE checks every draft your team submits against these rules before publication. Import your existing policies or add rules below — there's no limit."
+              : "Every draft your team submits is checked against these rules before publication."}
           </p>
         </div>
 
@@ -948,27 +948,12 @@ Block posts mentioning specific fund performance`}
           </div>
         )}
 
-        {/* Visual separator between "configuration" (header / action bar /
-            import panel / success banner) and "your rules." Reads as a
-            clean handoff from setup to status. */}
-        <div className="mt-6 mb-5 border-t border-[#E2E8F0]" />
-
-        {/* Stats strip vs. demo coverage line. In demo mode the big
-            counts (7 ACTIVE · 4 FIRING · 3 SILENT) describe seed data
-            the visitor doesn't own — surfacing them as headline numbers
-            makes the page read like someone else's dashboard. Drop down
-            to a single coverage line so a demo visitor sees ERA CUE's
-            commitment, not a stranger's stats. Real users keep the
-            full strip — the numbers are theirs and worth highlighting. */}
-        {IS_DEMO_MODE ? (
-          <div className="font-mono text-[10px] text-[#94A3B8] mb-4">
-            5 checks run on every draft · 2 deterministic · 3 AI-powered
-            {corpusCount > 0 && (
-              <span> · {corpusCount} approved statements in corpus</span>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        {/* Stats strip — real users only. The big counts describe seed
+            data in demo mode (someone else's "7 ACTIVE / 4 FIRING / 3
+            SILENT"), so we hide the entire strip in demo and let the
+            labeled separator below carry the framing. */}
+        {!IS_DEMO_MODE && (
+          <div className="flex items-center justify-between mt-6 mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-5">
               <div className="text-center">
                 <div className="text-2xl font-light font-mono text-[#0F172A]">
@@ -1004,48 +989,47 @@ Block posts mentioning specific fund performance`}
           </div>
         )}
 
-        {/* "Rules active" prompt removed — that nudge now lives on the
-            action bar at the top ("Check a draft →") + the success
-            banner after authorization. Two surfaces telling the same
-            story were one too many. */}
-
-        {/* Filter tabs — All / Active / Deactivated. Expired rules merge
-            into the All view (they still need to be visible) but don't
-            get their own tab; in practice they're rare and the count
-            label muddied the strip. Only "All" shows a count badge. */}
-        <div className="flex gap-1 mb-4 border-b border-[#E2E8F0]">
-          {([
-            { key: "all" as const,         label: "All" },
-            { key: "active" as const,      label: "Active" },
-            { key: "deactivated" as const, label: "Deactivated" },
-          ]).map(({ key, label }) => {
-            const selected = tab === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTab(key)}
-                className={`font-mono text-xs px-4 py-2 transition-colors border-b-2 -mb-px cursor-pointer ${
-                  selected
-                    ? "border-[#1A56DB] text-[#1A56DB]"
-                    : "border-transparent text-[#64748B] hover:text-[#0F172A]"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Demo label — one muted line above the rules list, only in
-            demo mode, so a visitor reads the seeded rules as examples
-            and knows exactly where to take the next step. */}
-        {IS_DEMO_MODE && (
-          <div className="font-mono text-[10px] text-[#94A3B8] mb-4 pb-3 border-b border-[#F1F5F9]">
-            Example rules — these show how ERA CUE works. Import or add your own
-            rules using the buttons above.
+        {/* Filter tabs — real users only. In demo mode the All / Active
+            / Deactivated split is meaningless (these aren't your rules
+            to filter), and the demo `filtered` memo already pins the
+            view to active rules. */}
+        {!IS_DEMO_MODE && (
+          <div className="flex gap-1 mb-4 border-b border-[#E2E8F0]">
+            {([
+              { key: "all" as const,         label: "All" },
+              { key: "active" as const,      label: "Active" },
+              { key: "deactivated" as const, label: "Deactivated" },
+            ]).map(({ key, label }) => {
+              const selected = tab === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTab(key)}
+                  className={`font-mono text-xs px-4 py-2 transition-colors border-b-2 -mb-px cursor-pointer ${
+                    selected
+                      ? "border-[#1A56DB] text-[#1A56DB]"
+                      : "border-transparent text-[#64748B] hover:text-[#0F172A]"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         )}
+
+        {/* Labeled separator between configuration and the rules list.
+            The label flips based on context: "Example rules" in demo
+            mode (the seeded list is illustrative), "Active rules" for
+            real users (the live enforcement set). */}
+        <div className="flex items-center gap-3 my-6">
+          <div className="flex-1 border-t border-[#E2E8F0]" />
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8]">
+            {IS_DEMO_MODE ? "Example rules" : "Active rules"}
+          </span>
+          <div className="flex-1 border-t border-[#E2E8F0]" />
+        </div>
 
         {/* Rule cards — inline edit panel expands below the card when
             Edit is toggled. Deactivate uses a window.confirm() prompt
