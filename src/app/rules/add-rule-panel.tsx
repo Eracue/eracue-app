@@ -55,7 +55,15 @@ type Props = {
 };
 
 type AppliesTo = "all" | "role" | "person";
-type BuilderPhase = "draft" | "review";
+type BuilderPhase = "draft" | "review" | "success";
+
+type AuthorizedSnapshot = {
+  name: string;
+  verdict: DraftedRule["verdict"];
+  appliesTo: AppliesTo;
+  wsp_reference: string;
+  authorizedAt: Date;
+};
 
 // Mutable mirror of DraftedRule — keeps the original immutable but
 // lets the right-side panel edit every field. wsp_reference + channels
@@ -139,6 +147,8 @@ export function AddRulePanel({ isOpen, onClose, firmType = null }: Props) {
   const [authorizing, setAuthorizing] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authorized, setAuthorized] =
+    useState<AuthorizedSnapshot | null>(null);
 
   if (!isOpen) return null;
 
@@ -148,6 +158,7 @@ export function AddRulePanel({ isOpen, onClose, firmType = null }: Props) {
     setAppliesTo("all");
     setActiveUntil("");
     setDraftedRule(null);
+    setAuthorized(null);
     setError(null);
   }
 
@@ -216,9 +227,25 @@ export function AddRulePanel({ isOpen, onClose, firmType = null }: Props) {
         setError(result.error);
         return;
       }
-      reset();
-      onClose();
+      // Refresh the rules list under the panel so the new rule
+      // appears in the right tab on dismiss.
       router.refresh();
+      if (status === "active") {
+        // Capture a snapshot of what was authorized so the success
+        // phase can render the locked-record view.
+        setAuthorized({
+          name: draftedRule.name,
+          verdict: draftedRule.verdict,
+          appliesTo,
+          wsp_reference: draftedRule.wsp_reference,
+          authorizedAt: new Date(),
+        });
+        setPhase("success");
+      } else {
+        // Save Draft path closes the panel directly.
+        reset();
+        onClose();
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed.");
     } finally {
@@ -233,6 +260,147 @@ export function AddRulePanel({ isOpen, onClose, firmType = null }: Props) {
 
   function handleSaveDraft() {
     void persist("draft");
+  }
+
+  // ─── PHASE 3 — authorization success ──────────────────────────
+  // Renders a green-tinted record card after Authorize succeeds.
+  // The "Add another rule" button rewinds to Phase 1 with a clean
+  // slate; the "Check your first draft →" link routes the visitor
+  // to /submit so they can see ERA CUE actually fire on a draft.
+  if (phase === "success" && authorized) {
+    const verdictMeta = VERDICT_OPTIONS.find(
+      (o) => o.v === authorized.verdict,
+    );
+    const appliesLabel =
+      authorized.appliesTo === "all"
+        ? "All speakers"
+        : authorized.appliesTo === "role"
+          ? "Specific role"
+          : "One person";
+
+    return (
+      <div className="border border-[#BBF7D0] bg-[#F0FDF4] rounded-lg overflow-hidden mb-6">
+        {/* Success header */}
+        <div className="px-6 py-5 border-b border-[#BBF7D0] flex items-start gap-4">
+          <div
+            className="text-2xl text-[#0EA5E9] shrink-0 mt-0.5"
+            aria-hidden
+          >
+            ✓
+          </div>
+          <div>
+            <div className="text-base font-semibold text-[#0D1B2A] mb-1">
+              Rule authorized and active.
+            </div>
+            <div className="text-sm text-[#475569]">
+              ERA CUE will now check every draft against this rule
+              before publication.
+            </div>
+          </div>
+        </div>
+
+        {/* Authorization record */}
+        <div className="px-6 py-5">
+          <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#64748B] mb-4">
+            Authorization record — created now
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 mb-5">
+            {(
+              [
+                { label: "Rule name", value: authorized.name },
+                {
+                  label: "Verdict type",
+                  value:
+                    verdictMeta?.label.toUpperCase() ??
+                    authorized.verdict.toUpperCase(),
+                },
+                { label: "Principal", value: "Current user" },
+                {
+                  label: "Authorized at",
+                  value: authorized.authorizedAt.toLocaleString(
+                    "en-US",
+                    {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    },
+                  ),
+                },
+                { label: "Applies to", value: appliesLabel },
+                {
+                  label: policyLabelFor(firmType),
+                  value:
+                    authorized.wsp_reference.trim() || "None specified",
+                },
+              ] as const
+            ).map((field) => (
+              <div key={field.label}>
+                <div className="font-mono text-[9px] uppercase tracking-[0.11em] text-[#94A3B8] mb-0.5">
+                  {field.label}
+                </div>
+                <div className="text-sm text-[#0D1B2A] font-medium">
+                  {field.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* SHA lockbox */}
+          <div className="bg-white border border-[#E2E8F0] rounded-sm px-4 py-3 flex items-start gap-3 mb-5">
+            <span className="text-base shrink-0 mt-0.5" aria-hidden>
+              🔒
+            </span>
+            <div>
+              <div className="font-mono text-[9px] font-bold text-[#0D1B2A] mb-1 uppercase tracking-[0.1em]">
+                Authorization locked
+              </div>
+              <div className="font-mono text-[9px] text-[#64748B] leading-relaxed">
+                This authorization record is SHA-256 hashed and
+                append-only. The principal identity, timestamp, and
+                rule parameters cannot be altered. This is the
+                supervisory evidence ERA CUE creates.
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 flex-wrap">
+            <a
+              href="/submit"
+              className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] transition-colors"
+            >
+              Check your first draft →
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthorized(null);
+                setDraftedRule(null);
+                setPlainText("");
+                setActiveUntil("");
+                setAppliesTo("all");
+                setPhase("draft");
+              }}
+              className="font-mono text-xs text-[#64748B] px-3 py-2.5 border border-[#E2E8F0] rounded-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+            >
+              Add another rule
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                reset();
+                onClose();
+              }}
+              className="font-mono text-xs text-[#94A3B8] px-3 py-2.5 hover:text-[#0D1B2A] transition-colors cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // ─── PHASE 1 — single-column input ────────────────────────────
