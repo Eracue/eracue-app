@@ -190,7 +190,7 @@ export default function Home() {
               </div>
 
               <div className="flex items-center gap-2 mb-3">
-                <span className="bg-[#0D9488] text-white font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm">
+                <span className="bg-[#0EA5E9] text-white font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm">
                   Cleared
                 </span>
                 <span className="text-xs font-medium text-[#0D1B2A]">
@@ -210,7 +210,7 @@ export default function Home() {
                     <span className="font-mono text-[9px] text-[#94A3B8]">
                       {name}
                     </span>
-                    <span className="font-mono text-[9px] font-bold text-[#0D9488]">
+                    <span className="font-mono text-[9px] font-bold text-[#0EA5E9]">
                       PASS
                     </span>
                   </div>
@@ -220,7 +220,7 @@ export default function Home() {
               <div className="border-t border-[#E2E8F0] pt-3 flex justify-between">
                 <span className="font-mono text-[9px] text-[#94A3B8] inline-flex items-center">
                   <span
-                    className="inline-block w-1.5 h-1.5 rounded-full bg-[#0D9488] mr-1.5"
+                    className="inline-block w-1.5 h-1.5 rounded-full bg-[#0EA5E9] mr-1.5"
                     aria-hidden
                   />
                   Principal approved
@@ -247,7 +247,7 @@ export default function Home() {
           </span>
           {[
             { label: "Broker-dealers", bg: "#EEF2FF", text: "#4338CA" },
-            { label: "RIAs", bg: "#F0FDFA", text: "#0F766E" },
+            { label: "RIAs", bg: "#E0F2FE", text: "#0369A1" },
             { label: "Public companies", bg: "#FFFBEB", text: "#B45309" },
             { label: "Investment banks", bg: "#F8FAFC", text: "#334155" },
             { label: "PR agencies", bg: "#FFF1F2", text: "#BE123C" },
@@ -364,10 +364,10 @@ export default function Home() {
                   (panel) => (
                     <div
                       key={panel.name}
-                      className="bg-white rounded-lg overflow-hidden border-t-[3px] border-t-[#0D9488] flex flex-col"
+                      className="bg-white rounded-lg overflow-hidden border-t-[3px] border-t-[#0EA5E9] flex flex-col"
                     >
                       <div className="px-4 pt-4 pb-3 border-b border-[#E2E8F0]">
-                        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#0F766E] bg-[#F0FDFA] border border-[#99F6E4] px-1.5 py-0.5 rounded-sm inline-block mb-2">
+                        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#0369A1] bg-[#E0F2FE] border border-[#7DD3FC] px-1.5 py-0.5 rounded-sm inline-block mb-2">
                           {panel.badge}
                         </span>
                         <div className="text-xs font-semibold text-[#0D1B2A] mb-1 leading-snug">
@@ -387,7 +387,7 @@ export default function Home() {
                         </p>
                       </div>
 
-                      <div className="px-4 py-3 bg-[#0D9488]">
+                      <div className="px-4 py-3 bg-[#0EA5E9]">
                         <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/[0.62] mb-1.5">
                           ERA CUE operationalizes this
                         </div>
@@ -515,7 +515,7 @@ export default function Home() {
                 <div className="border border-[#FECACA] bg-[#FEE2E2] rounded-sm px-3 py-1.5 font-mono text-[10px] font-bold text-[#B91C1C]">
                   Blocked → principal review
                 </div>
-                <div className="border border-[#99F6E4] bg-[#F0FDFA] rounded-sm px-3 py-1.5 font-mono text-[10px] font-bold text-[#0D9488]">
+                <div className="border border-[#7DD3FC] bg-[#E0F2FE] rounded-sm px-3 py-1.5 font-mono text-[10px] font-bold text-[#0EA5E9]">
                   Cleared → publish
                 </div>
               </div>
@@ -665,7 +665,7 @@ export default function Home() {
                   </div>
                   <div className="flex gap-4">
                     <div className="text-center">
-                      <div className="font-mono text-base font-light text-[#0D9488]">
+                      <div className="font-mono text-base font-light text-[#0EA5E9]">
                         8
                       </div>
                       <div className="font-mono text-[9px] uppercase text-white/[0.52]">
@@ -738,7 +738,7 @@ export default function Home() {
                     <div className="text-right">
                       <div
                         className={`font-mono text-[9px] font-bold ${
-                          row.ok ? "text-[#0D9488]" : "text-[#F59E0B]"
+                          row.ok ? "text-[#0EA5E9]" : "text-[#F59E0B]"
                         }`}
                       >
                         {row.status}
@@ -756,7 +756,7 @@ export default function Home() {
                   </span>
                   <Link
                     href="/dashboard"
-                    className="font-mono text-[9px] text-[#0D9488] hover:text-[#0F766E] transition-colors"
+                    className="font-mono text-[9px] text-[#0EA5E9] hover:text-[#0369A1] transition-colors"
                   >
                     View full record →
                   </Link>
@@ -836,7 +836,7 @@ export default function Home() {
                       <span className="font-mono text-[9px] text-[#64748B]">
                         {check}
                       </span>
-                      <span className="font-mono text-[9px] font-bold text-[#0D9488]">
+                      <span className="font-mono text-[9px] font-bold text-[#0EA5E9]">
                         PASS
                       </span>
                     </div>
@@ -861,7 +861,7 @@ export default function Home() {
                   </span>
                   <Link
                     href={`/drafts/${CCO_EXAMINER_DRAFT_ID}/examiner`}
-                    className="font-mono text-[9px] text-[#0D9488] hover:text-[#0F766E] transition-colors"
+                    className="font-mono text-[9px] text-[#0EA5E9] hover:text-[#0369A1] transition-colors"
                   >
                     ↓ PDF
                   </Link>
