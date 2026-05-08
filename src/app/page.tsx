@@ -29,8 +29,8 @@ const REGULATORY_PANELS = [
     name: "DraftKings Inc.",
     citation: "SEC Release No. 34-101198 · Sep 26, 2024",
     consequence: "$200,000 civil penalty",
-    what: "A PR firm posted material nonpublic information on the CEO’s LinkedIn and X accounts during a quiet period — before Q2 earnings were released. The firm’s own social media policy required prior written approval. It was not obtained.",
-    era: "Quiet-period rule fires at submission. The draft is blocked before it reaches any platform.",
+    what: "A PR firm posted material growth data on the CEO’s LinkedIn during a quiet period. Posts were live 30 minutes. The firm’s own policy required prior written approval.",
+    era: "Quiet-period rule fires at submission. Blocked before it reaches any platform.",
   },
   {
     type: "failure" as const,
@@ -39,8 +39,8 @@ const REGULATORY_PANELS = [
     name: "M1 Finance LLC",
     citation: "FINRA Disciplinary Proceeding · March 18, 2024",
     consequence: "$850,000 fine",
-    what: "1,700 social media influencers promoted the firm without any registered principal reviewing content before it was posted. No supervisory records maintained. FINRA’s first influencer enforcement action.",
-    era: "Named registered principal reviews and approves every third-party communication before it reaches the public. The approval is on record.",
+    what: "1,700 influencers promoted the firm. No registered principal reviewed any post. No records maintained. FINRA’s first influencer enforcement action.",
+    era: "Every third-party post requires named principal approval before it publishes.",
   },
   {
     type: "failure" as const,
@@ -49,8 +49,8 @@ const REGULATORY_PANELS = [
     name: "Sixteen firms — off-channel communications",
     citation: "SEC Press Release No. 2024-18 · Feb 9, 2024",
     consequence: "$81M combined · 16 firms",
-    what: "Firm employees communicated deal-sensitive information on personal WhatsApp, iMessage, and Signal. The firms could not produce required records during SEC investigations.",
-    era: "Every governed communication creates an immutable supervisory record automatically. No off-channel gap.",
+    what: "Employees communicated deal-sensitive information on WhatsApp and Signal. Firms could not produce required records during SEC investigations.",
+    era: "Every governed communication creates an immutable record automatically. No off-channel gap.",
   },
   {
     type: "failure" as const,
@@ -59,8 +59,8 @@ const REGULATORY_PANELS = [
     name: "Nine registered investment advisers",
     citation: "SEC Press Release No. 2024-121 · Sep 9, 2024",
     consequence: "$1,240,000 combined · 9 firms",
-    what: "Advisers disseminated advertisements containing testimonials and endorsements without required disclosures. Marketing content published without adequate pre-approval or oversight.",
-    era: "Testimonial and endorsement language is flagged before publication. Pre-approval is documented. The disclosure record is created automatically.",
+    what: "Advisers published testimonials and endorsements without required disclosures. No pre-approval. No oversight records.",
+    era: "Testimonial language flagged at submission. Pre-approval documented. Disclosure record created automatically.",
   },
   {
     type: "failure" as const,
@@ -69,8 +69,8 @@ const REGULATORY_PANELS = [
     name: "EU AI Act Article 50",
     citation: "Regulation (EU) 2024/1689 · August 2, 2026",
     consequence: "Up to €7.5M or 1.5% of global turnover",
-    what: "AI systems generate and publish content on behalf of executives and organizations. No disclosure of AI origin. No documented human review. Article 50 requires both.",
-    era: "AI origin logged at submission. Human review documented. Disclosure trail created automatically for every governed draft.",
+    what: "AI generates content. Executives post it. No record of AI origin, no documented human review. Article 50 requires both.",
+    era: "AI origin logged at submission. Human review documented. Disclosure trail created for every governed draft.",
   },
   {
     type: "positive" as const,
@@ -79,8 +79,8 @@ const REGULATORY_PANELS = [
     name: "FINRA Rule 3110 — Supervision",
     citation: "FINRA Rule 3110(a) and 3110(b)(4)",
     consequence: "Named principal. Documented review. Written record.",
-    what: "Member firms must establish, maintain, and enforce a supervisory system with written supervisory procedures reasonably designed to achieve compliance. Rule 3110(b)(4) requires review of electronic communications related to the firm’s securities business.",
-    era: "Every draft submission creates the supervisory workflow evidence FINRA Rule 3110 requires — automatically, for every communication.",
+    what: "Firms must maintain supervisory systems with written procedures reasonably designed for compliance. Rule 3110(b)(4) requires review of electronic communications related to the firm’s securities business.",
+    era: "Every governed draft creates the supervisory workflow evidence Rule 3110 requires — automatically.",
   },
   {
     type: "positive" as const,
@@ -89,8 +89,8 @@ const REGULATORY_PANELS = [
     name: "SEC Marketing Rule 206(4)-1",
     citation: "Rule 206(4)-1 · Investment Advisers Act of 1940",
     consequence: "Pre-approval. Disclosure chain. Communication record.",
-    what: "Advertisements containing testimonials or endorsements require clear and prominent disclosure of the relationship and any compensation, pre-publication oversight, and records maintained for five years.",
-    era: "Testimonial and endorsement language is identified at submission. Pre-approval is required. The disclosure and approval record is created before content reaches any audience.",
+    what: "Testimonials and endorsements require disclosure of relationship and compensation, pre-publication oversight, and records maintained for five years.",
+    era: "Testimonial language flagged at submission. Pre-approval required. Disclosure and approval record created before content reaches any audience.",
   },
   {
     type: "positive" as const,
@@ -99,8 +99,8 @@ const REGULATORY_PANELS = [
     name: "Human oversight of AI-mediated communication",
     citation: "NIST AI RMF 1.0 · EU AI Act Art. 50 · Board duty of oversight",
     consequence: "Structured decision. Documented basis. Proof of human accountability.",
-    what: "Boards are accountable for material operational risks — including AI systems acting on behalf of the organization. The NIST AI Risk Management Framework identifies human oversight and control as a core AI governance function. The EU AI Act requires deployers to implement appropriate human oversight before AI-generated content reaches the public.",
-    era: "Every AI-assisted draft requires a structured human decision before it clears. The decision is documented with basis. The record proves a human was in the loop — before publication, every time.",
+    what: "Boards are accountable for AI systems acting on behalf of the organization. NIST AI RMF identifies human oversight as a core governance function. EU AI Act requires oversight documentation before AI content reaches the public.",
+    era: "Every AI-assisted draft requires a structured human decision before it clears. The record proves a human was in the loop — every time.",
   },
 ] as const;
 
@@ -440,19 +440,19 @@ export default function Home() {
               {
                 label: "01 — Configure",
                 title: "Set your governance rules",
-                body: "The CCO sets rules once — from regulatory templates, Written Supervisory Procedures (WSP), or from scratch. Authorized by a named principal.",
+                body: "The CCO sets rules once — from templates, existing policies, or from scratch. Named principal authorizes before anything fires.",
                 tag: "WSP import · FINRA templates · AI-assisted",
               },
               {
                 label: "02 — Check",
                 title: "Check before you publish",
-                body: "Any executive — or AI agent on their behalf — submits a draft. ERA CUE runs five checks against active rules. Verdict in seconds.",
-                tag: "Five checks · Verdict in seconds · Principal review if needed",
+                body: "Any executive — or AI agent acting on their behalf — submits a draft. ERA CUE checks it against active rules and prior approved statements. Verdict in seconds.",
+                tag: "Rule check · Consistency · Named review if needed",
               },
               {
                 label: "03 — Record",
                 title: "Record who approved",
-                body: "ERA CUE creates an immutable record — named principal, structured decision, SHA-256 locked. Ready for any regulator.",
+                body: "ERA CUE creates an immutable record — named principal, structured decision, SHA-256 locked. Ready for any regulator, board, or client.",
                 tag: "SHA-256 locked · Append-only · FINRA Rule 3110",
               },
             ].map((step) => (
@@ -502,7 +502,7 @@ export default function Home() {
                   ERA CUE checks
                 </div>
                 <div className="font-mono text-[9px] text-[#94A3B8] mt-1">
-                  5 checks · seconds
+                  Active rules · seconds
                 </div>
               </div>
               <span
@@ -911,19 +911,19 @@ export default function Home() {
               {
                 icon: "◎",
                 title: "Principal-approved corpus",
-                body: "Every approved communication enters a governance corpus. Every new draft is checked against it automatically.",
+                body: "Every approved communication enters a governance corpus. Every new draft is checked against it — catching contradictions before they reach the public.",
                 tag: "Builds automatically · Principal-approved only",
               },
               {
                 icon: "⬡",
                 title: "SHA-256 locked audit trail",
-                body: "Every decision is cryptographically hashed at creation. The database refuses UPDATE and DELETE.",
+                body: "Every decision is cryptographically hashed at the moment it is created. The database refuses UPDATE and DELETE. The record cannot be altered by anyone.",
                 tag: "Append-only · Database-enforced · Not a policy",
               },
               {
                 icon: "◈",
                 title: "Behavioral calibration",
-                body: "Every reviewer decision teaches ERA CUE what this organization tolerates. False positives get flagged automatically.",
+                body: "Every reviewer decision teaches ERA CUE what this organization tolerates. Rules generating false positives get flagged for refinement automatically.",
                 tag: "Organization-specific · Gets smarter over time",
               },
             ].map((card) => (
