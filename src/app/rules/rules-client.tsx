@@ -1370,17 +1370,17 @@ export function RulesClient({ rules, firmType = null }: Props) {
       </div>
 
       {/* MOAT bar — fixed-bottom strip that frames the page as a
-          single node in the broader Governance Memory Graph. Renders
-          on every managing-view session; the main wrapper carries
-          pb-16 so the bar never overlaps the WSP callout. */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#0D1B2A] border-t border-white/[0.08] px-6 py-3 flex items-center gap-3 z-10">
-        <span className="font-mono text-[10px] font-bold text-[#0EA5E9] uppercase tracking-[0.12em] shrink-0">
+          single node in the broader Governance Memory Graph. The
+          main wrapper carries pb-16 so the bar never overlaps the
+          last rule card or the History tab footer note. */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#0D1B2A] border-t border-white/[0.08] px-6 py-3 flex items-center gap-3 z-20">
+        <span className="font-mono text-[9px] font-bold text-[#0EA5E9] uppercase tracking-[0.14em] shrink-0">
           MOAT
         </span>
-        <span className="font-mono text-[10px] text-white/[0.50] leading-relaxed">
+        <span className="font-mono text-[9px] text-white/[0.42] leading-relaxed">
           Governance Memory Graph · Every rule authorization is a
-          node. Every trigger is an edge. Calibration signals
-          compound over time — competitors starting today have none.
+          node. Every trigger is an edge. Calibration compounds
+          over time — competitors starting today have none.
         </span>
       </div>
     </main>
@@ -1483,8 +1483,8 @@ function EditRulePanel({
         </span>
         <div className="text-xs text-[#92400E] leading-relaxed">
           <strong>This rule is currently active.</strong> Changes
-          require re-authorization. Saving creates a new version —
-          the prior version remains in the audit record.
+          require re-authorization. Every edit creates a versioned
+          audit record — the prior version remains accessible.
         </div>
       </div>
       <div className="px-5 py-5">
