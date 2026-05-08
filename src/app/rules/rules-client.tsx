@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AddRulePanel } from "./add-rule-panel";
+import { AddRulesPanel } from "./AddRulesPanel";
 import { deactivateRuleAction } from "./actions";
 import { extractRulesFromWsp } from "./wsp-import-action";
 import { createRulesFromImport } from "./create-rules-action";
@@ -115,7 +115,7 @@ const POLICY_PLACEHOLDER: Record<string, string> = {
 // Resolve a firm-type slug to its policy-reference vocabulary.
 // Falls back to the generic "Policy reference" copy when the
 // firm type isn't one of the seeded buckets. Exported for the
-// AddRulePanel form labels and the EditRulePanel input.
+// AddRulesPanel form labels and the EditRulePanel input.
 export function policyLabelFor(firmType: string | null | undefined): string {
   if (!firmType) return POLICY_LABEL.default;
   return POLICY_LABEL[firmType] ?? POLICY_LABEL.default;
@@ -288,7 +288,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
     return raw === "rIA" ? "ria" : raw;
   });
   // Inline rule editing — when set, the matching rule card expands to
-  // show the EditRulePanel instead of opening the side AddRulePanel.
+  // show the EditRulePanel instead of opening the AddRulesPanel.
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
 
   const templateRules = useMemo(
@@ -748,9 +748,8 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
           </div>
         </div>
 
-        <AddRulePanel
+        <AddRulesPanel
           isOpen={isAddOpen || editingRule !== null}
-          initialRule={editingRule}
           firmType={firmType}
           onClose={() => {
             setIsAddOpen(false);
@@ -836,9 +835,8 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
             so the form appears where the visitor's eye already is
             after clicking Add a rule. The component returns null when
             isOpen is false. */}
-        <AddRulePanel
+        <AddRulesPanel
           isOpen={isAddOpen || editingRule !== null}
-          initialRule={editingRule}
           firmType={firmType}
           onClose={() => {
             setIsAddOpen(false);

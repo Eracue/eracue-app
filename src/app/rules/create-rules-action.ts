@@ -20,6 +20,12 @@ export type CandidateRuleInput = {
   wsp_reference: string;
   regulatory_basis: string;
   source: string;
+  // Lifecycle status. Defaults to "active" — pass "draft" to land
+  // the rule in the Drafts tab without firing it.
+  rule_status?: "active" | "draft";
+  // Optional expiry. When omitted the action keeps its previous
+  // behaviour (no end date).
+  effective_to?: string | null;
 };
 
 export type CreateRulesResult =
@@ -56,9 +62,9 @@ export async function createRulesFromImport(
       description,
       keywords: r.keywords,
       scope: "all_speakers",
-      rule_status: "active",
+      rule_status: r.rule_status ?? "active",
       effective_from: now,
-      effective_to: null,
+      effective_to: r.effective_to ?? null,
       ...(trimmedWsp ? { wsp_reference: trimmedWsp } : {}),
     };
   });
