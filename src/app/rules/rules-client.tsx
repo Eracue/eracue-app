@@ -54,41 +54,23 @@ export type RuleRow = {
   authorized_by?: string | null;
 };
 
-// Governance-drift freshness for a rule. Computed locally so the
-// classification stays in sync with the UI rendering:
-//   • "needs_calibration" — fires often (≥3 triggers) but gets
-//     overridden a lot (effectiveness < 40%)
-//   • "expiring" — within 14 days of effective_to
-//   • "silent" — active but never fired
-//   • "healthy" — everything else with at least one trigger
-type Freshness = "needs_calibration" | "expiring" | "silent" | "healthy";
+// Governance-drift freshness used to live here as a single
+// `classifyFreshness` helper. After the tab-system refactor the
+// expiring / silent / healthy distinctions are computed inline per
+// tab, so the helper is gone — see expiringRules / silentRules /
+// activeRules useMemos in the component body.
 
-function classifyFreshness(
-  rule: RuleRow,
-  now: number,
-): { freshness: Freshness; daysUntilExpiry: number | null } {
-  const triggers = rule.trigger_count ?? 0;
-  const score = rule.effectiveness_score ?? null;
-  const daysUntilExpiry = rule.effective_until
-    ? Math.ceil(
-        (new Date(rule.effective_until).getTime() - now) /
-          (1000 * 60 * 60 * 24),
-      )
-    : null;
-
-  if (score !== null && score < 40 && triggers >= 3) {
-    return { freshness: "needs_calibration", daysUntilExpiry };
-  }
-  if (daysUntilExpiry !== null && daysUntilExpiry <= 14 && daysUntilExpiry >= 0) {
-    return { freshness: "expiring", daysUntilExpiry };
-  }
-  if (triggers === 0) {
-    return { freshness: "silent", daysUntilExpiry };
-  }
-  return { freshness: "healthy", daysUntilExpiry };
-}
-
-type Tab = "all" | "active" | "deactivated";
+// Five-way tab state for the managing view. Active is the default
+// landing tab; Expiring lights up amber when at least one rule sits
+// inside the 30-day window; Silent flags rules that have never fired
+// (drift signal); Deactivated bucket keeps the inactive rules out of
+// the way; Templates surfaces the firm-type starter set.
+type RulesTab =
+  | "active"
+  | "expiring"
+  | "silent"
+  | "deactivated"
+  | "templates";
 
 // Demo rules surfaced in the rules list. Curated to one rule per
 // verdict type so a visitor sees the full spread (Block / Route to
@@ -184,7 +166,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   // the setup view first.
   const activatedFromConfirm = searchParams.get("activated") === "true";
 
-  const [tab, setTab] = useState<Tab>("active");
+  const [activeTab, setActiveTab] = useState<RulesTab>("active");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
   const [pending, startTransition] = useTransition();
@@ -358,55 +340,106 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
     return { total: rules.length, active, expired, deactivated, firing, silent };
   }, [classified, rules.length]);
 
-  const filtered = useMemo(() => {
-    // Demo mode shows a curated list of four rules — one per verdict
-    // type — so a visitor sees what ERA CUE can enforce without being
-    // overwhelmed by every seeded rule. Deactivated and expired rules
-    // are dropped automatically because none of the curated names
-    // belong to those classifications.
-    if (IS_DEMO_MODE) {
-      return classified
-        .filter(
-          ({ rule, classification }) =>
-            classification === "active" &&
-            DEMO_RULE_NAMES.includes(rule.name),
-        )
-        .sort(
-          (a, b) =>
-            DEMO_RULE_NAMES.indexOf(a.rule.name) -
-            DEMO_RULE_NAMES.indexOf(b.rule.name),
-        );
-    }
-    if (tab === "all") return classified;
-    return classified.filter((c) => c.classification === tab);
-  }, [classified, tab]);
+  // Demo curated list — sorted to spec order so the four cards
+  // always render Series B → Earnings → Competitor → Pricing.
+  const demoRules = useMemo(() => {
+    return classified
+      .filter(
+        ({ rule, classification }) =>
+          classification === "active" &&
+          DEMO_RULE_NAMES.includes(rule.name),
+      )
+      .sort(
+        (a, b) =>
+          DEMO_RULE_NAMES.indexOf(a.rule.name) -
+          DEMO_RULE_NAMES.indexOf(b.rule.name),
+      )
+      .map(({ rule }) => rule);
+  }, [classified]);
 
-  // Governance drift roll-up. Counts rules whose freshness is
-  // "needs_calibration" or "expiring" — the two states a principal
-  // should actually do something about. "silent" rules don't count
-  // (an active rule with zero triggers might just mean the team is
-  // disciplined, not that the rule is broken).
-  // Per-bucket lists for the bottom "rules need attention" panel.
-  // Expiring = within 14 days of effective_to. Needs calibration =
-  // ≥3 triggers and effectiveness <40%. Everything else is fine and
-  // doesn't surface here.
+  // Tab-driven rule slices. 30-day window for "Expiring" (was 14
+  // before — the longer window gives a CCO time to plan a renewal /
+  // expiry decision). Silent = active + zero triggers. Deactivated =
+  // self-explanatory.
   const expiringRules = useMemo(() => {
     return classified
       .filter(({ rule, classification }) => {
         if (classification !== "active") return false;
-        return classifyFreshness(rule, now).freshness === "expiring";
+        if (!rule.effective_until) return false;
+        const days = Math.ceil(
+          (new Date(rule.effective_until).getTime() - now) /
+            (1000 * 60 * 60 * 24),
+        );
+        return days <= 30 && days > 0;
       })
       .map(({ rule }) => rule);
   }, [classified, now]);
 
-  const needsCalibration = useMemo(() => {
+  const silentRules = useMemo(() => {
+    return classified
+      .filter(
+        ({ rule, classification }) =>
+          classification === "active" && (rule.trigger_count ?? 0) === 0,
+      )
+      .map(({ rule }) => rule);
+  }, [classified]);
+
+  const deactivatedRules = useMemo(() => {
+    return classified
+      .filter(({ classification }) => classification === "deactivated")
+      .map(({ rule }) => rule);
+  }, [classified]);
+
+  // Active = active classification minus expiring (so the Expiring tab
+  // is the canonical home for soon-to-expire rules and they don't
+  // appear in two tabs at once).
+  const activeRules = useMemo(() => {
+    const expiringIds = new Set(expiringRules.map((r) => r.id));
     return classified
       .filter(({ rule, classification }) => {
         if (classification !== "active") return false;
-        return classifyFreshness(rule, now).freshness === "needs_calibration";
+        return !expiringIds.has(rule.id);
       })
       .map(({ rule }) => rule);
-  }, [classified, now]);
+  }, [classified, expiringRules]);
+
+  // Pick the rules to render based on the active tab. Demo mode
+  // pins to the four curated rules regardless of tab so the visitor
+  // never lands on an empty Expiring / Silent / Deactivated view.
+  const tabRules: RuleRow[] = useMemo(() => {
+    if (IS_DEMO_MODE) return demoRules;
+    if (activeTab === "active") return activeRules;
+    if (activeTab === "expiring") return expiringRules;
+    if (activeTab === "silent") return silentRules;
+    if (activeTab === "deactivated") return deactivatedRules;
+    return []; // templates tab — content renders inline
+  }, [
+    activeTab,
+    demoRules,
+    activeRules,
+    expiringRules,
+    silentRules,
+    deactivatedRules,
+  ]);
+
+  // Lightweight hooks the action buttons in the Expiring tab call
+  // into. Extending nudges effective_until forward 90 days; cloning
+  // for now just opens the add-rule panel (the full clone-with-
+  // prefilled-data flow lives in a follow-up).
+  async function handleExtendRule(id: string) {
+    const target = rules.find((r) => r.id === id);
+    if (!target?.effective_until) return;
+    const next = new Date(target.effective_until);
+    next.setDate(next.getDate() + 90);
+    const result = await saveRuleUpdates(id, {
+      effective_to: next.toISOString(),
+    });
+    if (result.ok) router.refresh();
+  }
+
+  function handleCloneRule() {
+    setIsAddOpen(true);
+  }
 
   function handleDeactivate(id: string, ruleName: string) {
     // Simple confirm — no modal. The deactivate action stores a
@@ -659,35 +692,35 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   }
 
   return (
-    <main className="min-h-screen bg-[#F8F9FB]">
+    <main className="min-h-screen bg-[#F8F9FB] pb-16">
       <div className="max-w-[1100px] mx-auto px-6 pt-10 pb-6">
-        {/* PAGE HEADER — demo mode reads as a configuration prompt with
-            no counts (the seed numbers describe data the visitor doesn't
-            own); a real deployment names the live rule count and frames
-            the paragraph as the status of their team's enforcement. */}
-        <div className="mb-6">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
-            Governance rules
+        {/* PAGE HEADER — demo mode is product framing ("your rules,
+            your authority") so the visitor reads the page as
+            something to configure; a real deployment names the
+            count and frames it as live status. */}
+        <div className="mb-8">
+          <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#64748B] mb-2">
+            Rules engine
           </div>
           <h1
             style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-[#0D1B2A]"
+            className="text-3xl font-light text-[#0D1B2A] mb-2 leading-tight"
           >
             {IS_DEMO_MODE
-              ? "Configure your governance rules."
+              ? "Your rules. Your authority. Enforced at submission."
               : `${counts.active} rule${counts.active !== 1 ? "s" : ""} governing your team's communications.`}
           </h1>
-          <p className="text-sm text-[#475569] max-w-xl leading-relaxed mt-2">
+          <p className="text-sm text-[#475569] leading-relaxed max-w-2xl">
             {IS_DEMO_MODE
-              ? "ERA CUE checks every draft against these rules before publication. These are examples — import your own policies or add rules below."
+              ? "Live from app.eracue.com/rules — keyword triggers, calibration signals, FINRA citations. Configure your governance policies before checking any draft."
               : "Every draft your team submits is checked against these rules before publication."}
           </p>
         </div>
 
-        {/* ACTION BAR — Add rule + Import toggle on the left, "Check a
-            draft" link on the right (only when at least one rule is
-            active so the next-step nudge isn't a misdirection on a
-            fresh page). */}
+        {/* ACTION BAR — Add rule + Import toggle + Templates jump on
+            the left, "Check a draft" link on the right (only when at
+            least one rule is active so the nudge isn't a misdirection
+            on a fresh page). */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div className="flex items-center gap-2">
             <button
@@ -703,17 +736,26 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               onClick={() => setShowImport((o) => !o)}
               className={`font-mono text-xs font-medium px-4 py-2 rounded-sm border transition-colors ${
                 showImport
-                  ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#4338CA]"
-                  : "bg-white border-[#E2E8F0] text-[#475569] hover:bg-[#F8F9FB]"
+                  ? "bg-[#EEF2FF] border-[#C7D7FE] text-[#4338CA]"
+                  : "bg-white border-[#E2E8F0] text-[#475569] hover:bg-[#F8FAFC]"
               }`}
             >
-              {showImport ? "× Close" : "↑ Import policies"}
+              {showImport ? "× Close" : "Import existing policy"}
             </button>
+            {!IS_DEMO_MODE && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("templates")}
+                className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors px-2 py-2"
+              >
+                View templates
+              </button>
+            )}
           </div>
           {counts.active > 0 && (
             <a
               href="/submit"
-              className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors"
+              className="font-mono text-xs text-[#4F46E5] hover:text-[#4338CA] transition-colors"
             >
               Check a draft →
             </a>
@@ -1146,344 +1188,395 @@ Block posts mentioning specific fund performance`}
           </div>
         )}
 
-        {/* Filter tabs — real users only. In demo mode the All / Active
-            / Deactivated split is meaningless (these aren't your rules
-            to filter), and the demo `filtered` memo already pins the
-            view to active rules. */}
+        {/* Tab bar — real users only. Demo mode pins to the four
+            curated rules so a tab system would only confuse the
+            visitor. Each tab carries a count chip; the Expiring
+            chip flips amber when there's at least one rule inside
+            the 30-day window. Templates lives at the end of the row
+            and shows a starter-set picker when selected. */}
         {!IS_DEMO_MODE && (
-          <div className="flex gap-1 mb-4 border-b border-[#E2E8F0]">
-            {([
-              { key: "all" as const,         label: "All" },
-              { key: "active" as const,      label: "Active" },
-              { key: "deactivated" as const, label: "Deactivated" },
-            ]).map(({ key, label }) => {
-              const selected = tab === key;
+          <div className="flex gap-0 border-b border-[#E2E8F0] mb-5 overflow-x-auto">
+            {(
+              [
+                {
+                  key: "active" as const,
+                  label: "Active",
+                  count: activeRules.length,
+                  alert: false,
+                },
+                {
+                  key: "expiring" as const,
+                  label: "Expiring",
+                  count: expiringRules.length,
+                  alert: expiringRules.length > 0,
+                },
+                {
+                  key: "silent" as const,
+                  label: "Silent",
+                  count: silentRules.length,
+                  alert: false,
+                },
+                {
+                  key: "deactivated" as const,
+                  label: "Deactivated",
+                  count: deactivatedRules.length,
+                  alert: false,
+                },
+                {
+                  key: "templates" as const,
+                  label: "Templates",
+                  count: null,
+                  alert: false,
+                },
+              ]
+            ).map((t) => {
+              const selected = activeTab === t.key;
               return (
                 <button
-                  key={key}
+                  key={t.key}
                   type="button"
-                  onClick={() => setTab(key)}
-                  className={`font-mono text-xs px-4 py-2 transition-colors border-b-2 -mb-px cursor-pointer ${
+                  onClick={() => setActiveTab(t.key)}
+                  className={`font-mono text-xs px-5 py-3 whitespace-nowrap border-b-2 -mb-px transition-colors flex items-center gap-1.5 cursor-pointer ${
                     selected
                       ? "border-[#4F46E5] text-[#4F46E5]"
                       : "border-transparent text-[#64748B] hover:text-[#0D1B2A]"
                   }`}
                 >
-                  {label}
+                  {t.label}
+                  {t.count !== null && t.count > 0 && (
+                    <span
+                      className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                        t.alert
+                          ? "bg-[#FEF3C7] text-[#B45309]"
+                          : "bg-[#F1F5F9] text-[#64748B]"
+                      }`}
+                    >
+                      {t.count}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
         )}
 
-        {/* Demo label — single muted sentence above the rules list
-            in demo mode. Outside demo, the labeled separator names
-            the live enforcement set ("Active rules"). */}
-        {IS_DEMO_MODE ? (
+        {/* Drift alert — silent tab only. Surfaces "these rules
+            never fired" so the principal sees the calibration signal
+            inline rather than burying it on each card. */}
+        {!IS_DEMO_MODE &&
+          activeTab === "silent" &&
+          silentRules.length > 0 && (
+            <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-sm px-4 py-3 mb-4 text-xs text-[#92400E] font-mono leading-relaxed">
+              <span className="font-bold">Drift alert</span>
+              {" · "}
+              {silentRules.length} rule
+              {silentRules.length !== 1 ? "s have" : " has"} never fired.
+              Review whether keywords match how your team actually writes.
+            </div>
+          )}
+
+        {/* Templates tab placeholder — links the user back to the
+            import panel where the firm-type starter set lives. */}
+        {!IS_DEMO_MODE && activeTab === "templates" && (
+          <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 text-center">
+            <div className="text-sm font-medium text-[#0D1B2A] mb-2">
+              FINRA-ready starter rules
+            </div>
+            <p className="text-sm text-[#475569] leading-relaxed max-w-md mx-auto mb-4">
+              Pre-built rules per firm type — broker-dealer, RIA, public
+              company, investment bank, PR agency, executive team. Each
+              cited to the regulation it enforces.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setShowImport(true);
+                setImportMode("templates");
+                setActiveTab("active");
+              }}
+              className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#4338CA] transition-colors"
+            >
+              Open template picker →
+            </button>
+          </div>
+        )}
+
+        {/* Demo label — single muted sentence above the rules list,
+            demo mode only. Real users get a clean tab-only interface
+            (no labeled separator — the tab title is the label). */}
+        {IS_DEMO_MODE && (
           <div className="font-mono text-[10px] text-[#94A3B8] mb-5 pb-4 border-b border-[#E2E8F0]">
             Example rules showing how ERA CUE works. Import your own
             policies above to replace these.
           </div>
-        ) : (
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 border-t border-[#E2E8F0]" />
-            <span className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8]">
-              Active rules
-            </span>
-            <div className="flex-1 border-t border-[#E2E8F0]" />
-          </div>
         )}
 
-        {/* Rule cards — inline edit panel expands below the card when
-            Edit is toggled. Deactivate uses a window.confirm() prompt
-            and routes through the existing deactivateRuleAction (no
-            modal). The card body itself surfaces verdict badge, name,
-            description, keyword chips, status footer, trigger /
-            effectiveness inline, and a freshness signal. */}
-        <div className="flex flex-col gap-2">
-          {filtered.length === 0 ? (
-            <div className="bg-white border border-[#E2E8F0] rounded-sm p-12 text-center text-[#64748B] text-sm">
-              No rules in this view.
-            </div>
-          ) : (
-            filtered.map(({ rule: r, classification }) => {
-              const v = (r.verdict || "review").toLowerCase();
-              const badge = VERDICT_BADGES[v] ?? VERDICT_BADGES.review;
-              const triggers = r.trigger_count ?? 0;
-              const drift =
-                classification === "active" ? classifyFreshness(r, now) : null;
-              const isEditing = editingRuleId === r.id;
-              return (
-                <div
-                  key={r.id}
-                  id={`rule-${r.id}`}
-                  className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden scroll-mt-6"
-                >
-                  <div className="px-5 py-4">
-                    {/* Row 1 — badge + name on the left, action buttons
-                        on the right. justify-between keeps Edit/Deactivate
-                        right-aligned even when the rule name wraps. */}
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span
-                          style={{
-                            background: badge.bg,
-                            color: badge.text,
-                            border: `0.5px solid ${badge.border}`,
-                          }}
-                          className="font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm shrink-0"
-                        >
-                          {badge.label}
-                        </span>
-                        <span className="text-sm font-semibold text-[#0D1B2A] leading-snug">
-                          {r.name}
-                        </span>
-                      </div>
-                      {classification === "active" && (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setEditingRuleId(isEditing ? null : r.id)
-                            }
-                            className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8F9FB] transition-colors cursor-pointer"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeactivate(r.id, r.name)}
-                            disabled={pending}
-                            className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#94A3B8] hover:border-[#FCA5A5] hover:text-[#B91C1C] transition-colors cursor-pointer disabled:opacity-50"
-                          >
-                            Deactivate
-                          </button>
-                        </div>
-                      )}
-                      {classification === "expired" && (
-                        <button
-                          type="button"
-                          onClick={() => setEditingRuleId(isEditing ? null : r.id)}
-                          className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8F9FB] transition-colors cursor-pointer"
-                        >
-                          Renew
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Row 2 — description */}
-                    {r.description && (
-                      <p className="text-sm text-[#475569] leading-relaxed mb-3">
-                        {r.description}
-                      </p>
-                    )}
-
-                    {r.keywords && r.keywords.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {r.keywords.slice(0, 6).map((kw) => (
-                          <span
-                            key={kw}
-                            className="font-mono text-[10px] bg-[#F1F5F9] text-[#475569] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
-                          >
-                            {kw}
-                          </span>
-                        ))}
-                        {r.keywords.length > 6 && (
-                          <span className="font-mono text-[10px] text-[#94A3B8]">
-                            +{r.keywords.length - 6} more
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Status line — date · scope · wsp · authored-by.
-                        The authored-by segment renders only outside demo
-                        mode and only when the rule actually carries a
-                        principal-of-record value. */}
-                    <div className="font-mono text-[10px] text-[#94A3B8] flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span>{statusPrefix(r, classification)}</span>
-                      {r.scope && (
-                        <>
-                          <span className="text-[#E5E7EB]" aria-hidden>·</span>
-                          <span>{scopeLabel(r.scope)}</span>
-                        </>
-                      )}
-                      {r.wsp_reference && (
-                        <>
-                          <span className="text-[#E5E7EB]" aria-hidden>·</span>
-                          <span className="text-[#4F46E5]">{r.wsp_reference}</span>
-                        </>
-                      )}
-                      {!IS_DEMO_MODE && r.authorized_by && (
-                        <>
-                          <span className="text-[#E5E7EB]" aria-hidden>·</span>
-                          <span>Authorized by {r.authorized_by}</span>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Trigger + freshness inline */}
-                    <div className="mt-2 flex items-center gap-3 flex-wrap">
-                      {triggers > 0 && (
-                        <div className="font-mono text-[10px] text-[#64748B]">
-                          {triggers} trigger{triggers !== 1 ? "s" : ""}
-                          {r.effectiveness_score !== null && r.effectiveness_score !== undefined && (
-                            <span
-                              className={`ml-1 ${
-                                r.effectiveness_score < 50
-                                  ? "text-[#C2410C]"
-                                  : "text-[#166534]"
-                              }`}
-                            >
-                              · {r.effectiveness_score}% effective
-                            </span>
-                          )}
-                          {r.last_triggered && (
-                            <span className="text-[#94A3B8]">
-                              {" "}· last {fmtRelative(r.last_triggered)}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {drift?.freshness === "needs_calibration" && (
-                        <div className="font-mono text-[10px] text-[#C2410C]">
-                          ⚠ Override rate high — consider refining keywords
-                        </div>
-                      )}
-                      {drift?.freshness === "expiring" && drift.daysUntilExpiry !== null && (
-                        <div className="font-mono text-[10px] text-[#B45309]">
-                          ⏱ Expires in {drift.daysUntilExpiry}{" "}
-                          {drift.daysUntilExpiry === 1 ? "day" : "days"}
-                        </div>
-                      )}
-                      {drift?.freshness === "silent" && (
-                        <div className="font-mono text-[10px] text-[#94A3B8]">
-                          ○ No triggers yet
-                        </div>
-                      )}
-                      {drift?.freshness === "healthy" && triggers > 0 && (
-                        <div className="font-mono text-[10px] text-[#166534]">
-                          ✓ Well-calibrated
-                        </div>
-                      )}
-                      {classification === "deactivated" &&
-                        r.deactivated_reason &&
-                        r.deactivated_reason.trim().toLowerCase() !== "test" && (
-                          <div className="font-mono text-[10px] text-[#64748B]">
-                            Reason: {r.deactivated_reason}
-                          </div>
-                        )}
-                    </div>
-                  </div>
-
-                  {/* Inline edit panel — expands when Edit is clicked */}
-                  {isEditing && (
-                    <EditRulePanel
-                      rule={r}
-                      onSave={async (updates) => {
-                        const result = await saveRuleUpdates(r.id, updates);
-                        if (!result.ok) {
-                          alert("Could not save: " + result.error);
-                          return;
-                        }
-                        setEditingRuleId(null);
-                        router.refresh();
-                      }}
-                      onCancel={() => setEditingRuleId(null)}
-                    />
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Rules need attention — bottom-of-page amber panel. Lists
-            expiring rules first (Review →) then over-broad rules
-            flagged by the calibration heuristic (Refine →). Each row
-            opens the inline EditRulePanel for the matching rule. */}
-        {(expiringRules.length > 0 || needsCalibration.length > 0) && (
-          <div className="mt-8 border border-[#FDE68A] rounded-sm p-5 bg-[#FFFBEB]">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-[#B45309]" aria-hidden>
-                ⚠
-              </span>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#B45309]">
-                {expiringRules.length + needsCalibration.length} rule
-                {expiringRules.length + needsCalibration.length !== 1 ? "s" : ""} need attention
+        {/* Rules list — tab-aware. Active uses a 2-column grid;
+            Expiring / Silent / Deactivated use a single column so
+            the action buttons + amber callouts have full width. The
+            Templates tab renders its placeholder above and skips
+            this whole block. */}
+        {activeTab !== "templates" && (
+          <div
+            className={
+              activeTab === "active" || IS_DEMO_MODE
+                ? "grid grid-cols-1 md:grid-cols-2 gap-3"
+                : "flex flex-col gap-3"
+            }
+          >
+            {tabRules.length === 0 ? (
+              <div className="md:col-span-2 bg-white border border-[#E2E8F0] rounded-sm p-12 text-center text-[#64748B] text-sm">
+                No rules in this view.
               </div>
-            </div>
-            <div className="space-y-2">
-              {expiringRules.map((r) => {
-                const days = r.effective_until
+            ) : (
+              tabRules.map((r) => {
+                const classification = classifyRule(r, now);
+                const v = (r.verdict || "review").toLowerCase();
+                const badge = VERDICT_BADGES[v] ?? VERDICT_BADGES.review;
+                const triggers = r.trigger_count ?? 0;
+                const isEditing = editingRuleId === r.id;
+                const isExpiringTab = activeTab === "expiring";
+                const isSilentTab = activeTab === "silent";
+                const daysUntilExpiry = r.effective_until
                   ? Math.ceil(
-                      (new Date(r.effective_until).getTime() - Date.now()) /
+                      (new Date(r.effective_until).getTime() - now) /
                         (1000 * 60 * 60 * 24),
                     )
-                  : 0;
+                  : null;
                 return (
                   <div
                     key={r.id}
-                    className="flex items-center justify-between py-2 px-3 bg-white rounded-sm border border-[#FDE68A] gap-3 flex-wrap"
+                    id={`rule-${r.id}`}
+                    className={`rounded-sm overflow-hidden scroll-mt-6 ${
+                      isExpiringTab
+                        ? "bg-[#FFFBEB] border border-[#FDE68A] border-l-[4px] border-l-[#F59E0B]"
+                        : "bg-white border border-[#E2E8F0]"
+                    }`}
                   >
-                    <div>
-                      <span className="text-sm font-medium text-[#0D1B2A]">
-                        {r.name}
-                      </span>
-                      <span className="font-mono text-[10px] text-[#92400E] ml-2">
-                        expires in {days} day{days !== 1 ? "s" : ""}
-                      </span>
+                    <div className="px-5 py-4">
+                      {/* Row 1 — badge + name + actions */}
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span
+                            style={{
+                              background: badge.bg,
+                              color: badge.text,
+                              border: `0.5px solid ${badge.border}`,
+                            }}
+                            className="font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm shrink-0"
+                          >
+                            {badge.label}
+                          </span>
+                          <span className="text-sm font-semibold text-[#0D1B2A] leading-snug">
+                            {r.name}
+                          </span>
+                        </div>
+                        {classification === "active" && !isExpiringTab && (
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingRuleId(isEditing ? null : r.id)
+                              }
+                              className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeactivate(r.id, r.name)}
+                              disabled={pending}
+                              className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#94A3B8] hover:border-[#FCA5A5] hover:text-[#B91C1C] transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              Deactivate
+                            </button>
+                          </div>
+                        )}
+                        {classification === "expired" && (
+                          <button
+                            type="button"
+                            onClick={() => setEditingRuleId(isEditing ? null : r.id)}
+                            className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                          >
+                            Renew
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Description */}
+                      {r.description && (
+                        <p className="text-sm text-[#475569] leading-relaxed mb-3">
+                          {r.description}
+                        </p>
+                      )}
+
+                      {/* Keywords */}
+                      {r.keywords && r.keywords.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {r.keywords.slice(0, 6).map((kw) => (
+                            <span
+                              key={kw}
+                              className="font-mono text-[10px] bg-[#F1F5F9] text-[#475569] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
+                            >
+                              {kw}
+                            </span>
+                          ))}
+                          {r.keywords.length > 6 && (
+                            <span className="font-mono text-[10px] text-[#94A3B8]">
+                              +{r.keywords.length - 6} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Status line */}
+                      <div className="font-mono text-[10px] text-[#94A3B8] flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span>{statusPrefix(r, classification)}</span>
+                        {r.scope && (
+                          <>
+                            <span className="text-[#E5E7EB]" aria-hidden>·</span>
+                            <span>{scopeLabel(r.scope)}</span>
+                          </>
+                        )}
+                        {r.wsp_reference && (
+                          <>
+                            <span className="text-[#E5E7EB]" aria-hidden>·</span>
+                            <span className="text-[#4F46E5]">{r.wsp_reference}</span>
+                          </>
+                        )}
+                        {!IS_DEMO_MODE && r.authorized_by && (
+                          <>
+                            <span className="text-[#E5E7EB]" aria-hidden>·</span>
+                            <span>Authorized by {r.authorized_by}</span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Expiring tab — amber timeline + advisory + actions */}
+                      {isExpiringTab && r.effective_until && (
+                        <>
+                          <div className="font-mono text-xs text-[#B45309] mt-3 mb-1">
+                            Expires{" "}
+                            {new Date(r.effective_until).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              },
+                            )}
+                            {daysUntilExpiry !== null && (
+                              <>
+                                {" · "}
+                                {daysUntilExpiry} day
+                                {daysUntilExpiry !== 1 ? "s" : ""} remaining
+                              </>
+                            )}
+                          </div>
+                          {triggers > 0 && (
+                            <div className="font-mono text-[10px] text-[#B45309] mb-3">
+                              {triggers} trigger{triggers !== 1 ? "s" : ""} ·
+                              actively firing
+                            </div>
+                          )}
+                          <p className="text-xs italic text-[#92400E] mb-3 leading-relaxed">
+                            {triggers > 0
+                              ? "Most-fired rule. Extend if the window continues. Let expire if not — team posts will be unprotected after expiry."
+                              : "No triggers recorded. Consider whether this window is still needed."}
+                          </p>
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => handleExtendRule(r.id)}
+                              className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer"
+                            >
+                              Extend window
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCloneRule()}
+                              className="bg-white text-[#475569] font-mono text-xs font-medium px-4 py-2 rounded-sm border border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                            >
+                              Clone for next period
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeactivate(r.id, r.name)}
+                              disabled={pending}
+                              className="bg-white text-[#64748B] font-mono text-xs px-4 py-2 rounded-sm border border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              Let expire
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Silent tab — drift footer line */}
+                      {isSilentTab && (
+                        <div className="font-mono text-[10px] text-[#B45309] mt-2">
+                          ⊘ Never fired · review keywords or deactivate
+                        </div>
+                      )}
+
+                      {/* Default trigger / freshness footer for non-
+                          expiring tabs (Active / Silent / Demo) */}
+                      {!isExpiringTab && (
+                        <div className="mt-2 flex items-center gap-3 flex-wrap">
+                          {triggers > 0 && (
+                            <div className="font-mono text-[10px] text-[#64748B]">
+                              {triggers} trigger
+                              {triggers !== 1 ? "s" : ""}
+                              {r.effectiveness_score !== null &&
+                                r.effectiveness_score !== undefined && (
+                                  <span
+                                    className={`ml-1 ${
+                                      r.effectiveness_score < 50
+                                        ? "text-[#C2410C]"
+                                        : "text-[#166534]"
+                                    }`}
+                                  >
+                                    · {r.effectiveness_score}% effective
+                                  </span>
+                                )}
+                              {r.last_triggered && (
+                                <span className="text-[#94A3B8]">
+                                  {" "}· last {fmtRelative(r.last_triggered)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {classification === "deactivated" &&
+                            r.deactivated_reason &&
+                            r.deactivated_reason.trim().toLowerCase() !==
+                              "test" && (
+                              <div className="font-mono text-[10px] text-[#64748B]">
+                                Reason: {r.deactivated_reason}
+                              </div>
+                            )}
+                        </div>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingRuleId(r.id);
-                        setTab("active");
-                        // Scroll the rule into view after the next paint.
-                        setTimeout(() => {
-                          document
-                            .getElementById(`rule-${r.id}`)
-                            ?.scrollIntoView({ behavior: "smooth", block: "center" });
-                        }, 50);
-                      }}
-                      className="font-mono text-xs text-[#B45309] hover:text-[#92400E] border border-[#FDE68A] px-3 py-1 rounded-sm hover:bg-[#FEF3C7] transition-colors cursor-pointer"
-                    >
-                      Review →
-                    </button>
+
+                    {/* Inline edit panel */}
+                    {isEditing && (
+                      <EditRulePanel
+                        rule={r}
+                        onSave={async (updates) => {
+                          const result = await saveRuleUpdates(r.id, updates);
+                          if (!result.ok) {
+                            alert("Could not save: " + result.error);
+                            return;
+                          }
+                          setEditingRuleId(null);
+                          router.refresh();
+                        }}
+                        onCancel={() => setEditingRuleId(null)}
+                      />
+                    )}
                   </div>
                 );
-              })}
-              {needsCalibration.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex items-center justify-between py-2 px-3 bg-white rounded-sm border border-[#FDE68A] gap-3 flex-wrap"
-                >
-                  <div>
-                    <span className="text-sm font-medium text-[#0D1B2A]">
-                      {r.name}
-                    </span>
-                    <span className="font-mono text-[10px] text-[#92400E] ml-2">
-                      high override rate — keywords may be too broad
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingRuleId(r.id);
-                      setTab("active");
-                      setTimeout(() => {
-                        document
-                          .getElementById(`rule-${r.id}`)
-                          ?.scrollIntoView({ behavior: "smooth", block: "center" });
-                      }, 50);
-                    }}
-                    className="font-mono text-xs text-[#B45309] hover:text-[#92400E] border border-[#FDE68A] px-3 py-1 rounded-sm hover:bg-[#FEF3C7] transition-colors cursor-pointer"
-                  >
-                    Refine →
-                  </button>
-                </div>
-              ))}
-            </div>
+              })
+            )}
           </div>
         )}
 
@@ -1514,6 +1607,21 @@ Block posts mentioning specific fund performance`}
           setEditingRule(null);
         }}
       />
+
+      {/* MOAT bar — fixed-bottom strip that frames the page as a
+          single node in the broader Governance Memory Graph. Renders
+          on every managing-view session; the main wrapper carries
+          pb-16 so the bar never overlaps the WSP callout. */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#0D1B2A] border-t border-white/[0.08] px-6 py-3 flex items-center gap-3 z-10">
+        <span className="font-mono text-[10px] font-bold text-[#0EA5E9] uppercase tracking-[0.12em] shrink-0">
+          MOAT
+        </span>
+        <span className="font-mono text-[10px] text-white/[0.50] leading-relaxed">
+          Governance Memory Graph · Every rule authorization is a
+          node. Every trigger is an edge. Calibration signals
+          compound over time — competitors starting today have none.
+        </span>
+      </div>
     </main>
   );
 }
