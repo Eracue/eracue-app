@@ -3,25 +3,13 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AddRulesPanel } from "./AddRulesPanel";
-import { deactivateRuleAction } from "./actions";
-import { extractRulesFromWsp } from "./wsp-import-action";
-import { createRulesFromImport } from "./create-rules-action";
+import { deactivateRuleAction, deleteDraftRuleAction } from "./actions";
 import { saveRuleUpdates, type RuleUpdates } from "./update-rule-action";
 import {
   TEMPLATES,
   FIRM_TYPE_BUTTONS,
   templatesFor,
-  type CandidateRule,
 } from "./templates";
-
-type ImportMode = "templates" | "paste" | "upload" | "manual";
-
-const TABS: ReadonlyArray<{ key: ImportMode; label: string }> = [
-  { key: "templates", label: "Templates" },
-  { key: "paste", label: "Paste policy" },
-  { key: "manual", label: "Type rules" },
-  { key: "upload", label: "Upload doc" },
-];
 
 // Two top-level rules experiences. Setup is a focused one-page picker
 // for first-time visitors (or anyone explicitly setting up from
@@ -65,14 +53,14 @@ export type RuleRow = {
 // the 60-day window; Silent flags rules that have never fired
 // (drift signal); Drafts holds rules saved-but-not-authorized;
 // Deactivated bucket keeps the inactive rules out of the way;
-// Templates surfaces the firm-type starter set.
+// History is the full immutable audit list of every rule.
 type RulesTab =
   | "active"
   | "expiring"
   | "silent"
   | "drafts"
   | "deactivated"
-  | "templates";
+  | "history";
 
 // Policy-reference label vocabulary varies by firm type. Broker-
 // dealers and investment banks use WSPs; RIAs use a compliance
@@ -218,7 +206,7 @@ type Props = {
 // governance" rather than someone else's authorized policy list.
 const IS_DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
-export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) {
+export function RulesClient({ rules, firmType = null }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   // `?activated=true` is set by the /rules/confirm redirect. Both the
@@ -228,7 +216,10 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   const activatedFromConfirm = searchParams.get("activated") === "true";
 
   const [activeTab, setActiveTab] = useState<RulesTab>("active");
-  const [isAddOpen, setIsAddOpen] = useState(false);
+  // Setup panel state — single toggle that opens AddRulesPanel above
+  // the tab bar. Replaces the old "Add a rule" + "Import policies"
+  // pair with one entry point.
+  const [showSetupPanel, setShowSetupPanel] = useState(false);
   const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -244,32 +235,17 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
     activatedFromConfirm || initialActiveCount > 0 ? "managing" : "setup",
   );
 
-  // Import panel state. Always closed by default — visitors should
-  // see the rules list first and toggle the import panel open when
-  // they want to add policies. Demo mode is no exception.
-  const [showImport, setShowImport] = useState<boolean>(false);
-  const [importMode, setImportMode] = useState<ImportMode>("templates");
-  const [importText, setImportText] = useState("");
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [manualRules, setManualRules] = useState("");
-  const [extracting, setExtracting] = useState(false);
-  const [candidates, setCandidates] = useState<CandidateRule[]>([]);
-  // Pre-fill confirmed with all templates for the resolved firm type so
-  // the setup view's suggested-rules cards land already checked. The
-  // managing-view import panel resets this to an empty Set when the user
-  // switches firm types inside the Templates tab, so the auto-fill only
-  // affects the first encounter.
+  // Setup-view confirmed-set: pre-filled with every template index so
+  // the first-time-visitor's cards land already checked. Only used by
+  // the setup view path; the managing view delegates to AddRulesPanel.
   const [confirmed, setConfirmed] = useState<Set<number>>(() => {
     const defaults = templatesFor(firmType);
     return new Set(defaults.map((_, i) => i));
   });
-  const [authorizing, setAuthorizing] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
-  // Post-authorization success state. Triggered by either the in-page
-  // import-panel flow (handleConfirmRules below) or the /rules/confirm
-  // redirect that lands here with `?activated=true`. Both paths reach
-  // the same green success banner with the "Check your first draft →"
-  // CTA and the "Add more rules" secondary.
+  // Post-authorization success state. Triggered by the /rules/confirm
+  // redirect when the URL carries `?activated=true`. Powers the green
+  // success banner with the "Check your first draft →" CTA + "Add
+  // more rules" secondary.
   const [justAuthorized, setJustAuthorized] = useState(activatedFromConfirm);
 
   // Strip the `?activated=true` query off the URL so a refresh doesn't
@@ -291,97 +267,6 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   // show the EditRulePanel instead of opening the AddRulesPanel.
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
 
-  const templateRules = useMemo(
-    () => templatesFor(firmTypeFilter),
-    [firmTypeFilter],
-  );
-
-  async function handleExtract(mode: ImportMode) {
-    setImportError(null);
-    setCandidates([]);
-    setConfirmed(new Set());
-
-    let textToAnalyze = "";
-    if (mode === "paste") textToAnalyze = importText;
-    else if (mode === "manual") textToAnalyze = manualRules;
-    else if (mode === "upload" && uploadedFile) {
-      // FileReader.readAsText handles plain-text and most UTF-8 files
-      // cleanly. Binary PDF/Word will arrive as garbled bytes — Claude
-      // tolerates the noise but extraction quality drops. A future
-      // enhancement could route binary uploads through a server-side
-      // parser before the model call.
-      try {
-        textToAnalyze = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve((e.target?.result as string) ?? "");
-          reader.onerror = () => reject(reader.error ?? new Error("File read failed"));
-          reader.readAsText(uploadedFile);
-        });
-      } catch (e) {
-        setImportError(e instanceof Error ? e.message : "Could not read file.");
-        return;
-      }
-    }
-
-    if (!textToAnalyze.trim()) {
-      setImportError("Nothing to analyze.");
-      return;
-    }
-
-    setExtracting(true);
-    try {
-      const result = await extractRulesFromWsp(textToAnalyze, mode === "manual");
-      if (!result.ok) {
-        setImportError(result.error);
-        return;
-      }
-      // Map the extracted rows into CandidateRule shape — every imported
-      // rule carries a `source` so the user can see whether it came from
-      // a paste, upload, or manual entry on the review cards.
-      const sourceLabel = mode === "paste" ? "paste" : mode === "upload" ? "upload" : "manual";
-      const next: CandidateRule[] = result.suggested_rules.map((r) => ({
-        ...r,
-        source: sourceLabel,
-      }));
-      setCandidates(next);
-      // Auto-confirm all by default — user opts out instead of opting in.
-      setConfirmed(new Set(next.map((_, i) => i)));
-    } catch (e) {
-      setImportError(e instanceof Error ? e.message : "Extraction failed.");
-    } finally {
-      setExtracting(false);
-    }
-  }
-
-  async function handleConfirmRules() {
-    setImportError(null);
-    const pool: CandidateRule[] = importMode === "templates" ? templateRules : candidates;
-    const picks = pool.filter((_, i) => confirmed.has(i));
-    if (picks.length === 0) return;
-    setAuthorizing(true);
-    try {
-      const result = await createRulesFromImport(picks);
-      if (!result.ok) {
-        setImportError(result.error);
-        return;
-      }
-      // Reset all import state on success and close the panel.
-      setCandidates([]);
-      setConfirmed(new Set());
-      setImportText("");
-      setManualRules("");
-      setUploadedFile(null);
-      setShowImport(false);
-      // Surface the success state — sticks until the user dismisses
-      // the banner or navigates away.
-      setJustAuthorized(true);
-      router.refresh();
-    } catch (e) {
-      setImportError(e instanceof Error ? e.message : "Authorization failed.");
-    } finally {
-      setAuthorizing(false);
-    }
-  }
 
   const now = Date.now();
   const classified = useMemo(() => {
@@ -480,7 +365,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
     if (activeTab === "silent") return silentRules;
     if (activeTab === "drafts") return draftRules;
     if (activeTab === "deactivated") return deactivatedRules;
-    return []; // templates tab — content renders inline
+    return []; // history tab — content renders inline
   }, [
     activeTab,
     demoRules,
@@ -507,7 +392,29 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
   }
 
   function handleCloneRule() {
-    setIsAddOpen(true);
+    // For now opens the setup panel with a clean slate. The full
+    // clone-with-prefilled-data flow is a follow-up.
+    setShowSetupPanel(true);
+  }
+
+  // Drafts tab: promote a draft rule to active. Reuses
+  // saveRuleUpdates so the edit happens in the same code path
+  // as inline-edit re-authorization.
+  async function handleAuthorizeDraft(id: string) {
+    const result = await saveRuleUpdates(id, { rule_status: "active" });
+    if (result.ok) router.refresh();
+  }
+
+  // Drafts tab: hard-delete an unauthorized rule. The action
+  // refuses to delete anything that isn't already in draft status,
+  // so authorized rules stay protected by the audit trail.
+  async function handleDeleteDraft(id: string) {
+    const ok = window.confirm(
+      "Delete this draft rule? It has not been authorized and will be permanently removed.",
+    );
+    if (!ok) return;
+    const result = await deleteDraftRuleAction(id);
+    if (result.ok) router.refresh();
   }
 
   function handleDeactivate(id: string, ruleName: string) {
@@ -712,8 +619,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
               type="button"
               onClick={() => {
                 setView("managing");
-                setShowImport(true);
-                setImportMode("paste");
+                setShowSetupPanel(true);
               }}
               className="font-mono text-xs text-[#4F46E5] hover:text-[#4338CA] transition-colors cursor-pointer"
             >
@@ -749,10 +655,10 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
         </div>
 
         <AddRulesPanel
-          isOpen={isAddOpen || editingRule !== null}
+          isOpen={showSetupPanel || editingRule !== null}
           firmType={firmType}
           onClose={() => {
-            setIsAddOpen(false);
+            setShowSetupPanel(false);
             setEditingRule(null);
           }}
         />
@@ -773,54 +679,36 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
           </div>
           <h1
             style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-[#0D1B2A] mb-2 leading-tight"
+            className="text-3xl font-light text-[#0D1B2A] mb-3 leading-tight"
           >
             {IS_DEMO_MODE
               ? "Your rules. Your authority. Enforced at submission."
-              : `${counts.active} rule${counts.active !== 1 ? "s" : ""} governing your team's communications.`}
+              : counts.active > 0
+                ? `${counts.active} rule${counts.active !== 1 ? "s" : ""} governing your team's communications.`
+                : "Configure your governance rules."}
           </h1>
           <p className="text-sm text-[#475569] leading-relaxed max-w-2xl">
             {IS_DEMO_MODE
-              ? "ERA CUE checks every draft against these rules before publication. Import your existing policies or add rules below."
-              : "Every draft your team submits is checked against these rules before publication."}
+              ? "ERA CUE checks every draft against these rules before publication. These are examples — set up your own rules using the button above."
+              : counts.active > 0
+                ? "Every draft your team submits is checked against these rules before publication."
+                : "ERA CUE checks every draft against your active rules. Set up your governance policies before checking any draft."}
           </p>
         </div>
 
-        {/* ACTION BAR — Add rule + Import toggle + Templates jump on
-            the left, "Check a draft" link on the right (only when at
-            least one rule is active so the nudge isn't a misdirection
-            on a fresh page). */}
+        {/* ACTION BAR — single "Set up rules" toggle on the left
+            (opens AddRulesPanel with three-path picker) and the
+            "Check a draft →" link on the right when at least one
+            rule is active. */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsAddOpen(true)}
-              className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#4338CA] transition-colors flex items-center gap-1.5"
-            >
-              <span aria-hidden>+</span>
-              Add a rule
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowImport((o) => !o)}
-              className={`font-mono text-xs font-medium px-4 py-2 rounded-sm border transition-colors ${
-                showImport
-                  ? "bg-[#EEF2FF] border-[#C7D7FE] text-[#4338CA]"
-                  : "bg-white border-[#E2E8F0] text-[#475569] hover:bg-[#F8FAFC]"
-              }`}
-            >
-              {showImport ? "× Close" : "Import existing policy"}
-            </button>
-            {!IS_DEMO_MODE && (
-              <button
-                type="button"
-                onClick={() => setActiveTab("templates")}
-                className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors px-2 py-2"
-              >
-                View templates
-              </button>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowSetupPanel((s) => !s)}
+            className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] transition-colors flex items-center gap-2 cursor-pointer"
+          >
+            {showSetupPanel ? "× Close" : "+ Set up rules"}
+          </button>
+
           {counts.active > 0 && (
             <a
               href="/submit"
@@ -836,346 +724,14 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
             after clicking Add a rule. The component returns null when
             isOpen is false. */}
         <AddRulesPanel
-          isOpen={isAddOpen || editingRule !== null}
+          isOpen={showSetupPanel || editingRule !== null}
           firmType={firmType}
           onClose={() => {
-            setIsAddOpen(false);
+            setShowSetupPanel(false);
             setEditingRule(null);
           }}
         />
 
-        {/* Import existing policies — four-tab panel. The wrapper drops
-            its own header (the action bar above is the toggle now), so
-            the panel reads as the four tabs + their content body. */}
-        {showImport && (
-          <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm mb-6 overflow-hidden">
-            {/* Tab bar — underline-style, mirrors the dashboard tabs */}
-            <div className="flex border-b border-[#E2E8F0]">
-              {TABS.map((t) => {
-                const selected = importMode === t.key;
-                return (
-                  <button
-                    key={t.key}
-                    type="button"
-                    onClick={() => {
-                      setImportMode(t.key);
-                      // Reset extraction state on tab change so stale
-                      // candidates from another tab don't render.
-                      setCandidates([]);
-                      setConfirmed(new Set());
-                      setImportError(null);
-                    }}
-                    className={`flex-1 font-mono text-[10px] uppercase tracking-widest py-3 px-4 transition-colors border-b-2 cursor-pointer ${
-                      selected
-                        ? "border-[#4F46E5] text-[#4F46E5] bg-white"
-                        : "border-transparent text-[#64748B] hover:text-[#0D1B2A] bg-transparent"
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="p-5">
-              {importError && (
-                <div
-                  className="bg-[#FEF2F2] border border-[#FECACA] text-[#B91C1C] text-xs font-mono rounded-sm px-3 py-2 mb-3"
-                  role="alert"
-                >
-                  {importError}
-                </div>
-              )}
-
-              {/* TAB: Templates — pre-built rules per firm type. */}
-              {importMode === "templates" && (
-                <div>
-                  {/* Firm type selector — FIRST. Switches the templates
-                      pool without leaving the page. Resets the confirmed
-                      set so checks don't carry over across firm types. */}
-                  <div className="mb-4">
-                    <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
-                      My organization is a
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {FIRM_TYPE_BUTTONS.map((ft) => {
-                        const selected = firmTypeFilter === ft.key;
-                        return (
-                          <button
-                            key={ft.key}
-                            type="button"
-                            onClick={() => {
-                              setFirmTypeFilter(ft.key);
-                              setConfirmed(new Set());
-                            }}
-                            className={`font-mono text-xs px-3 py-1.5 rounded-sm border transition-colors cursor-pointer ${
-                              selected
-                                ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#4338CA] font-medium"
-                                : "bg-white border-[#E2E8F0] text-[#64748B] hover:bg-[#F8F9FB]"
-                            }`}
-                          >
-                            {ft.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="font-mono text-[10px] text-[#94A3B8] mt-2">
-                      Templates are tailored to your firm type and regulatory framework.
-                    </div>
-                  </div>
-
-                  {/* Helper text — explains what the cards below are
-                      and that authorizing them isn't a final commit
-                      (every rule stays editable afterward). */}
-                  <div className="text-sm text-[#475569] mb-3 leading-relaxed">
-                    Pre-built rules based on your firm type. Each is cited to the regulation
-                    it enforces. Review each one and check the ones that apply to your
-                    organization. You can customize any rule after authorizing.
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    {templateRules.map((rule, i) => (
-                      <CandidateRuleCard
-                        key={`${rule.name}-${i}`}
-                        rule={rule}
-                        index={i}
-                        confirmed={confirmed}
-                        setConfirmed={setConfirmed}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* TAB: Paste policy — Claude WSP extraction. */}
-              {importMode === "paste" && (
-                <div>
-                  <div className="text-sm text-[#475569] mb-3">
-                    Paste any policy text — WSP section, social media policy, email from legal, anything.
-                    ERA CUE extracts the rules.
-                  </div>
-                  <textarea
-                    value={importText}
-                    onChange={(e) => setImportText(e.target.value)}
-                    placeholder={`Paste your Written Supervisory Procedures, social media policy, or any compliance document.
-
-Example:
-"All associated persons must obtain prior written approval from a registered principal before posting on LinkedIn, Twitter, or any public social media platform. Posts containing performance claims, testimonials, forward-looking statements, or references to specific securities require CCO review and FINRA filing consideration under Rule 2210(b). All approved communications must be retained for 3 years per SEC Rule 17a-4."`}
-                    className="w-full border border-[#BAE6FD] rounded-sm px-3 py-3 text-sm text-[#0D1B2A] bg-white h-36 resize-none focus:outline-none focus:ring-1 focus:ring-[#4F46E5] placeholder:text-[#94A3B8]"
-                  />
-                  <div className="font-mono text-[10px] text-[#94A3B8] mt-2 space-y-1">
-                    <div>✓ ERA CUE reads any policy format — WSPs, social media policies, legal memos, compliance manuals</div>
-                    <div>✓ Extracts specific rules with keywords and verdict types</div>
-                    <div>✓ You review and authorize each rule before it goes live</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleExtract("paste")}
-                    disabled={!importText.trim() || extracting}
-                    className="mt-3 bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm disabled:opacity-50 hover:bg-[#4338CA] transition-colors flex items-center gap-2 cursor-pointer"
-                  >
-                    {extracting ? (
-                      <>
-                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden>
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                          />
-                        </svg>
-                        Extracting rules...
-                      </>
-                    ) : (
-                      "Extract rules →"
-                    )}
-                  </button>
-                </div>
-              )}
-
-              {/* TAB: Upload doc — file → readAsText → extract. */}
-              {importMode === "upload" && (
-                <div>
-                  <div className="text-sm text-[#475569] mb-3">
-                    Upload a PDF or Word document. ERA CUE reads it and extracts your governance rules.
-                  </div>
-                  <label className="block border-2 border-dashed border-[#BAE6FD] rounded-sm p-8 text-center cursor-pointer hover:bg-white/50 transition-colors">
-                    <input
-                      type="file"
-                      accept=".pdf,.doc,.docx,.txt"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) setUploadedFile(f);
-                      }}
-                      className="hidden"
-                    />
-                    {uploadedFile ? (
-                      <div>
-                        <div className="text-sm font-medium text-[#0D1B2A]">{uploadedFile.name}</div>
-                        <div className="font-mono text-[10px] text-[#64748B] mt-1">
-                          {(uploadedFile.size / 1024).toFixed(0)} KB
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="text-sm font-medium text-[#475569]">
-                          Drop a file here or click to browse
-                        </div>
-                        <div className="font-mono text-[10px] text-[#64748B] mt-1">
-                          PDF · Word · Text
-                        </div>
-                      </div>
-                    )}
-                  </label>
-                  {uploadedFile && (
-                    <button
-                      type="button"
-                      onClick={() => handleExtract("upload")}
-                      disabled={extracting}
-                      className="mt-3 bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm disabled:opacity-50 hover:bg-[#4338CA] transition-colors cursor-pointer"
-                    >
-                      {extracting ? "Extracting..." : "Extract rules →"}
-                    </button>
-                  )}
-                  {/* Helper bullets — best-effort note about plain-text
-                      uploads is folded into the bullet list. */}
-                  <div className="font-mono text-[10px] text-[#94A3B8] mt-3 space-y-1">
-                    <div>✓ PDF, Word (.docx), or text files</div>
-                    <div>✓ ERA CUE reads your document and extracts governance rules</div>
-                    <div>✓ Works with WSPs, compliance manuals, policy handbooks</div>
-                    <div>✓ You review every extracted rule before it becomes active</div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB: Type rules manually. */}
-              {importMode === "manual" && (
-                <div>
-                  <div className="text-sm text-[#475569] mb-3">
-                    Describe your rules in plain English. One rule per line. ERA CUE converts each into a structured governance rule.
-                  </div>
-                  <textarea
-                    value={manualRules}
-                    onChange={(e) => setManualRules(e.target.value)}
-                    placeholder={`One rule per line. Describe what to block or flag.
-
-Examples:
-Block any mention of guaranteed returns
-Escalate posts during earnings quiet periods
-Flag competitor comparisons for GC review
-Block forward guidance about revenue or growth
-Escalate client testimonials for compliance check
-Block posts mentioning specific fund performance`}
-                    className="w-full border border-[#BAE6FD] rounded-sm px-3 py-3 text-sm text-[#0D1B2A] bg-white h-36 resize-none font-mono focus:outline-none focus:ring-1 focus:ring-[#4F46E5] placeholder:text-[#94A3B8]"
-                  />
-                  <div className="font-mono text-[10px] text-[#94A3B8] mt-2 space-y-1">
-                    <div>✓ Write rules in plain English</div>
-                    <div>✓ ERA CUE converts each line into a structured governance rule</div>
-                    <div>✓ Assigns verdict type (BLOCK / ESCALATE / REVIEW / GUIDE) based on language</div>
-                  </div>
-
-                  {/* Live verdict preview — heuristic match against the
-                      same verb cues the manual-mode system prompt uses
-                      ("block" / "escalate" / "review"). Lets the user
-                      see how their wording will map before committing
-                      to extraction. Capped at 10 rows so a long paste
-                      doesn't blow up the panel. */}
-                  {manualRules.trim() && (
-                    <div className="mt-3 border border-[#E2E8F0] rounded-sm divide-y divide-[#F1F5F9] overflow-hidden">
-                      {manualRules
-                        .split("\n")
-                        .map((l) => l.trim())
-                        .filter((l) => l.length > 0)
-                        .slice(0, 10)
-                        .map((line, i) => {
-                          const lower = line.toLowerCase();
-                          const verdict: "block" | "escalate" | "review" =
-                            lower.startsWith("block") ||
-                            lower.includes("never") ||
-                            lower.includes("no ") ||
-                            lower.includes("prohibit")
-                              ? "block"
-                              : lower.startsWith("escalate") ||
-                                  lower.includes("review") ||
-                                  lower.includes("require cco") ||
-                                  lower.includes("require legal")
-                                ? "escalate"
-                                : "review";
-                          const colors = {
-                            block: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]",
-                            escalate: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]",
-                            review: "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]",
-                          } as const;
-                          return (
-                            <div
-                              key={i}
-                              className="px-3 py-2.5 bg-white flex items-start gap-3"
-                            >
-                              <span
-                                className={`font-mono text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm border shrink-0 mt-0.5 ${colors[verdict]}`}
-                              >
-                                {verdict}
-                              </span>
-                              <span className="text-xs text-[#475569] leading-relaxed">
-                                {line}
-                              </span>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => handleExtract("manual")}
-                    disabled={!manualRules.trim() || extracting}
-                    className="mt-3 bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm disabled:opacity-50 hover:bg-[#4338CA] transition-colors cursor-pointer"
-                  >
-                    {extracting ? "Converting..." : "Convert to rules →"}
-                  </button>
-                </div>
-              )}
-
-              {/* Candidate review list — paste / upload / manual. */}
-              {candidates.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
-                  <div className="font-mono text-[10px] text-[#166534] mb-3 flex items-center gap-2">
-                    <span aria-hidden>✓</span>
-                    ERA CUE found {candidates.length} rule
-                    {candidates.length !== 1 ? "s" : ""} in your policy text. Review each one before authorizing.
-                  </div>
-                  {candidates.map((rule, i) => (
-                    <CandidateRuleCard
-                      key={`${rule.name}-${i}`}
-                      rule={rule}
-                      index={i}
-                      confirmed={confirmed}
-                      setConfirmed={setConfirmed}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Authorize button — appears whenever there's something to
-                  authorize. The condition splits cleanly: candidates-driven
-                  modes show it when a candidate exists; templates mode
-                  shows it once at least one card is checked. */}
-              {(candidates.length > 0 ||
-                (importMode === "templates" && confirmed.size > 0)) && (
-                <button
-                  type="button"
-                  onClick={handleConfirmRules}
-                  disabled={confirmed.size === 0 || authorizing}
-                  className="w-full mt-4 bg-[#0F172A] text-white font-mono text-sm font-medium py-3 rounded-sm disabled:opacity-40 hover:bg-[#1E293B] transition-colors cursor-pointer"
-                >
-                  {authorizing
-                    ? "Authorizing..."
-                    : `Authorize ${confirmed.size} rule${confirmed.size !== 1 ? "s" : ""} →`}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Post-authorization success banner — only renders for real
             users. In demo mode the action bar already has the
@@ -1262,10 +818,8 @@ Block posts mentioning specific fund performance`}
               </div>
             </div>
             <div className="font-mono text-[10px] text-[#94A3B8]">
-              5 checks · 2 deterministic · 3 AI-powered
-              {corpusCount > 0 && (
-                <span> · {corpusCount} approved statements in corpus</span>
-              )}
+              ERA CUE checks every draft against your active rules
+              and prior approved statements.
             </div>
           </div>
         )}
@@ -1311,8 +865,8 @@ Block posts mentioning specific fund performance`}
                   alert: false,
                 },
                 {
-                  key: "templates" as const,
-                  label: "Templates",
+                  key: "history" as const,
+                  label: "History",
                   count: null,
                   alert: false,
                 },
@@ -1363,42 +917,173 @@ Block posts mentioning specific fund performance`}
             </div>
           )}
 
-        {/* Drafts tab — empty-state messaging when no draft rules
-            exist. The list itself renders below in the standard
-            tabRules block when there are drafts. */}
-        {!IS_DEMO_MODE &&
-          activeTab === "drafts" &&
-          draftRules.length === 0 && (
-            <div className="text-center py-12 text-sm text-[#94A3B8] font-mono">
-              No draft rules. Rules saved without authorization
-              appear here for review before activation.
-            </div>
-          )}
+        {/* Drafts tab — empty state, then a custom card layout with
+            Authorize / Edit / Delete buttons per row. Replaces the
+            generic rule-card layout so the lifecycle CTAs read as
+            the primary action on this surface. */}
+        {!IS_DEMO_MODE && activeTab === "drafts" && (
+          <>
+            {draftRules.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#94A3B8] mb-2">
+                  No draft rules
+                </div>
+                <p className="text-sm text-[#64748B]">
+                  Rules saved without authorization appear here. Use
+                  &ldquo;Set up rules&rdquo; above to create a draft.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {draftRules.map((rule) => (
+                  <div
+                    key={rule.id}
+                    className="border border-[#E2E8F0] border-l-[4px] border-l-[#94A3B8] rounded-lg p-5 bg-white"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[9px] uppercase px-2 py-0.5 rounded-sm bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]">
+                          Draft
+                        </span>
+                        <span className="text-sm font-medium text-[#0D1B2A]">
+                          {rule.name}
+                        </span>
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleAuthorizeDraft(rule.id)}
+                          className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-3 py-1.5 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer"
+                        >
+                          Authorize →
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingRuleId(rule.id)}
+                          className="font-mono text-xs px-3 py-1.5 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDraft(rule.id)}
+                          className="font-mono text-xs px-3 py-1.5 rounded-sm border border-[#E2E8F0] text-[#94A3B8] hover:text-[#B91C1C] hover:border-[#FECACA] transition-colors cursor-pointer"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    {rule.description && (
+                      <p className="text-sm text-[#475569] mb-2 leading-relaxed">
+                        {rule.description}
+                      </p>
+                    )}
+                    <div className="font-mono text-[9px] text-[#94A3B8]">
+                      Not active · Will not fire until authorized by a
+                      named principal
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
-        {/* Templates tab placeholder — links the user back to the
-            import panel where the firm-type starter set lives. */}
-        {!IS_DEMO_MODE && activeTab === "templates" && (
-          <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 text-center">
-            <div className="text-sm font-medium text-[#0D1B2A] mb-2">
-              FINRA-ready starter rules
-            </div>
-            <p className="text-sm text-[#475569] leading-relaxed max-w-md mx-auto mb-4">
-              Pre-built rules per firm type — broker-dealer, RIA, public
-              company, investment bank, PR agency, executive team. Each
-              cited to the regulation it enforces.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setShowImport(true);
-                setImportMode("templates");
-                setActiveTab("active");
-              }}
-              className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#4338CA] transition-colors"
-            >
-              Open template picker →
-            </button>
-          </div>
+        {/* History tab — every rule the org has authored, in
+            authorization order, with status pill on the right. The
+            footer note frames the list as the immutable audit trail
+            backing every rule decision. */}
+        {!IS_DEMO_MODE && activeTab === "history" && (
+          <>
+            {rules.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#94A3B8] mb-2">
+                  No history yet
+                </div>
+                <p className="text-sm text-[#64748B]">
+                  Authorized rules will appear here in chronological
+                  order.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-0 divide-y divide-[#E2E8F0]">
+                  {[...rules]
+                    .sort((a, b) => {
+                      const ta = a.effective_from
+                        ? new Date(a.effective_from).getTime()
+                        : 0;
+                      const tb = b.effective_from
+                        ? new Date(b.effective_from).getTime()
+                        : 0;
+                      return tb - ta;
+                    })
+                    .map((rule) => {
+                      const v = (rule.verdict || "review").toLowerCase();
+                      const badge =
+                        VERDICT_BADGES[v] ?? VERDICT_BADGES.review;
+                      const status = rule.rule_status ?? "active";
+                      const statusClass =
+                        status === "active"
+                          ? "text-[#0EA5E9] bg-[#E0F2FE]"
+                          : status === "draft"
+                            ? "text-[#64748B] bg-[#F1F5F9]"
+                            : "text-[#94A3B8] bg-[#F8FAFC]";
+                      return (
+                        <div
+                          key={rule.id}
+                          className="py-4 flex items-center justify-between gap-4"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span
+                              style={{
+                                background: badge.bg,
+                                color: badge.text,
+                                border: `0.5px solid ${badge.border}`,
+                              }}
+                              className="font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm shrink-0"
+                            >
+                              {badge.label}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-[#0D1B2A] truncate">
+                                {rule.name}
+                              </div>
+                              <div className="font-mono text-[9px] text-[#94A3B8]">
+                                {rule.effective_from
+                                  ? new Date(
+                                      rule.effective_from,
+                                    ).toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    })
+                                  : "No authorization date"}
+                                {!IS_DEMO_MODE && rule.authorized_by && (
+                                  <span> · {rule.authorized_by}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span
+                              className={`font-mono text-[9px] uppercase px-2 py-0.5 rounded-sm ${statusClass}`}
+                            >
+                              {status}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+                <div className="font-mono text-[9px] text-[#94A3B8] text-center pt-6 mt-6 border-t border-[#E2E8F0]">
+                  Every rule authorization is recorded with principal
+                  identity, timestamp, and SHA-256 hash. This history
+                  cannot be altered.
+                </div>
+              </>
+            )}
+          </>
         )}
 
         {/* Demo label — single muted sentence above the rules list,
@@ -1416,7 +1101,7 @@ Block posts mentioning specific fund performance`}
             the action buttons + amber callouts have full width. The
             Templates tab renders its placeholder above and skips
             this whole block. */}
-        {activeTab !== "templates" && (
+        {activeTab !== "history" && activeTab !== "drafts" && (
           <div
             className={
               activeTab === "active" || IS_DEMO_MODE
@@ -1682,23 +1367,6 @@ Block posts mentioning specific fund performance`}
           </div>
         )}
 
-        {/* WSP callout — closes the page by reframing the rules above
-            as enforcement of the firm's existing supervisory
-            procedures. The icon was dropped; the title carries the
-            framing on its own and the FINRA-examiner anchor lands
-            harder without a glyph competing for attention. */}
-        <div className="mt-6 border border-[#E2E8F0] rounded-sm p-4 bg-[#F8F9FB]">
-          <div className="text-sm font-semibold text-[#0D1B2A] mb-1">
-            Rules reference your existing compliance policies.
-          </div>
-          <div className="text-sm text-[#64748B] leading-relaxed">
-            When you add or edit a rule, include the section of your Written
-            Supervisory Procedures (WSP) or compliance manual that it
-            enforces. This creates an auditable link between your documented
-            policies and ERA CUE&apos;s enforcement — exactly what FINRA
-            examiners look for.
-          </div>
-        </div>
       </div>
 
       {/* MOAT bar — fixed-bottom strip that frames the page as a
@@ -1716,91 +1384,6 @@ Block posts mentioning specific fund performance`}
         </span>
       </div>
     </main>
-  );
-}
-
-// ---------- CandidateRuleCard ---------------------------------------------
-
-/**
- * Review card used by every tab in the import panel. Confirmed cards
- * flip to the green palette so the user can scan which rules will be
- * authorized at a glance. Keywords are clipped to 6 chips with a
- * "+N more" hint so a long keyword set doesn't take over the layout.
- */
-function CandidateRuleCard({
-  rule,
-  index,
-  confirmed,
-  setConfirmed,
-}: {
-  rule: CandidateRule;
-  index: number;
-  confirmed: Set<number>;
-  setConfirmed: (s: Set<number>) => void;
-}) {
-  const isConfirmed = confirmed.has(index);
-
-  return (
-    <div
-      className={`border rounded-sm p-4 mb-2 transition-colors ${
-        isConfirmed ? "bg-[#F0FDF4] border-[#BBF7D0]" : "bg-white border-[#E2E8F0]"
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          checked={isConfirmed}
-          onChange={(e) => {
-            const next = new Set(confirmed);
-            if (e.target.checked) next.add(index);
-            else next.delete(index);
-            setConfirmed(next);
-          }}
-          className="mt-1 w-4 h-4 accent-[#4F46E5] cursor-pointer shrink-0"
-        />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span
-              className={`font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm border ${
-                rule.rule_type === "block"
-                  ? "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]"
-                  : rule.rule_type === "escalate"
-                    ? "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]"
-                    : rule.rule_type === "review"
-                      ? "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]"
-                      : "bg-[#F1F5F9] text-[#64748B] border-[#E2E8F0]"
-              }`}
-            >
-              {rule.rule_type}
-            </span>
-            <span className="text-sm font-semibold text-[#0D1B2A]">{rule.name}</span>
-          </div>
-          <div className="text-sm text-[#475569] mb-2">{rule.description}</div>
-          {rule.keywords.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-2">
-              {rule.keywords.slice(0, 6).map((kw) => (
-                <span
-                  key={kw}
-                  className="font-mono text-[10px] bg-[#F1F5F9] text-[#64748B] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
-                >
-                  {kw}
-                </span>
-              ))}
-              {rule.keywords.length > 6 && (
-                <span className="font-mono text-[10px] text-[#94A3B8]">
-                  +{rule.keywords.length - 6} more
-                </span>
-              )}
-            </div>
-          )}
-          <div className="font-mono text-[10px] text-[#94A3B8]">
-            {rule.regulatory_basis}
-            {rule.regulatory_basis && rule.wsp_reference ? " · " : ""}
-            {rule.wsp_reference}
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 

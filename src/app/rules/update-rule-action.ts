@@ -18,6 +18,10 @@ export type RuleUpdates = {
   // ISO timestamp string, or null to clear the expiry. Mapped to the
   // `effective_to` DB column (the UI surfaces it as "Expires on").
   effective_to?: string | null;
+  // Lifecycle promotion — used by the Drafts-tab "Authorize" button
+  // to flip a rule from "draft" to "active" without going through
+  // the full createRulesFromImport path.
+  rule_status?: "active" | "draft" | "deactivated";
 };
 
 export type SaveRuleResult =
@@ -39,6 +43,7 @@ export async function saveRuleUpdates(
   if (updates.rule_type !== undefined) patch.rule_type = updates.rule_type;
   if (updates.keywords !== undefined) patch.keywords = updates.keywords;
   if (updates.effective_to !== undefined) patch.effective_to = updates.effective_to;
+  if (updates.rule_status !== undefined) patch.rule_status = updates.rule_status;
 
   if (Object.keys(patch).length === 0) return { ok: true };
 
