@@ -296,123 +296,118 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Row labels */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
-            <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/[0.40] pl-1">
-              Five cases where the record did not exist
-            </div>
-            <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/[0.40] pl-1 hidden md:block">
-              Three standards ERA CUE operationalizes
-            </div>
-          </div>
+          {/* Two stacked rows of cards. Row 1 = five failure panels
+              spanning the full width on desktop; row 2 = three
+              positive panels. Each card uses flex-col + flex-1 on the
+              middle section so cards in the same row land at equal
+              height regardless of body length. */}
+          <div className="space-y-6">
+            {/* Row 1 — five failure panels */}
+            <div>
+              <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/[0.40] mb-3 pl-1">
+                Five cases where the supervisory record did not exist
+              </div>
 
-          {/* Eight-panel grid: 5 left + 3 right */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* LEFT — five failure panels */}
-            <div className="space-y-3">
-              {REGULATORY_PANELS.filter((p) => p.type === "failure").map(
-                (panel) => (
-                  <div
-                    key={panel.name}
-                    className="bg-white rounded-lg overflow-hidden border-t-[3px] border-t-[#F59E0B]"
-                  >
-                    <div className="px-5 pt-4 pb-3 border-b border-[#E2E8F0]">
-                      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-                        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#B45309] bg-[#FFFBEB] border border-[#FDE68A] px-2 py-0.5 rounded-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {REGULATORY_PANELS.filter((p) => p.type === "failure").map(
+                  (panel) => (
+                    <div
+                      key={panel.name}
+                      className="bg-white rounded-lg overflow-hidden border-t-[3px] border-t-[#F59E0B] flex flex-col"
+                    >
+                      <div className="px-4 pt-4 pb-3 border-b border-[#E2E8F0]">
+                        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#B45309] bg-[#FFFBEB] border border-[#FDE68A] px-1.5 py-0.5 rounded-sm inline-block mb-2">
                           {panel.badge}
                         </span>
-                        <span className="font-mono text-[10px] font-bold text-[#B91C1C]">
+                        <div className="text-xs font-semibold text-[#0D1B2A] mb-1 leading-snug">
+                          {panel.name}
+                        </div>
+                        <div className="font-mono text-[9px] font-bold text-[#B91C1C] mb-1">
                           {panel.consequence}
-                        </span>
+                        </div>
+                        <div className="font-mono text-[9px] text-[#94A3B8] leading-relaxed">
+                          {panel.citation}
+                        </div>
                       </div>
-                      <div className="text-sm font-medium text-[#0D1B2A] mb-0.5">
-                        {panel.name}
-                      </div>
-                      <div className="font-mono text-[9px] text-[#94A3B8]">
-                        {panel.citation}
-                      </div>
-                    </div>
 
-                    <div className="px-5 py-3 border-b border-[#E2E8F0]">
-                      <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#94A3B8] mb-1.5">
-                        What happened
+                      <div className="px-4 py-3 border-b border-[#E2E8F0] flex-1">
+                        <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#94A3B8] mb-1.5">
+                          What happened
+                        </div>
+                        <p className="text-[11px] text-[#1E293B] leading-relaxed">
+                          {panel.what}
+                        </p>
                       </div>
-                      <p className="text-xs text-[#1E293B] leading-relaxed">
-                        {panel.what}
-                      </p>
-                    </div>
 
-                    <div className="px-5 py-3 bg-[#4F46E5]">
-                      <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/[0.62] mb-1.5">
-                        With ERA CUE
+                      <div className="px-4 py-3 bg-[#4F46E5]">
+                        <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/[0.62] mb-1.5">
+                          With ERA CUE
+                        </div>
+                        <p className="text-[11px] text-white leading-relaxed">
+                          {panel.era}
+                        </p>
                       </div>
-                      <p className="text-xs text-white leading-relaxed">
-                        {panel.era}
-                      </p>
                     </div>
-                  </div>
-                ),
-              )}
+                  ),
+                )}
+              </div>
             </div>
 
-            {/* RIGHT — three positive panels */}
-            <div className="space-y-3">
-              <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/[0.40] pl-1 md:hidden">
+            {/* Row 2 — three positive panels */}
+            <div>
+              <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-white/[0.40] mb-3 pl-1">
                 Three standards ERA CUE operationalizes
               </div>
 
-              {REGULATORY_PANELS.filter((p) => p.type === "positive").map(
-                (panel) => (
-                  <div
-                    key={panel.name}
-                    className="bg-white rounded-lg overflow-hidden border-t-[3px] border-t-[#0D9488]"
-                  >
-                    <div className="px-5 pt-4 pb-3 border-b border-[#E2E8F0]">
-                      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-                        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#0F766E] bg-[#F0FDFA] border border-[#99F6E4] px-2 py-0.5 rounded-sm">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {REGULATORY_PANELS.filter((p) => p.type === "positive").map(
+                  (panel) => (
+                    <div
+                      key={panel.name}
+                      className="bg-white rounded-lg overflow-hidden border-t-[3px] border-t-[#0D9488] flex flex-col"
+                    >
+                      <div className="px-4 pt-4 pb-3 border-b border-[#E2E8F0]">
+                        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#0F766E] bg-[#F0FDFA] border border-[#99F6E4] px-1.5 py-0.5 rounded-sm inline-block mb-2">
                           {panel.badge}
                         </span>
-                        <span className="font-mono text-[9px] font-medium text-[#0D9488]">
-                          {panel.who}
-                        </span>
+                        <div className="text-xs font-semibold text-[#0D1B2A] mb-1 leading-snug">
+                          {panel.name}
+                        </div>
+                        <div className="font-mono text-[9px] text-[#94A3B8]">
+                          {panel.citation}
+                        </div>
                       </div>
-                      <div className="text-sm font-medium text-[#0D1B2A] mb-0.5">
-                        {panel.name}
+
+                      <div className="px-4 py-3 border-b border-[#E2E8F0] flex-1">
+                        <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#94A3B8] mb-1.5">
+                          The requirement
+                        </div>
+                        <p className="text-[11px] text-[#1E293B] leading-relaxed">
+                          {panel.what}
+                        </p>
                       </div>
-                      <div className="font-mono text-[9px] text-[#94A3B8]">
-                        {panel.citation}
+
+                      <div className="px-4 py-3 bg-[#0D9488]">
+                        <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/[0.62] mb-1.5">
+                          ERA CUE operationalizes this
+                        </div>
+                        <p className="text-[11px] text-white leading-relaxed">
+                          {panel.era}
+                        </p>
                       </div>
                     </div>
-
-                    <div className="px-5 py-3 border-b border-[#E2E8F0]">
-                      <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[#94A3B8] mb-1.5">
-                        The requirement
-                      </div>
-                      <p className="text-xs text-[#1E293B] leading-relaxed">
-                        {panel.what}
-                      </p>
-                    </div>
-
-                    <div className="px-5 py-3 bg-[#0D9488]">
-                      <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-white/[0.62] mb-1.5">
-                        ERA CUE operationalizes this
-                      </div>
-                      <p className="text-xs text-white leading-relaxed">
-                        {panel.era}
-                      </p>
-                    </div>
-                  </div>
-                ),
-              )}
-
-              <p className="font-mono text-[10px] text-white/[0.42] leading-relaxed pt-1">
-                Regulatory citations are to publicly available
-                enforcement actions and statutory text. ERA CUE does
-                not provide legal advice. Consult qualified counsel
-                regarding the applicability of these requirements to
-                your organization.
-              </p>
+                  ),
+                )}
+              </div>
             </div>
+
+            {/* Legal disclaimer */}
+            <p className="font-mono text-[10px] text-white/[0.42] leading-relaxed">
+              Regulatory citations are to publicly available enforcement
+              actions and statutory text. ERA CUE does not provide legal
+              advice. Consult qualified counsel regarding the
+              applicability of these requirements to your organization.
+            </p>
           </div>
         </div>
       </section>
