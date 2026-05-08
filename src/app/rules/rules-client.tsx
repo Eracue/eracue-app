@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AddRulesPanel } from "./AddRulesPanel";
+import { SetupRulesPanel } from "./SetupRulesPanel";
 import { deactivateRuleAction, deleteDraftRuleAction } from "./actions";
 import { saveRuleUpdates, type RuleUpdates } from "./update-rule-action";
 import {
@@ -103,7 +103,7 @@ const POLICY_PLACEHOLDER: Record<string, string> = {
 // Resolve a firm-type slug to its policy-reference vocabulary.
 // Falls back to the generic "Policy reference" copy when the
 // firm type isn't one of the seeded buckets. Exported for the
-// AddRulesPanel form labels and the EditRulePanel input.
+// SetupRulesPanel form labels and the EditRulePanel input.
 export function policyLabelFor(firmType: string | null | undefined): string {
   if (!firmType) return POLICY_LABEL.default;
   return POLICY_LABEL[firmType] ?? POLICY_LABEL.default;
@@ -216,7 +216,7 @@ export function RulesClient({ rules, firmType = null }: Props) {
   const activatedFromConfirm = searchParams.get("activated") === "true";
 
   const [activeTab, setActiveTab] = useState<RulesTab>("active");
-  // Setup panel state — single toggle that opens AddRulesPanel above
+  // Setup panel state — single toggle that opens SetupRulesPanel above
   // the tab bar. Replaces the old "Add a rule" + "Import policies"
   // pair with one entry point.
   const [showSetupPanel, setShowSetupPanel] = useState(false);
@@ -237,7 +237,7 @@ export function RulesClient({ rules, firmType = null }: Props) {
 
   // Setup-view confirmed-set: pre-filled with every template index so
   // the first-time-visitor's cards land already checked. Only used by
-  // the setup view path; the managing view delegates to AddRulesPanel.
+  // the setup view path; the managing view delegates to SetupRulesPanel.
   const [confirmed, setConfirmed] = useState<Set<number>>(() => {
     const defaults = templatesFor(firmType);
     return new Set(defaults.map((_, i) => i));
@@ -264,7 +264,7 @@ export function RulesClient({ rules, firmType = null }: Props) {
     return raw === "rIA" ? "ria" : raw;
   });
   // Inline rule editing — when set, the matching rule card expands to
-  // show the EditRulePanel instead of opening the AddRulesPanel.
+  // show the EditRulePanel instead of opening the SetupRulesPanel.
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
 
 
@@ -654,7 +654,7 @@ export function RulesClient({ rules, firmType = null }: Props) {
           </div>
         </div>
 
-        <AddRulesPanel
+        <SetupRulesPanel
           isOpen={showSetupPanel || editingRule !== null}
           firmType={firmType}
           onClose={() => {
@@ -697,7 +697,7 @@ export function RulesClient({ rules, firmType = null }: Props) {
         </div>
 
         {/* ACTION BAR — single "Set up rules" toggle on the left
-            (opens AddRulesPanel with three-path picker) and the
+            (opens SetupRulesPanel with three-path picker) and the
             "Check a draft →" link on the right when at least one
             rule is active. */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -723,7 +723,7 @@ export function RulesClient({ rules, firmType = null }: Props) {
             so the form appears where the visitor's eye already is
             after clicking Add a rule. The component returns null when
             isOpen is false. */}
-        <AddRulesPanel
+        <SetupRulesPanel
           isOpen={showSetupPanel || editingRule !== null}
           firmType={firmType}
           onClose={() => {

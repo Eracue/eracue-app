@@ -132,7 +132,7 @@ function pastePlaceholderFor(firmType: string | null | undefined): string {
 
 // ---------- Component ---------------------------------------------
 
-export function AddRulesPanel({ isOpen, onClose, firmType = null }: Props) {
+export function SetupRulesPanel({ isOpen, onClose, firmType = null }: Props) {
   const router = useRouter();
   const [path, setPath] = useState<PanelPath>(null);
   const [importMethod, setImportMethod] = useState<ImportMethod>("paste");
