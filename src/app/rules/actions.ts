@@ -45,6 +45,9 @@ export type CreateRuleInput = {
   // Optional pointer to the firm's Written Supervisory Procedures section
   // that this rule enforces. Spread conditionally so older schemas still work.
   wsp_reference?: string;
+  // Lifecycle status. Defaults to "active" — pass "draft" to land the
+  // rule in the Drafts tab without firing it on submissions.
+  rule_status?: "active" | "draft";
 };
 type CreateRuleResult = { ok: true; ruleId: string } | { ok: false; error: string };
 
@@ -64,7 +67,7 @@ export async function createRuleAction(
       rule_type: input.verdict,
       keywords: input.keywords,
       scope: input.scope,
-      rule_status: "active",
+      rule_status: input.rule_status ?? "active",
       effective_from: input.effective_from,
       // DB column is `effective_to`, not `effective_until`.
       effective_to: input.effective_until,

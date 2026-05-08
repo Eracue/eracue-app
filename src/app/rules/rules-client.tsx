@@ -751,6 +751,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
         <AddRulePanel
           isOpen={isAddOpen || editingRule !== null}
           initialRule={editingRule}
+          firmType={firmType}
           onClose={() => {
             setIsAddOpen(false);
             setEditingRule(null);
@@ -838,6 +839,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
         <AddRulePanel
           isOpen={isAddOpen || editingRule !== null}
           initialRule={editingRule}
+          firmType={firmType}
           onClose={() => {
             setIsAddOpen(false);
             setEditingRule(null);
