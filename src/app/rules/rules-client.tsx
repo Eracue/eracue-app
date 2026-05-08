@@ -60,17 +60,78 @@ export type RuleRow = {
 // tab, so the helper is gone — see expiringRules / silentRules /
 // activeRules useMemos in the component body.
 
-// Five-way tab state for the managing view. Active is the default
-// landing tab; Expiring lights up amber when at least one rule sits
-// inside the 30-day window; Silent flags rules that have never fired
-// (drift signal); Deactivated bucket keeps the inactive rules out of
-// the way; Templates surfaces the firm-type starter set.
+// Six-way tab state for the managing view. Active is the default
+// landing tab; Expiring lights up amber when a rule sits inside
+// the 60-day window; Silent flags rules that have never fired
+// (drift signal); Drafts holds rules saved-but-not-authorized;
+// Deactivated bucket keeps the inactive rules out of the way;
+// Templates surfaces the firm-type starter set.
 type RulesTab =
   | "active"
   | "expiring"
   | "silent"
+  | "drafts"
   | "deactivated"
   | "templates";
+
+// Policy-reference label vocabulary varies by firm type. Broker-
+// dealers and investment banks use WSPs; RIAs use a compliance
+// manual; public companies have a disclosure policy; PR agencies
+// and exec teams just call it a policy. The constants below are
+// surfaced in the rule-card status line + the EditRulePanel input
+// so the field reads in the visitor's own vocabulary.
+const POLICY_LABEL: Record<string, string> = {
+  broker_dealer: "WSP reference",
+  ria: "Compliance policy reference",
+  public_company: "Disclosure policy reference",
+  pr_agency: "Policy reference",
+  executive_team: "Policy reference",
+  investment_bank: "WSP reference",
+  default: "Policy reference",
+};
+
+// Short label used inline on rule-card status lines (where space
+// is tight). The longer POLICY_LABEL above goes on form labels.
+const POLICY_LABEL_SHORT: Record<string, string> = {
+  broker_dealer: "WSP",
+  ria: "Compliance ref",
+  public_company: "Disclosure ref",
+  pr_agency: "Policy ref",
+  executive_team: "Policy ref",
+  investment_bank: "WSP",
+  default: "Policy ref",
+};
+
+const POLICY_PLACEHOLDER: Record<string, string> = {
+  broker_dealer: "e.g. WSP §4.3 — Social Media Supervision",
+  ria: "e.g. Compliance Manual §2.1 — Marketing",
+  public_company: "e.g. Disclosure Policy §3 — Quiet Periods",
+  pr_agency: "e.g. Client Comms Policy — Competitor Mentions",
+  executive_team: "e.g. AI Usage Policy — External Communications",
+  investment_bank: "e.g. WSP §7.2 — Deal Communications",
+  default: "e.g. Policy name and section (optional)",
+};
+
+// Resolve a firm-type slug to its policy-reference vocabulary.
+// Falls back to the generic "Policy reference" copy when the
+// firm type isn't one of the seeded buckets. Exported for the
+// AddRulePanel form labels and the EditRulePanel input.
+export function policyLabelFor(firmType: string | null | undefined): string {
+  if (!firmType) return POLICY_LABEL.default;
+  return POLICY_LABEL[firmType] ?? POLICY_LABEL.default;
+}
+
+function policyLabelShortFor(firmType: string | null | undefined): string {
+  if (!firmType) return POLICY_LABEL_SHORT.default;
+  return POLICY_LABEL_SHORT[firmType] ?? POLICY_LABEL_SHORT.default;
+}
+
+export function policyPlaceholderFor(
+  firmType: string | null | undefined,
+): string {
+  if (!firmType) return POLICY_PLACEHOLDER.default;
+  return POLICY_PLACEHOLDER[firmType] ?? POLICY_PLACEHOLDER.default;
+}
 
 // Demo rules surfaced in the rules list. Curated to one rule per
 // verdict type so a visitor sees the full spread (Block / Route to
@@ -370,7 +431,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
           (new Date(rule.effective_until).getTime() - now) /
             (1000 * 60 * 60 * 24),
         );
-        return days <= 30 && days > 0;
+        return days <= 60 && days > 0;
       })
       .map(({ rule }) => rule);
   }, [classified, now]);
@@ -403,6 +464,12 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
       .map(({ rule }) => rule);
   }, [classified, expiringRules]);
 
+  // Drafts = rules with rule_status === "draft" — saved but not yet
+  // authorized by a named principal. They never fire until promoted.
+  const draftRules = useMemo(() => {
+    return rules.filter((r) => r.rule_status === "draft");
+  }, [rules]);
+
   // Pick the rules to render based on the active tab. Demo mode
   // pins to the four curated rules regardless of tab so the visitor
   // never lands on an empty Expiring / Silent / Deactivated view.
@@ -411,6 +478,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
     if (activeTab === "active") return activeRules;
     if (activeTab === "expiring") return expiringRules;
     if (activeTab === "silent") return silentRules;
+    if (activeTab === "drafts") return draftRules;
     if (activeTab === "deactivated") return deactivatedRules;
     return []; // templates tab — content renders inline
   }, [
@@ -419,6 +487,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
     activeRules,
     expiringRules,
     silentRules,
+    draftRules,
     deactivatedRules,
   ]);
 
@@ -712,7 +781,7 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
           </h1>
           <p className="text-sm text-[#475569] leading-relaxed max-w-2xl">
             {IS_DEMO_MODE
-              ? "Live from app.eracue.com/rules — keyword triggers, calibration signals, FINRA citations. Configure your governance policies before checking any draft."
+              ? "ERA CUE checks every draft against these rules before publication. Import your existing policies or add rules below."
               : "Every draft your team submits is checked against these rules before publication."}
           </p>
         </div>
@@ -1230,6 +1299,12 @@ Block posts mentioning specific fund performance`}
                   alert: false,
                 },
                 {
+                  key: "drafts" as const,
+                  label: "Drafts",
+                  count: draftRules.length,
+                  alert: false,
+                },
+                {
                   key: "deactivated" as const,
                   label: "Deactivated",
                   count: deactivatedRules.length,
@@ -1285,6 +1360,18 @@ Block posts mentioning specific fund performance`}
               {silentRules.length} rule
               {silentRules.length !== 1 ? "s have" : " has"} never fired.
               Review whether keywords match how your team actually writes.
+            </div>
+          )}
+
+        {/* Drafts tab — empty-state messaging when no draft rules
+            exist. The list itself renders below in the standard
+            tabRules block when there are drafts. */}
+        {!IS_DEMO_MODE &&
+          activeTab === "drafts" &&
+          draftRules.length === 0 && (
+            <div className="text-center py-12 text-sm text-[#94A3B8] font-mono">
+              No draft rules. Rules saved without authorization
+              appear here for review before activation.
             </div>
           )}
 
@@ -1454,7 +1541,9 @@ Block posts mentioning specific fund performance`}
                         {r.wsp_reference && (
                           <>
                             <span className="text-[#E5E7EB]" aria-hidden>·</span>
-                            <span className="text-[#4F46E5]">{r.wsp_reference}</span>
+                            <span className="text-[#4F46E5]">
+                              {policyLabelShortFor(firmType)}: {r.wsp_reference}
+                            </span>
                           </>
                         )}
                         {!IS_DEMO_MODE && r.authorized_by && (
@@ -1800,7 +1889,22 @@ function EditRulePanel({
   }
 
   return (
-    <div className="border-t border-[#E2E8F0] bg-[#F8F9FB] px-5 py-5">
+    <div className="border-t border-[#E2E8F0] bg-[#F8F9FB]">
+      {/* Versioning warning — saving an edit creates a new authorized
+          version; the prior version stays in the audit trail. The
+          banner makes that explicit so a principal doesn't think they
+          can quietly tweak a live rule. */}
+      <div className="bg-[#FFFBEB] border-b border-[#FDE68A] px-5 py-3 flex items-start gap-3">
+        <span className="text-[#B45309] text-sm shrink-0" aria-hidden>
+          ⚠
+        </span>
+        <div className="text-xs text-[#92400E] leading-relaxed">
+          <strong>This rule is currently active.</strong> Changes
+          require re-authorization. Saving creates a new version —
+          the prior version remains in the audit record.
+        </div>
+      </div>
+      <div className="px-5 py-5">
       <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-4">
         Edit rule
       </div>
@@ -1980,7 +2084,7 @@ function EditRulePanel({
               Saving...
             </>
           ) : (
-            "Save changes →"
+            "Re-authorize →"
           )}
         </button>
         <button
@@ -1990,6 +2094,7 @@ function EditRulePanel({
         >
           Cancel
         </button>
+      </div>
       </div>
     </div>
   );
