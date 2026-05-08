@@ -762,6 +762,19 @@ export function RulesClient({ rules, corpusCount = 0, firmType = null }: Props) 
           )}
         </div>
 
+        {/* Rule Builder — renders inline directly below the action bar
+            so the form appears where the visitor's eye already is
+            after clicking Add a rule. The component returns null when
+            isOpen is false. */}
+        <AddRulePanel
+          isOpen={isAddOpen || editingRule !== null}
+          initialRule={editingRule}
+          onClose={() => {
+            setIsAddOpen(false);
+            setEditingRule(null);
+          }}
+        />
+
         {/* Import existing policies — four-tab panel. The wrapper drops
             its own header (the action bar above is the toggle now), so
             the panel reads as the four tabs + their content body. */}
@@ -1598,15 +1611,6 @@ Block posts mentioning specific fund performance`}
           </div>
         </div>
       </div>
-
-      <AddRulePanel
-        isOpen={isAddOpen || editingRule !== null}
-        initialRule={editingRule}
-        onClose={() => {
-          setIsAddOpen(false);
-          setEditingRule(null);
-        }}
-      />
 
       {/* MOAT bar — fixed-bottom strip that frames the page as a
           single node in the broader Governance Memory Graph. Renders

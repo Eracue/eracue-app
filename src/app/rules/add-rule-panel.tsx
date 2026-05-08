@@ -1,18 +1,23 @@
 "use client";
-// v2 — scope selector with role/person chips
 
-import { useState, useEffect } from "react";
+// v3 — Rule Builder. Two-panel inline form. Left half = plain-language
+// description + applies-to selector + optional expiry; right half =
+// ERA CUE's structured draft, editable in place, with an Authorize
+// button that flushes through createRuleAction. Replaces the
+// previous side-drawer state machine.
+
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   draftRuleAction,
   createRuleAction,
-  updateRuleAction,
   type DraftedRule,
 } from "./actions";
 
-// Structurally compatible with RuleRow from rules-client.tsx — declared here
-// (instead of importing) to avoid a circular dependency. Extra fields on the
-// caller's RuleRow are allowed by TS structural typing.
+// Kept on the API for backward compatibility with rules-client.tsx —
+// the prop is unused now (inline edit-rule lives below each rule
+// card) but keeping the type makes the Props change a no-op for the
+// caller.
 export type InitialRule = {
   id: string;
   name: string;
@@ -31,897 +36,348 @@ type Props = {
   initialRule?: InitialRule | null;
 };
 
-type PanelState = "describe" | "review" | "confirmed";
-type ScopeType = "all" | "role" | "person";
+type AppliesTo = "all" | "role" | "person";
 
-const VERDICT_STYLES: Record<DraftedRule["verdict"], { bg: string; text: string; border: string; label: string }> = {
-  block:    { bg: "bg-[#FEF2F2]", text: "text-[#B91C1C]", border: "border-[#FECACA]", label: "BLOCK" },
-  escalate: { bg: "bg-[#FFF7ED]", text: "text-[#C2410C]", border: "border-[#FED7AA]", label: "ESCALATE" },
-  review:   { bg: "bg-[#EFF6FF]", text: "text-[#1D4ED8]", border: "border-[#BFDBFE]", label: "REVIEW" },
-  guide:    { bg: "bg-[#F5F3FF]", text: "text-[#6D28D9]", border: "border-[#DDD6FE]", label: "GUIDE" },
+const VERDICT_TEXT_COLOR: Record<DraftedRule["verdict"], string> = {
+  block: "text-[#B91C1C]",
+  escalate: "text-[#F59E0B]",
+  review: "text-[#4F46E5]",
+  guide: "text-[#475569]",
 };
 
-const VERDICT_STRIPE: Record<DraftedRule["verdict"], string> = {
-  block:    "bg-[#B91C1C]",
-  escalate: "bg-[#C2410C]",
-  review:   "bg-[#1D4ED8]",
-  guide:    "bg-[#6D28D9]",
+const VERDICT_LABEL: Record<DraftedRule["verdict"], string> = {
+  block: "BLOCK",
+  escalate: "ESCALATE",
+  review: "REVIEW",
+  guide: "GUIDE",
 };
 
-const ROLES = ["CEO", "VP Comms", "VP Sales", "CMO", "General Counsel"];
-const SPEAKERS = ["Marcus Rivera", "Lena Brooks", "James Kim", "Priya Patel", "Sarah Chen"];
+const APPLIES_OPTIONS: ReadonlyArray<{ key: AppliesTo; label: string }> = [
+  { key: "all", label: "Everyone on my team" },
+  { key: "role", label: "A specific role" },
+  { key: "person", label: "One person" },
+];
 
-// Reverse of getScopeValue() — turns a stored scope string back into the
-// describe-state UI selection so an existing rule can be edited in place.
-function parseScope(scope: string | null): {
-  scopeType: ScopeType;
-  scopeRole: string;
-  scopePerson: string;
-} {
-  if (!scope || scope === "all_speakers") {
-    return { scopeType: "all", scopeRole: "", scopePerson: "" };
-  }
-  if (scope.startsWith("role:")) {
-    const slug = scope.slice("role:".length);
-    const match = ROLES.find((r) => r.toLowerCase().replace(/\s+/g, "_") === slug);
-    return { scopeType: "role", scopeRole: match ?? "", scopePerson: "" };
-  }
-  if (scope.startsWith("speaker:")) {
-    const slug = scope.slice("speaker:".length);
-    const match = SPEAKERS.find((s) => s.toLowerCase().replace(/\s+/g, "_") === slug);
-    return { scopeType: "person", scopeRole: "", scopePerson: match ?? "" };
-  }
-  return { scopeType: "all", scopeRole: "", scopePerson: "" };
-}
+const PLACEHOLDER = `"No executive should mention pricing, discounts, or competitive comparisons on LinkedIn or X without prior review from legal — especially during our active fundraising period."`;
 
-const PLACEHOLDER_ALL = `Describe what you want to govern in plain English.
-
-Examples:
-· No one should mention our Series B timeline before we announce
-· Block any forward guidance language before earnings
-· Escalate competitor comparisons to reviewer`;
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-export function AddRulePanel({ isOpen, onClose, initialRule }: Props) {
+export function AddRulePanel({ isOpen, onClose }: Props) {
   const router = useRouter();
-  const [state, setState] = useState<PanelState>("describe");
-  const [description, setDescription] = useState("");
-  const [drafted, setDrafted] = useState<DraftedRule | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [plainText, setPlainText] = useState("");
+  const [appliesTo, setAppliesTo] = useState<AppliesTo>("all");
+  const [activeUntil, setActiveUntil] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftedRule, setDraftedRule] = useState<DraftedRule | null>(null);
+  const [authorizing, setAuthorizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Editable review-state fields (populated from `drafted`)
-  const [name, setName] = useState("");
-  const [verdict, setVerdict] = useState<DraftedRule["verdict"]>("review");
-  const [reviewDescription, setReviewDescription] = useState("");
-  const [keywords, setKeywords] = useState<string[]>([]);
-  const [keywordInput, setKeywordInput] = useState("");
-  const [activeFrom, setActiveFrom] = useState<string>(todayISO());
-  const [activeUntil, setActiveUntil] = useState<string>("");
-  const [wspReference, setWspReference] = useState<string>("");
+  if (!isOpen) return null;
 
-  // Scope state — driven from describe state, surfaces in review state.
-  const [scopeType, setScopeType] = useState<ScopeType>("all");
-  const [scopeRole, setScopeRole] = useState<string>("");
-  const [scopePerson, setScopePerson] = useState<string>("");
-  // Quick Add — single-input shortcut at the top of the panel that
-  // calls draftRuleAction with a one-line description and pre-fills
-  // every form field below. Saves the principal from filling out the
-  // long-form scope/describe/end-date sections when their intent
-  // already fits a sentence.
-  const [quickAddText, setQuickAddText] = useState<string>("");
-  const [quickAddDrafting, setQuickAddDrafting] = useState<boolean>(false);
-  // Tracked for parity with spec; only the setter is read so eslint stays
-  // happy without an explicit suppression.
-  const [, setShowConfirmation] = useState(false);
+  function reset() {
+    setPlainText("");
+    setAppliesTo("all");
+    setActiveUntil("");
+    setDraftReady(false);
+    setDraftedRule(null);
+    setError(null);
+  }
 
-  function getScopeLabel(): string {
-    if (scopeType === "role" && scopeRole) return `${scopeRole} role`;
-    if (scopeType === "person" && scopePerson) return scopePerson;
-    return "All speakers";
+  async function handleDraftRule() {
+    if (!plainText.trim()) return;
+    setDrafting(true);
+    setError(null);
+    try {
+      const result = await draftRuleAction(plainText);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      // If the model returned a suggested end date and the user hasn't
+      // typed one, copy it across so the right-side preview is live.
+      if (!activeUntil && result.drafted.suggested_end_date) {
+        setActiveUntil(result.drafted.suggested_end_date);
+      }
+      setDraftedRule(result.drafted);
+      setDraftReady(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Drafting failed.");
+    } finally {
+      setDrafting(false);
+    }
   }
 
   function getScopeValue(): string {
-    if (scopeType === "role" && scopeRole)
-      return `role:${scopeRole.toLowerCase().replace(/\s+/g, "_")}`;
-    if (scopeType === "person" && scopePerson)
-      return `speaker:${scopePerson.toLowerCase().replace(/\s+/g, "_")}`;
-    return "all_speakers";
-  }
-
-  // Reset all state when the panel closes; pre-fill from `initialRule` when
-  // opening in edit mode.
-  useEffect(() => {
-    if (!isOpen) {
-      setState("describe");
-      setDescription("");
-      setDrafted(null);
-      setError(null);
-      setLoading(false);
-      setScopeType("all");
-      setScopeRole("");
-      setScopePerson("");
-      setActiveUntil("");
-      setWspReference("");
-      setShowConfirmation(false);
-      return;
-    }
-    if (initialRule) {
-      const vRaw = initialRule.verdict;
-      const v: DraftedRule["verdict"] =
-        vRaw === "block" || vRaw === "escalate" || vRaw === "review" || vRaw === "guide"
-          ? vRaw
-          : "review";
-      const desc = initialRule.description ?? initialRule.name;
-      const kws = initialRule.keywords ?? [];
-      const fromISO = initialRule.effective_from
-        ? new Date(initialRule.effective_from).toISOString().slice(0, 10)
-        : todayISO();
-      const untilISO = initialRule.effective_until
-        ? new Date(initialRule.effective_until).toISOString().slice(0, 10)
-        : "";
-      const synthDrafted: DraftedRule = {
-        name: initialRule.name,
-        description: desc,
-        verdict: v,
-        keywords: kws,
-        scope: initialRule.scope ?? "all_speakers",
-        suggested_end_date: untilISO || null,
-        regulatory_basis: "FINRA Rule 2210(d) content standard",
-      };
-      const sp = parseScope(initialRule.scope);
-      setDescription(desc);
-      setDrafted(synthDrafted);
-      setName(initialRule.name);
-      setVerdict(v);
-      setReviewDescription(desc);
-      setKeywords(kws);
-      setActiveFrom(fromISO);
-      setActiveUntil(untilISO);
-      setWspReference(initialRule.wsp_reference ?? "");
-      setScopeType(sp.scopeType);
-      setScopeRole(sp.scopeRole);
-      setScopePerson(sp.scopePerson);
-      setState("review");
-      setError(null);
-      setLoading(false);
-    }
-  }, [isOpen, initialRule]);
-
-  function applyDrafted(d: DraftedRule) {
-    setDrafted(d);
-    setName(d.name);
-    setVerdict(d.verdict);
-    setReviewDescription(d.description);
-    setKeywords(Array.isArray(d.keywords) ? d.keywords : []);
-    setActiveFrom(todayISO());
-    // Preserve user-entered activeUntil over the suggested date.
-    setActiveUntil((prev) => prev || d.suggested_end_date || "");
-    setState("review");
-  }
-
-  async function handleDraft() {
-    // Validate scope first so the user sees the error before the LLM call.
-    if (scopeType === "role" && !scopeRole) {
-      setError("Please select a role first.");
-      return;
-    }
-    if (scopeType === "person" && !scopePerson) {
-      setError("Please select a person first.");
-      return;
-    }
-    if (!description.trim()) {
-      setError("Please describe the rule first.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await draftRuleAction(description, {
-        type: scopeType,
-        label: getScopeLabel(),
-      });
-      if (!result.ok) {
-        setError(result.error);
-        setLoading(false);
-        return;
-      }
-      // If the user pre-set an end date in describe state, override the
-      // suggested one before flipping to review state.
-      const parsed: DraftedRule = activeUntil
-        ? { ...result.drafted, suggested_end_date: activeUntil }
-        : result.drafted;
-      applyDrafted(parsed);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not draft rule.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Quick Add — runs the same draftRuleAction the long-form path uses
-  // and applies the result to the existing review-state setters
-  // directly, skipping the describe screen. Stays on the describe
-  // screen on error so the user can adjust the input.
-  async function handleQuickAdd() {
-    const text = quickAddText.trim();
-    if (!text || quickAddDrafting) return;
-    setQuickAddDrafting(true);
-    setError(null);
-    try {
-      const result = await draftRuleAction(text, {
-        type: scopeType,
-        label: getScopeLabel(),
-      });
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      // applyDrafted populates name / verdict / description /
-      // keywords + flips state to "review" so the user lands on the
-      // pre-filled review screen with everything ready to authorize.
-      const drafted: DraftedRule = activeUntil
-        ? { ...result.drafted, suggested_end_date: activeUntil }
-        : result.drafted;
-      applyDrafted(drafted);
-      // Carry the quick-add text into the description field so the
-      // user has the original intent visible while reviewing.
-      setDescription(text);
-      setQuickAddText("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not draft rule.");
-    } finally {
-      setQuickAddDrafting(false);
-    }
+    if (appliesTo === "all") return "all_speakers";
+    return appliesTo;
   }
 
   async function handleAuthorize() {
-    if (!drafted) return;
-    setLoading(true);
+    if (!draftedRule) return;
+    setAuthorizing(true);
     setError(null);
     try {
-      const effectiveFromISO = activeFrom
-        ? new Date(activeFrom).toISOString()
-        : new Date().toISOString();
-      const effectiveUntilISO = activeUntil
-        ? new Date(activeUntil).toISOString()
-        : null;
-
-      const trimmedWsp = wspReference.trim();
-      if (initialRule) {
-        const result = await updateRuleAction({
-          ruleId: initialRule.id,
-          name,
-          description: reviewDescription,
-          verdict,
-          keywords,
-          scope: getScopeValue(),
-          effective_from: effectiveFromISO,
-          effective_until: effectiveUntilISO,
-          wsp_reference: trimmedWsp,
-        });
-        if ("error" in result) {
-          setError(result.error);
-          setLoading(false);
-          return;
-        }
-      } else {
-        const result = await createRuleAction({
-          name,
-          description: reviewDescription,
-          verdict,
-          keywords,
-          scope: getScopeValue(),
-          effective_from: effectiveFromISO,
-          effective_until: effectiveUntilISO,
-          regulatory_basis: drafted.regulatory_basis,
-          authorized_by: "Sarah Chen, GC",
-          ...(trimmedWsp ? { wsp_reference: trimmedWsp } : {}),
-        });
-        if (!result.ok) {
-          setError(result.error);
-          setLoading(false);
-          return;
-        }
+      const result = await createRuleAction({
+        name: draftedRule.name,
+        description: draftedRule.description,
+        verdict: draftedRule.verdict,
+        keywords: draftedRule.keywords,
+        scope: getScopeValue(),
+        effective_from: new Date().toISOString(),
+        effective_until: activeUntil
+          ? new Date(activeUntil).toISOString()
+          : null,
+        regulatory_basis: draftedRule.regulatory_basis,
+        authorized_by: "Principal",
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
-
-      setState("confirmed");
-      setShowConfirmation(true);
-      setTimeout(() => {
-        onClose();
-        router.refresh();
-      }, 2500);
+      reset();
+      onClose();
+      router.refresh();
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : initialRule
-            ? "Could not save changes."
-            : "Could not authorize rule.",
-      );
-      setLoading(false);
+      setError(e instanceof Error ? e.message : "Authorization failed.");
+    } finally {
+      setAuthorizing(false);
     }
   }
-
-  function addKeyword() {
-    const k = keywordInput.trim().replace(/,$/, "");
-    if (!k || keywords.includes(k)) {
-      setKeywordInput("");
-      return;
-    }
-    setKeywords([...keywords, k]);
-    setKeywordInput("");
-  }
-  function removeKeyword(k: string) {
-    setKeywords(keywords.filter((x) => x !== k));
-  }
-
-  // Scope-aware textarea placeholder.
-  const placeholder =
-    scopeType === "all"
-      ? PLACEHOLDER_ALL
-      : `Describe what this ${
-          scopeType === "role" ? scopeRole || "role" : scopePerson || "person"
-        } should or shouldn't say.
-
-Examples:
-· This ${scopeType === "role" ? "role" : "person"} needs legal review before claiming enterprise customer wins
-· Block this ${scopeType === "role" ? "role" : "person"} from discussing acquisition talks without legal sign-off`;
 
   return (
-    <div
-      className={`fixed inset-0 z-50 ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}
-      aria-hidden={!isOpen}
-    >
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        className={`absolute inset-0 bg-black/20 transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0"
-        }`}
-      />
-      {/* Slide-in panel */}
-      <div
-        className={`absolute right-0 top-0 h-full w-full max-w-[520px] bg-white shadow-xl flex flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        {/* Header — hidden on confirmation screen */}
-        {state !== "confirmed" && (
-          <div className="px-6 py-5 border-b border-[#E2E8F0] flex justify-between items-center">
-            <div>
-              <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-                {initialRule ? "EDIT GOVERNANCE RULE" : "ADD GOVERNANCE RULE"}
-              </div>
-              <div
-                style={{ fontFamily: "var(--font-newsreader)" }}
-                className="font-light text-xl text-[#0F172A] mt-1"
-              >
-                {state === "describe" ? "Describe what you want to govern" : "Review and authorize"}
-              </div>
+    <div className="border border-[#E2E8F0] rounded-lg overflow-hidden mb-6 bg-white">
+      {/* Panel header */}
+      <div className="bg-[#F8FAFC] border-b border-[#E2E8F0] px-6 py-4 flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-xl font-light text-[#0D1B2A] mb-1"
+          >
+            Rule Builder — Describe what you want governed
+          </h2>
+          <p className="text-sm text-[#475569]">
+            Plain language in. Structured, FINRA-cited, enforceable rule
+            out. Principal authorizes before it fires.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            reset();
+            onClose();
+          }}
+          aria-label="Close"
+          className="font-mono text-xs text-[#94A3B8] hover:text-[#0D1B2A] transition-colors cursor-pointer"
+        >
+          × Close
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+        {/* LEFT — plain language input */}
+        <div className="p-6 border-b md:border-b-0 md:border-r border-[#E2E8F0]">
+          <label className="text-sm font-medium text-[#0D1B2A] block mb-3">
+            Describe the rule
+          </label>
+
+          <textarea
+            value={plainText}
+            onChange={(e) => {
+              setPlainText(e.target.value);
+              setDraftReady(false);
+            }}
+            placeholder={PLACEHOLDER}
+            className="w-full min-h-[140px] border border-[#E2E8F0] rounded-sm p-4 text-sm text-[#0D1B2A] italic bg-[#F8FAFC] leading-relaxed focus:outline-none focus:ring-1 focus:ring-[#4F46E5] resize-none placeholder:text-[#94A3B8] placeholder:not-italic mb-4"
+          />
+
+          {/* Applies to */}
+          <div className="mb-4">
+            <div className="text-sm font-medium text-[#0D1B2A] mb-3">
+              Who does this apply to?
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="text-[#64748B] hover:text-[#0F172A] text-xl cursor-pointer leading-none"
-            >
-              ×
-            </button>
+            {APPLIES_OPTIONS.map((opt) => {
+              const selected = appliesTo === opt.key;
+              return (
+                <label
+                  key={opt.key}
+                  className="flex items-center gap-3 mb-2 cursor-pointer"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setAppliesTo(opt.key)}
+                    aria-pressed={selected}
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0 ${
+                      selected
+                        ? "border-[#4F46E5] bg-[#4F46E5]"
+                        : "border-[#CBD5E1] bg-white"
+                    }`}
+                  >
+                    {selected && (
+                      <span
+                        className="w-2 h-2 rounded-full bg-white"
+                        aria-hidden
+                      />
+                    )}
+                  </button>
+                  <span className="text-sm text-[#1E293B]">{opt.label}</span>
+                </label>
+              );
+            })}
           </div>
-        )}
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
-          {state === "describe" && (
-            <>
-              {/* Quick Add — one-line shortcut. The principal types the
-                  intent in plain English, ERA CUE drafts the rule, and
-                  the panel jumps straight to the review screen with
-                  every field pre-filled. The long form below remains
-                  available for hand-authored rules. */}
-              <div className="mb-6 pb-6 border-b border-[#E2E8F0]">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
-                  Quick add
-                </div>
-                <div className="text-sm text-[#374151] mb-3 leading-relaxed">
-                  Describe what you want to govern in plain English. ERA CUE will draft the full rule for you to review.
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={quickAddText}
-                    onChange={(e) => setQuickAddText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (
-                        e.key === "Enter" &&
-                        !quickAddDrafting &&
-                        quickAddText.trim()
-                      ) {
-                        e.preventDefault();
-                        void handleQuickAdd();
-                      }
-                    }}
-                    placeholder="e.g. Block hiring mentions during quiet period"
-                    className="flex-1 border border-[#E2E8F0] rounded-sm px-3 py-2.5 text-sm text-[#0F172A] bg-[#F8F9FB] focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleQuickAdd}
-                    disabled={!quickAddText.trim() || quickAddDrafting}
-                    className="bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-2.5 rounded-sm hover:bg-[#1447C0] disabled:opacity-50 whitespace-nowrap transition-colors flex items-center gap-2"
-                  >
-                    {quickAddDrafting ? (
-                      <>
-                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden>
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                          />
-                        </svg>
-                        Drafting...
-                      </>
-                    ) : (
-                      "Draft rule →"
-                    )}
-                  </button>
-                </div>
-                <div className="font-mono text-[10px] text-[#94A3B8] mt-2">
-                  Press Enter or click Draft rule → ERA CUE fills in the details. You review before anything goes live.
-                </div>
-              </div>
+          {/* Active until */}
+          <div className="mb-6">
+            <label className="text-sm font-medium text-[#0D1B2A] block mb-2">
+              Active until
+              <span className="font-normal text-[#64748B] ml-1">
+                (optional)
+              </span>
+            </label>
+            <input
+              type="date"
+              value={activeUntil}
+              onChange={(e) => setActiveUntil(e.target.value)}
+              className="border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] font-mono bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+            />
+          </div>
 
-              {/* Section A — scope */}
-              <div className="mb-6">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
-                  Who does this apply to?
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    { value: "all" as const,    label: "Everyone on my team" },
-                    { value: "role" as const,   label: "A specific role" },
-                    { value: "person" as const, label: "One person" },
-                  ]).map((opt) => {
-                    const selected = scopeType === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => {
-                          setScopeType(opt.value);
-                          if (opt.value === "all") {
-                            setScopeRole("");
-                            setScopePerson("");
-                          }
-                        }}
-                        className={`text-xs font-medium px-4 py-2 rounded-sm border transition-colors cursor-pointer ${
-                          selected
-                            ? "bg-[#EFF8FF] border-[#BAE6FD] text-[#1447C0]"
-                            : "bg-[#F8F9FB] border-[#E2E8F0] text-[#64748B] hover:bg-[#F1F5F9]"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {scopeType === "role" && (
-                  <>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {ROLES.map((role) => (
-                        <button
-                          key={role}
-                          type="button"
-                          onClick={() => setScopeRole(role)}
-                          className={`text-xs px-3 py-1.5 rounded-sm border transition-colors cursor-pointer font-mono ${
-                            scopeRole === role
-                              ? "bg-[#1A56DB] text-white border-[#1A56DB]"
-                              : "bg-white border-[#E2E8F0] text-[#0F172A] hover:bg-[#F8F9FB]"
-                          }`}
-                        >
-                          {role}
-                        </button>
-                      ))}
-                    </div>
-                    {!scopeRole && (
-                      <div className="font-mono text-[10px] text-[#64748B] mt-2">Select a role above</div>
-                    )}
-                  </>
-                )}
-
-                {scopeType === "person" && (
-                  <>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {SPEAKERS.map((speaker) => (
-                        <button
-                          key={speaker}
-                          type="button"
-                          onClick={() => setScopePerson(speaker)}
-                          className={`text-xs px-3 py-1.5 rounded-sm border transition-colors cursor-pointer font-mono ${
-                            scopePerson === speaker
-                              ? "bg-[#1A56DB] text-white border-[#1A56DB]"
-                              : "bg-white border-[#E2E8F0] text-[#0F172A] hover:bg-[#F8F9FB]"
-                          }`}
-                        >
-                          {speaker}
-                        </button>
-                      ))}
-                    </div>
-                    {!scopePerson && (
-                      <div className="font-mono text-[10px] text-[#64748B] mt-2">Select a person above</div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Section B — describe */}
-              <div className="mb-4">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
-                  Describe the rule
-                </div>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder={placeholder}
-                  className="w-full min-h-[120px] border border-[#E2E8F0] rounded-sm p-4 text-sm text-[#0F172A] bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
-                />
-              </div>
-
-              {/* Section C — active until (optional) */}
-              <div className="mb-5">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
-                  Active until
-                  <span className="ml-2 normal-case not-italic text-[#94A3B8]">(optional)</span>
-                </div>
-                <input
-                  type="date"
-                  value={activeUntil}
-                  onChange={(e) => setActiveUntil(e.target.value)}
-                  className="border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB] font-mono"
-                />
-                <span className="font-mono text-[10px] text-[#94A3B8] ml-3">
-                  Leave blank for no end date
-                </span>
-              </div>
-
-              {/* Section D — helper copy */}
-              <p className="text-xs font-mono text-[#64748B] mt-2 leading-relaxed">
-                ERA CUE will draft the rule structure for your review. You can edit anything before authorizing.
-              </p>
-
-              {/* Section E — draft button */}
-              <button
-                type="button"
-                onClick={handleDraft}
-                disabled={loading}
-                className="bg-[#1A56DB] text-white text-sm font-medium w-full py-3 rounded-sm mt-6 hover:bg-[#1447C0] disabled:opacity-50 transition"
-              >
-                {loading ? "Drafting rule..." : "Draft this rule →"}
-              </button>
-              {error && (
-                <div className="text-xs text-[#B91C1C] mt-2 font-mono">{error}</div>
-              )}
-            </>
-          )}
-
-          {state === "review" && (
-            <>
-              <button
-                type="button"
-                onClick={() => setState("describe")}
-                className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] cursor-pointer mb-6 block"
-              >
-                ← Describe again
-              </button>
-              <div className="bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm px-4 py-3 text-xs font-mono text-[#1447C0] mb-6 leading-relaxed">
-                ERA CUE drafted this rule — review and edit before authorizing.
-              </div>
-
-              {/* Rule name */}
-              <div className="mb-4">
-                <label className="font-mono text-xs uppercase tracking-widest text-[#64748B] block mb-2">
-                  RULE NAME
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
-                />
-              </div>
-
-              {/* Verdict */}
-              <div className="mb-4">
-                <label className="font-mono text-xs uppercase tracking-widest text-[#64748B] block mb-2">
-                  VERDICT
-                </label>
-                <div className="flex gap-2 mt-2">
-                  {(Object.keys(VERDICT_STYLES) as DraftedRule["verdict"][]).map((v) => {
-                    const s = VERDICT_STYLES[v];
-                    const selected = verdict === v;
-                    return (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => setVerdict(v)}
-                        className={`text-xs font-mono px-3 py-1.5 rounded-sm cursor-pointer border ${
-                          selected
-                            ? `${s.bg} ${s.text} ${s.border}`
-                            : "bg-[#F8F9FB] border-[#E2E8F0] text-[#64748B]"
-                        }`}
-                      >
-                        {s.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="mb-4">
-                <label className="font-mono text-xs uppercase tracking-widest text-[#64748B] block mb-2">
-                  DESCRIPTION
-                </label>
-                <input
-                  type="text"
-                  value={reviewDescription}
-                  onChange={(e) => setReviewDescription(e.target.value)}
-                  className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
-                />
-              </div>
-
-              {/* Keywords */}
-              <div className="mb-4">
-                <label className="font-mono text-xs uppercase tracking-widest text-[#64748B] block mb-2">
-                  KEYWORDS
-                </label>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {keywords.map((k) => (
-                    <span
-                      key={k}
-                      className="bg-[#F1F5F9] text-[#64748B] font-mono text-xs px-2 py-1 rounded-sm border border-[#E2E8F0] flex items-center gap-1"
-                    >
-                      {k}
-                      <button
-                        type="button"
-                        onClick={() => removeKeyword(k)}
-                        className="text-[#94A3B8] hover:text-[#B91C1C] text-xs cursor-pointer"
-                        aria-label={`Remove ${k}`}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  value={keywordInput}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v.endsWith(",")) {
-                      setKeywordInput(v.slice(0, -1));
-                      addKeyword();
-                    } else {
-                      setKeywordInput(v);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addKeyword();
-                    }
-                  }}
-                  placeholder="Type a keyword and press Enter or comma"
-                  className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
-                />
-              </div>
-
-              {/* Applies to — read-only with "Change" link */}
-              <div className="mb-4">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
-                  Applies to
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="bg-[#EFF8FF] border border-[#BAE6FD] text-[#1447C0] font-mono text-xs px-3 py-1.5 rounded-sm">
-                    {getScopeLabel()}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setState("describe")}
-                    className="font-mono text-[10px] text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
-                  >
-                    Change
-                  </button>
-                </div>
-                {scopeType !== "all" && (
-                  <p className="font-mono text-[10px] text-[#C2410C] mt-2 leading-relaxed">
-                    Demo note: Scope is recorded on the rule. Org-wide enforcement applies in this demo — speaker-specific enforcement available in production.
-                  </p>
-                )}
-              </div>
-
-              {/* Active period */}
-              <div className="mb-4">
-                <label className="font-mono text-xs uppercase tracking-widest text-[#64748B] block mb-2">
-                  ACTIVE PERIOD
-                </label>
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label className="font-mono text-[10px] text-[#64748B] block mb-1">From</label>
-                    <input
-                      type="date"
-                      value={activeFrom}
-                      onChange={(e) => setActiveFrom(e.target.value)}
-                      className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="font-mono text-[10px] text-[#64748B] block mb-1">Until</label>
-                    <input
-                      type="date"
-                      value={drafted?.suggested_end_date || activeUntil || ""}
-                      onChange={(e) => setActiveUntil(e.target.value)}
-                      className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Regulatory basis (read-only) */}
-              {drafted && (
-                <div className="mb-4">
-                  <label className="font-mono text-xs uppercase tracking-widest text-[#64748B] block mb-2">
-                    REGULATORY BASIS
-                  </label>
-                  <div className="text-sm text-[#0F172A]">{drafted.regulatory_basis}</div>
-                  <div className="font-mono text-xs text-[#64748B] mt-1">
-                    Set by ERA CUE based on rule type
-                  </div>
-                </div>
-              )}
-
-              {/* WSP reference — links rule to firm's Written Supervisory
-                  Procedures section for FINRA examination purposes. */}
-              <div className="mb-4">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
-                  WSP REFERENCE
-                </div>
-                <div className="font-mono text-[10px] text-[#94A3B8] mb-2">
-                  Optional · Written Supervisory Procedures section
-                </div>
-                <input
-                  type="text"
-                  value={wspReference}
-                  onChange={(e) => setWspReference(e.target.value)}
-                  placeholder="e.g. Section 4.2 — Social Media Communications"
-                  className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB]"
-                />
-                <div className="font-mono text-[10px] text-[#94A3B8] mt-1">
-                  Links this rule to your firm&apos;s Written Supervisory Procedures for FINRA examination purposes.
-                </div>
-              </div>
-
-              {/* Preview */}
-              <div className="border border-[#E2E8F0] rounded-sm p-4 bg-[#F8F9FB] mt-4">
-                <div className="font-mono text-xs uppercase tracking-widest text-[#64748B] mb-2">
-                  PREVIEW
-                </div>
-                <div className="bg-white border border-[#E2E8F0] rounded-sm flex overflow-hidden">
-                  <div className={`w-1 shrink-0 ${VERDICT_STRIPE[verdict]}`} />
-                  <div className="p-3 flex-1">
-                    <div className="text-sm font-medium text-[#0F172A]">{name || "Rule name"}</div>
-                    <div className="text-xs text-[#64748B] mt-1">{reviewDescription || "Description"}</div>
-                    <div className="flex gap-1.5 mt-2">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-sm border font-mono text-[10px] ${VERDICT_STYLES[verdict].bg} ${VERDICT_STYLES[verdict].text} ${VERDICT_STYLES[verdict].border}`}>
-                        {VERDICT_STYLES[verdict].label}
-                      </span>
-                      <span className="bg-[#EFF8FF] text-[#1447C0] border border-[#BAE6FD] font-mono text-[10px] px-2 py-0.5 rounded-sm">
-                        {getScopeLabel()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {error && (
-                <div className="text-xs text-[#B91C1C] mt-3 font-mono">{error}</div>
-              )}
-            </>
-          )}
-
-          {state === "confirmed" && (
-            <div className="flex flex-col items-center justify-center h-full px-6 text-center">
-              {/* Green checkmark */}
-              <div className="w-12 h-12 rounded-full bg-[#F0FDF4] border-2 border-[#BBF7D0] flex items-center justify-center mb-6">
+          {/* Draft button */}
+          <button
+            type="button"
+            onClick={handleDraftRule}
+            disabled={!plainText.trim() || drafting}
+            className="w-full bg-[#4F46E5] text-white font-mono text-sm font-medium py-3 rounded-sm hover:bg-[#4338CA] disabled:opacity-40 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {drafting ? (
+              <>
                 <svg
-                  width="24"
-                  height="24"
+                  className="animate-spin h-3 w-3"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#166534"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
                   aria-hidden
                 >
-                  <polyline points="20 6 9 17 4 12" />
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
                 </svg>
-              </div>
+                Drafting...
+              </>
+            ) : (
+              "Draft this rule →"
+            )}
+          </button>
 
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-3">
-                Rule authorized and active
-              </div>
-
-              <div
-                style={{ fontFamily: "var(--font-newsreader)" }}
-                className="text-xl font-light text-[#0F172A] mb-2"
-              >
-                &ldquo;{drafted?.name}&rdquo;
-              </div>
-
-              <div className="text-sm text-[#64748B] mb-6 max-w-xs">
-                Now governing {getScopeLabel()}. Authorized by Sarah Chen, GC.
-              </div>
-
-              <div className="font-mono text-[10px] text-[#94A3B8]">
-                {new Date().toLocaleString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
-              </div>
-
-              <div className="font-mono text-[10px] text-[#94A3B8] mt-6">
-                Closing in a moment&hellip;
-              </div>
+          {error && (
+            <div
+              className="font-mono text-xs text-[#B91C1C] bg-[#FEF2F2] border border-[#FECACA] rounded-sm px-3 py-2 mt-3"
+              role="alert"
+            >
+              {error}
             </div>
           )}
         </div>
 
-        {/* Footer — only on review state */}
-        {state === "review" && (
-          <div className="border-t border-[#E2E8F0] px-6 py-4 bg-white flex justify-between items-center">
-            <div>
-              <div className="font-mono text-xs text-[#64748B]">
-                Authorizing as: Sarah Chen · GC · Designated Principal
-              </div>
-              <div className="font-mono text-[10px] text-[#64748B] mt-1">
-                Scope: {getScopeLabel()}
-              </div>
+        {/* RIGHT — ERA CUE structured output */}
+        <div
+          className={`p-6 transition-opacity ${
+            draftReady ? "opacity-100" : "opacity-40"
+          }`}
+        >
+          {!draftReady || !draftedRule ? (
+            <div className="flex items-center justify-center h-full text-sm text-[#94A3B8] font-mono text-center leading-relaxed">
+              ERA CUE will draft the rule structure for your review. You
+              can edit anything before authorizing.
             </div>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="bg-white border border-[#E2E8F0] text-[#0F172A] text-sm px-4 py-2 rounded-sm hover:bg-[#F8F9FB] transition"
-              >
-                Cancel
-              </button>
+          ) : (
+            <>
+              <div className="text-sm font-semibold text-[#4F46E5] mb-1">
+                ERA CUE drafted this rule
+              </div>
+              <div className="text-xs text-[#64748B] mb-5">
+                Review and authorize before it fires
+              </div>
+
+              {(
+                [
+                  { label: "Rule name", value: draftedRule.name },
+                  {
+                    label: "Type",
+                    value: VERDICT_LABEL[draftedRule.verdict],
+                    color: VERDICT_TEXT_COLOR[draftedRule.verdict],
+                    bold: true,
+                  },
+                  {
+                    label: "Applies to",
+                    value:
+                      appliesTo === "all"
+                        ? "All speakers"
+                        : appliesTo === "role"
+                          ? "Specific role"
+                          : "One person",
+                  },
+                  {
+                    label: "Channels",
+                    value: "LinkedIn · Twitter / X",
+                  },
+                  {
+                    label: "Keywords",
+                    value: draftedRule.keywords.join(" · "),
+                  },
+                  {
+                    label: "Active until",
+                    value: activeUntil
+                      ? new Date(activeUntil).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : "No end date",
+                  },
+                  {
+                    label: "FINRA basis",
+                    value: draftedRule.regulatory_basis,
+                  },
+                ] as const
+              ).map((field) => (
+                <div
+                  key={field.label}
+                  className="flex items-start py-2.5 border-b border-[#E2E8F0] last:border-0"
+                >
+                  <span className="text-xs text-[#64748B] w-28 shrink-0">
+                    {field.label}
+                  </span>
+                  <span
+                    className={`text-xs flex-1 ${
+                      "color" in field && field.color
+                        ? `font-bold ${field.color}`
+                        : "font-medium text-[#0D1B2A]"
+                    }`}
+                  >
+                    {field.value}
+                  </span>
+                </div>
+              ))}
+
               <button
                 type="button"
                 onClick={handleAuthorize}
-                disabled={loading}
-                className="bg-[#1A56DB] text-white text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#1447C0] disabled:opacity-50 transition"
+                disabled={authorizing}
+                className="w-full bg-[#4F46E5] text-white font-mono text-sm font-medium py-3 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors mt-5 flex items-center justify-center gap-2 cursor-pointer"
               >
-                {loading
-                  ? initialRule
-                    ? "Saving..."
-                    : "Authorizing..."
-                  : initialRule
-                    ? "Save changes →"
-                    : "Authorize this rule →"}
+                {authorizing ? "Authorizing..." : "Authorize this rule →"}
               </button>
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
