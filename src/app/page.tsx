@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SiteHeader } from "@/app/site-header";
+import BuiltDifferent from "./_components/BuiltDifferent";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -889,65 +890,11 @@ export default function Home() {
 
       {/* ============================================================
           SECTION 9 — BUILT DIFFERENT (off-white)
-          Three icon cards on a #F8FAFC background. Each card body
-          capped at two sentences.
+          Interactive three-tab proof component. Lives in
+          ./_components/BuiltDifferent.tsx because it owns local
+          tab state (the rest of page.tsx is a server component).
          ============================================================ */}
-      <section className="bg-[#F8FAFC] py-16 md:py-20 px-6 md:px-12 border-t border-[#E2E8F0]">
-        <div className="max-w-[1100px] mx-auto">
-          <div className="mb-10">
-            <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#64748B] mb-3">
-              Built different
-            </div>
-            <h2
-              className="text-3xl md:text-4xl font-light text-[#0D1B2A] leading-tight"
-              style={{ fontFamily: "var(--font-newsreader)" }}
-            >
-              Every claim is provable.
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              {
-                icon: "◎",
-                title: "Principal-approved corpus",
-                body: "Every approved communication enters a governance corpus. Every new draft is checked against it — catching contradictions before they reach the public.",
-                tag: "Builds automatically · Principal-approved only",
-              },
-              {
-                icon: "⬡",
-                title: "SHA-256 locked audit trail",
-                body: "Every decision is cryptographically hashed at the moment it is created. The database refuses UPDATE and DELETE. The record cannot be altered by anyone.",
-                tag: "Append-only · Database-enforced · Not a policy",
-              },
-              {
-                icon: "◈",
-                title: "Behavioral calibration",
-                body: "Every reviewer decision teaches ERA CUE what this organization tolerates. Rules generating false positives get flagged for refinement automatically.",
-                tag: "Organization-specific · Gets smarter over time",
-              },
-            ].map((card) => (
-              <div
-                key={card.title}
-                className="bg-white border border-[#E2E8F0] border-t-[3px] border-t-[#4F46E5] rounded-lg p-6"
-              >
-                <div className="text-lg text-[#4F46E5] mb-3" aria-hidden>
-                  {card.icon}
-                </div>
-                <div className="text-sm font-medium text-[#0D1B2A] mb-2">
-                  {card.title}
-                </div>
-                <p className="text-sm text-[#1E293B] leading-relaxed mb-3">
-                  {card.body}
-                </p>
-                <div className="font-mono text-[9px] text-[#64748B]">
-                  {card.tag}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <BuiltDifferent />
 
       {/* ============================================================
           SECTION 10 — BOTTOM CTA (gradient dark → indigo)
