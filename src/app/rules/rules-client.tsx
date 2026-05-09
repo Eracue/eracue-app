@@ -83,15 +83,6 @@ export function policyPlaceholderFor(
   return POLICY_PLACEHOLDER[firmType] ?? POLICY_PLACEHOLDER.default;
 }
 
-// Demo rules surfaced in the rules list. Curated to one rule per
-// verdict type so a visitor sees the full spread without scrolling.
-const DEMO_RULE_NAMES: ReadonlyArray<string> = [
-  "Series B Quiet Period",
-  "Earnings Quiet Period — Q2 2026",
-  "Competitor Mentions",
-  "Pricing Claims",
-];
-
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-US", {
@@ -693,18 +684,12 @@ export function RulesClient({
     };
   }, [classified, mergedRules.length]);
 
-  // Demo curated list — sorted to spec order.
+  // Demo list — every rule from the DB except DEACTIVATED/DRAFT, in
+  // the query's natural (oldest-first) order so newly-created rules
+  // surface at the bottom of the table.
   const demoRules = useMemo(() => {
     return classified
-      .filter(({ rule, status }) => {
-        if (!DEMO_RULE_NAMES.includes(rule.name)) return false;
-        return status !== "DEACTIVATED" && status !== "DRAFT";
-      })
-      .sort(
-        (a, b) =>
-          DEMO_RULE_NAMES.indexOf(a.rule.name) -
-          DEMO_RULE_NAMES.indexOf(b.rule.name),
-      )
+      .filter(({ status }) => status !== "DEACTIVATED" && status !== "DRAFT")
       .map(({ rule }) => rule);
   }, [classified]);
 
