@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   createRuleAction,
@@ -564,6 +564,13 @@ export function RulesClient({
   corpusEarliest = null,
   corpusLatest = null,
 }: Props) {
+  // Corpus props are still on the page → component contract for
+  // forward compatibility, but the rules-page UI no longer renders
+  // them (Governance Memory moved to /dashboard). Reference here so
+  // unused-prop lint doesn't flag them.
+  void corpusCount;
+  void corpusEarliest;
+  void corpusLatest;
   const router = useRouter();
   const searchParams = useSearchParams();
   // `?activated=true` is set by the /rules/confirm redirect.
@@ -577,16 +584,18 @@ export function RulesClient({
     "template" | "paste" | "upload" | "build" | null
   >(null);
 
-  // Returning-user "+ Add a rule" expand row. When `addRuleExpanded`
-  // is true the four entry-point buttons render inline as a compact
-  // choice row beneath the toggle.
-  const [addRuleExpanded, setAddRuleExpanded] = useState(false);
+  // "+ Add a rule" dropdown — opens a small popover with three
+  // entry-point rows (template / paste / build). Click-outside
+  // handling lives in the dropdown component below.
+  const [addRuleDropdownOpen, setAddRuleDropdownOpen] = useState(false);
 
   // Edit-rule sheet (R7-R8). Holds the rule being edited; null = closed.
   const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
 
-  // Per-rule expand state for the Trigger history row (R18).
-  const [expandedHistory, setExpandedHistory] = useState<Set<string>>(
+  // Mobile-only per-row "Show details" toggle. The desktop table
+  // shows every column at once; mobile collapses to two columns
+  // (name + actions) and reveals the rest inline on toggle.
+  const [expandedMobileRows, setExpandedMobileRows] = useState<Set<string>>(
     new Set(),
   );
 
@@ -719,6 +728,22 @@ export function RulesClient({
       if (Number.isFinite(ts) && ts > pickTs) {
         pickTs = ts;
         pick = r;
+      }
+    }
+    return pick;
+  }, [rules]);
+
+  // Most recent trigger across all rules — drives the page-header
+  // subhead. Null when no rule has fired.
+  const lastTriggeredOverall = useMemo(() => {
+    let pick: string | null = null;
+    let pickTs = -Infinity;
+    for (const r of rules) {
+      if (!r.last_triggered) continue;
+      const ts = new Date(r.last_triggered).getTime();
+      if (Number.isFinite(ts) && ts > pickTs) {
+        pickTs = ts;
+        pick = r.last_triggered;
       }
     }
     return pick;
@@ -889,8 +914,8 @@ export function RulesClient({
     router.refresh();
   }
 
-  function toggleHistory(id: string) {
-    setExpandedHistory((prev) => {
+  function toggleMobileRow(id: string) {
+    setExpandedMobileRows((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -930,16 +955,16 @@ export function RulesClient({
     ];
 
     return (
-      <main className="min-h-screen bg-[#F8F9FB]">
+      <main className="min-h-screen bg-[#0F172A]">
         <div className="max-w-[960px] mx-auto px-6 py-20">
           <div className="text-center mb-10">
             <h1
               style={{ fontFamily: "var(--font-newsreader)" }}
-              className="text-3xl md:text-4xl font-light text-[#0D1B2A] mb-3 leading-tight"
+              className="text-3xl md:text-4xl font-light text-[#F8FAFC] mb-3 leading-tight"
             >
               Set up your governance rules.
             </h1>
-            <p className="text-sm text-[#475569] leading-relaxed max-w-2xl mx-auto">
+            <p className="text-sm text-[#94A3B8] leading-relaxed max-w-2xl mx-auto">
               ERA CUE checks every draft against your active rules
               before publication. Configure once — enforced on every
               submission.
@@ -952,19 +977,22 @@ export function RulesClient({
                 key={card.key}
                 type="button"
                 onClick={() => setOpenModal(card.key)}
-                className="bg-[#1E293B] border border-[#334155] rounded p-6 cursor-pointer hover:border-[#0EA5E9] transition-colors text-left"
+                className="bg-[#1E293B] border border-[#334155] rounded p-6 cursor-pointer hover:border-[#0EA5E9] transition-colors text-left flex flex-col min-h-[160px]"
               >
-                <div className="text-[#F8FAFC] font-medium">
+                <div className="text-[#F8FAFC] font-medium text-base">
                   {card.title}
                 </div>
-                <p className="text-[#94A3B8] text-sm mt-1 leading-relaxed">
+                <p className="text-[#94A3B8] text-sm mt-1 leading-relaxed flex-1">
                   {card.description}
                 </p>
+                <div className="text-[#0EA5E9] text-right mt-3" aria-hidden>
+                  →
+                </div>
               </button>
             ))}
           </div>
 
-          <p className="text-[#64748B] text-sm text-center mt-6 leading-relaxed">
+          <p className="text-[#94A3B8] text-sm text-center mt-6 leading-relaxed">
             Rules you configure here are checked against every draft
             submitted by your team.
           </p>
@@ -992,146 +1020,112 @@ export function RulesClient({
     );
   }
 
-  // ---- main view ----------------------------------------------------------
+  // ---- main view (returning-user, dark theme, table layout) ---------------
   return (
-    <main className="min-h-screen bg-[#F8F9FB] pb-24">
+    <main className="min-h-screen bg-[#0F172A] pb-24">
       <div className="max-w-[1100px] mx-auto px-6 pt-10 pb-6">
-        {/* Page header — returning-user state. */}
-        <div className="mb-8">
-          <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#64748B] mb-2">
-            Rules engine
+        {/* CHANGE 6 — page header. Title + active count subhead on the
+            left, "+ Add a rule" dropdown on the right. */}
+        <div className="flex items-start justify-between gap-4 flex-wrap mb-8">
+          <div className="min-w-0">
+            <h1
+              style={{ fontFamily: "var(--font-newsreader)" }}
+              className="text-3xl font-light text-[#F8FAFC] leading-tight"
+            >
+              Governance Rules
+            </h1>
+            <p className="text-sm text-[#94A3B8] mt-2">
+              <span className="text-[#F8FAFC] font-medium">
+                {rulesActiveCount}
+              </span>{" "}
+              active · Last checked:{" "}
+              <span className="text-[#F8FAFC] font-medium">
+                {lastTriggeredOverall
+                  ? fmtDate(lastTriggeredOverall)
+                  : "No triggers yet"}
+              </span>
+            </p>
           </div>
-          <h1
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-[#0D1B2A] mb-3 leading-tight"
-          >
-            Your governance rules.
-          </h1>
-          <p className="text-sm text-[#475569] leading-relaxed max-w-2xl">
-            <span className="font-medium text-[#0D1B2A]">
-              {rulesActiveCount}
-            </span>{" "}
-            rule{rulesActiveCount !== 1 ? "s" : ""} active · Enforced
-            on every draft submission.
-          </p>
+          {/* CHANGE 3 — primary "+ Add a rule" button + popover. */}
+          <AddRuleDropdown
+            open={addRuleDropdownOpen}
+            setOpen={setAddRuleDropdownOpen}
+            onSelect={(key) => {
+              setOpenModal(key);
+              setAddRuleDropdownOpen(false);
+            }}
+          />
         </div>
 
-        {/* B7 — summary status bar. Three values in a horizontal row:
-            active rule count, triggers this week (0 when weekly data
-            unavailable), and the most recently authorized rule. */}
-        <div className="bg-[#1E293B] border border-[#334155] rounded px-4 py-2 text-sm text-[#94A3B8] mb-6 flex items-center gap-x-6 gap-y-1 flex-wrap">
-          <span>
-            <span className="text-[#F8FAFC] font-medium">
+        {/* CHANGE 2 — status bar: three independent stat boxes. */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+          <div className="bg-[#1E293B] border border-[#334155] rounded px-4 py-3 flex-1">
+            <div className="text-[#F8FAFC] text-2xl font-bold">
               {rulesActiveCount}
-            </span>{" "}
-            rule{rulesActiveCount !== 1 ? "s" : ""} active
-          </span>
-          <span>
-            <span className="text-[#F8FAFC] font-medium">
-              {weeklyTriggerCount}
-            </span>{" "}
-            trigger{weeklyTriggerCount !== 1 ? "s" : ""} this week
-          </span>
-          <span>
-            Last authorized:{" "}
-            {lastAuthorizedRule && lastAuthorizedRule.effective_from ? (
-              <>
-                <span className="text-[#F8FAFC] font-medium">
-                  {lastAuthorizedRule.name}
-                </span>{" "}
-                on{" "}
-                <span className="text-[#F8FAFC] font-medium">
-                  {fmtDate(lastAuthorizedRule.effective_from)}
-                </span>
-              </>
-            ) : (
-              <span className="text-[#F8FAFC] font-medium">—</span>
-            )}
-          </span>
-        </div>
-
-        {/* "+ Add a rule" — single subdued toggle. The compact choice
-            row below appears only after the toggle is clicked, keeping
-            the page focused on the existing rules in the steady state. */}
-        <div className="mb-6">
-          <button
-            type="button"
-            onClick={() => setAddRuleExpanded((s) => !s)}
-            className="font-mono text-xs px-4 py-2 rounded-sm border border-[#334155] text-[#94A3B8] hover:border-[#0EA5E9] hover:text-[#F8FAFC] transition-colors cursor-pointer"
-            aria-expanded={addRuleExpanded}
-          >
-            {addRuleExpanded ? "× Cancel" : "+ Add a rule"}
-          </button>
-          {addRuleExpanded && (
-            <div className="flex items-center gap-2 flex-wrap mt-3">
-              {(
-                [
-                  { key: "template" as const, label: "From a template" },
-                  { key: "paste" as const, label: "From a policy" },
-                  { key: "upload" as const, label: "From a document" },
-                  { key: "build" as const, label: "From scratch" },
-                ]
-              ).map((opt) => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => {
-                    setOpenModal(opt.key);
-                    setAddRuleExpanded(false);
-                  }}
-                  className="bg-white border border-[#E2E8F0] text-[#475569] font-mono text-xs font-medium px-3 py-1.5 rounded-sm hover:border-[#0EA5E9] hover:text-[#0D1B2A] transition-colors cursor-pointer"
-                >
-                  {opt.label}
-                </button>
-              ))}
             </div>
-          )}
+            <div className="text-[#64748B] text-xs uppercase tracking-widest mt-1">
+              Active rules
+            </div>
+          </div>
+          <div className="bg-[#1E293B] border border-[#334155] rounded px-4 py-3 flex-1">
+            <div className="text-[#F8FAFC] text-2xl font-bold">
+              {weeklyTriggerCount}
+            </div>
+            <div className="text-[#64748B] text-xs uppercase tracking-widest mt-1">
+              Triggers this week
+            </div>
+          </div>
+          <div className="bg-[#1E293B] border border-[#334155] rounded px-4 py-3 flex-1">
+            <div className="text-[#F8FAFC] text-sm font-medium truncate">
+              {lastAuthorizedRule?.name ?? "—"}
+            </div>
+            <div className="text-[#64748B] text-xs uppercase tracking-widest mt-1">
+              Last authorized
+            </div>
+            {lastAuthorizedRule?.effective_from && (
+              <div className="text-[#94A3B8] text-xs mt-1">
+                {fmtDate(lastAuthorizedRule.effective_from)}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Success banner */}
+        {/* Success banner — restyled for dark theme */}
         {!IS_DEMO_MODE && justAuthorized && (
-          <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-5 mb-6">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <div className="text-[#166534] text-xl mt-0.5" aria-hidden>
-                  ✓
+          <div className="bg-[#0EA5E9]/10 border border-[#0EA5E9]/40 rounded p-5 mb-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-semibold text-[#F8FAFC] mb-1">
+                  Your governance rules are live.
                 </div>
-                <div>
-                  <div className="text-sm font-semibold text-[#0D1B2A] mb-1">
-                    Your governance rules are live.
-                  </div>
-                  <div className="text-sm text-[#475569]">
-                    ERA CUE is now checking every draft your team submits
-                    against these rules before publication.
-                  </div>
+                <div className="text-sm text-[#94A3B8]">
+                  ERA CUE is now checking every draft your team submits
+                  against these rules before publication.
                 </div>
+                <a
+                  href="/submit"
+                  className="bg-[#0EA5E9] text-white font-mono text-sm font-medium px-4 py-2 rounded mt-4 inline-block hover:bg-[#0284C7] transition-colors"
+                >
+                  Check your first draft →
+                </a>
               </div>
               <button
                 type="button"
                 onClick={clearActivated}
                 aria-label="Dismiss"
-                className="text-[#94A3B8] hover:text-[#64748B] font-mono text-xs ml-4 shrink-0 cursor-pointer"
+                className="text-[#94A3B8] hover:text-[#F8FAFC] font-mono text-base leading-none cursor-pointer shrink-0"
               >
                 ×
               </button>
             </div>
-            <div className="mt-4 flex items-center gap-3 flex-wrap">
-              <a
-                href="/submit"
-                className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] transition-colors"
-              >
-                Check your first draft →
-              </a>
-            </div>
           </div>
         )}
 
-        {/* B5 — inline deactivate notice. Auto-dismisses after 5s; the
-            user can also dismiss manually via the × button. */}
+        {/* B5 — inline deactivate notice. Restyled for dark theme. */}
         {deactivateNotice && (
-          <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-sm px-4 py-3 mb-4 flex items-start justify-between gap-4">
-            <div className="text-sm text-[#92400E] leading-relaxed">
-              <span className="font-semibold">
+          <div className="bg-[#1E293B] border border-[#F59E0B]/40 rounded px-4 py-3 mb-4 flex items-start justify-between gap-4">
+            <div className="text-sm text-[#94A3B8] leading-relaxed">
+              <span className="font-semibold text-[#F8FAFC]">
                 {deactivateNotice.ruleName}
               </span>{" "}
               deactivated. Drafts submitted after {deactivateNotice.timestamp}{" "}
@@ -1142,16 +1136,16 @@ export function RulesClient({
               type="button"
               onClick={() => setDeactivateNotice(null)}
               aria-label="Dismiss"
-              className="text-[#92400E] hover:text-[#0D1B2A] font-mono text-base leading-none cursor-pointer shrink-0"
+              className="text-[#94A3B8] hover:text-[#F8FAFC] font-mono text-base leading-none cursor-pointer shrink-0"
             >
               ×
             </button>
           </div>
         )}
 
-        {/* Tab bar */}
+        {/* Tab bar — dark theme */}
         {!IS_DEMO_MODE && (
-          <div className="flex gap-0 border-b border-[#E2E8F0] mb-5 overflow-x-auto">
+          <div className="flex gap-0 border-b border-[#334155] mb-5 overflow-x-auto">
             {(
               [
                 { key: "active" as const, label: "Active", count: activeRules.length, alert: false },
@@ -1170,8 +1164,8 @@ export function RulesClient({
                   onClick={() => setActiveTab(t.key)}
                   className={`font-mono text-xs px-5 py-3 whitespace-nowrap border-b-2 -mb-px transition-colors flex items-center gap-1.5 cursor-pointer ${
                     selected
-                      ? "border-[#4F46E5] text-[#4F46E5]"
-                      : "border-transparent text-[#64748B] hover:text-[#0D1B2A]"
+                      ? "border-[#0EA5E9] text-[#0EA5E9]"
+                      : "border-transparent text-[#94A3B8] hover:text-[#F8FAFC]"
                   }`}
                 >
                   {t.label}
@@ -1179,8 +1173,8 @@ export function RulesClient({
                     <span
                       className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                         t.alert
-                          ? "bg-[#FEF3C7] text-[#B45309]"
-                          : "bg-[#F1F5F9] text-[#64748B]"
+                          ? "bg-[#F59E0B] text-white"
+                          : "bg-[#334155] text-[#94A3B8]"
                       }`}
                     >
                       {t.count}
@@ -1192,13 +1186,7 @@ export function RulesClient({
           </div>
         )}
 
-        {/* The prior demo-mode banner ("Demo rules — live data from a
-            sample organization.") was removed. Demo rules are rules;
-            apologetic framing doesn't belong inside the product. The
-            per-card "Example" pill (added below) is the only signal
-            that the seed isn't user-configured. */}
-
-        {/* History tab */}
+        {/* History tab — dark theme */}
         {!IS_DEMO_MODE && activeTab === "history" && (
           <>
             {rules.length === 0 ? (
@@ -1206,13 +1194,13 @@ export function RulesClient({
                 <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#94A3B8] mb-2">
                   No history yet
                 </div>
-                <p className="text-sm text-[#64748B]">
+                <p className="text-sm text-[#94A3B8]">
                   Authorized rules will appear here in chronological order.
                 </p>
               </div>
             ) : (
               <>
-                <div className="space-y-0 divide-y divide-[#E2E8F0]">
+                <div className="divide-y divide-[#1E293B]">
                   {[...rules]
                     .sort((a, b) => {
                       const ta = a.effective_from ? new Date(a.effective_from).getTime() : 0;
@@ -1233,7 +1221,7 @@ export function RulesClient({
                               {status}
                             </span>
                             <div className="min-w-0">
-                              <div className="text-sm font-medium text-[#0D1B2A] truncate">
+                              <div className="text-sm font-medium text-[#F8FAFC] truncate">
                                 {rule.name}
                               </div>
                               <div className="font-mono text-[9px] text-[#94A3B8]">
@@ -1245,7 +1233,7 @@ export function RulesClient({
                       );
                     })}
                 </div>
-                <div className="font-mono text-[9px] text-[#94A3B8] text-center pt-6 mt-6 border-t border-[#E2E8F0]">
+                <div className="font-mono text-[9px] text-[#64748B] italic text-center pt-6 mt-6 border-t border-[#334155]">
                   ERA CUE records that this governance process ran. Whether
                   the communication satisfies applicable regulatory
                   requirements is a determination for qualified legal counsel.
@@ -1255,224 +1243,26 @@ export function RulesClient({
           </>
         )}
 
-        {/* Rules list — cards (R1, R2, R9, R17, R18) */}
+        {/* CHANGE 1 — Rules table. Desktop: full table; mobile (<md):
+            collapsed cards with show-details toggle. */}
         {(IS_DEMO_MODE || activeTab !== "history") && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {tabRules.length === 0 ? (
-              <div className="md:col-span-2 bg-white border border-[#E2E8F0] rounded-sm p-12 text-center text-[#64748B] text-sm">
-                No rules in this view.
-              </div>
-            ) : (
-              tabRules.map((r) => {
-                const status = classifyLifecycle(r, now);
-                const triggers = r.trigger_count ?? 0;
-                const keywordCount = (r.keywords ?? []).length;
-                const isHistoryExpanded = expandedHistory.has(r.id);
-                const driftFlag = status === "SILENT";
-                const isDraft = status === "DRAFT";
-                const isActiveTab = activeTab === "active";
-
-                return (
-                  <div
-                    key={r.id}
-                    id={`rule-${r.id}`}
-                    className="bg-white border border-[#E2E8F0] rounded-lg overflow-hidden"
-                  >
-                    <div className="px-5 py-4">
-                      {/* R1 — name + status badge + drift dot (R17) */}
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          {driftFlag && (
-                            <span
-                              title="Possible keyword gap — your team may be using different language than the keywords in this rule. Review recent cleared drafts for similar language."
-                              className="w-2 h-2 rounded-full bg-[#F59E0B] shrink-0"
-                              aria-label="Possible keyword gap"
-                            />
-                          )}
-                          <span className="text-sm font-semibold text-[#0D1B2A] leading-snug">
-                            {r.name}
-                          </span>
-                          <span
-                            className={`font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm shrink-0 ${statusBadgeClass(status)}`}
-                          >
-                            {status}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {/* ISSUE 7 — "Example" pill in demo mode only.
-                              Signals that this card is seeded sample
-                              data, not a rule the visitor configured.
-                              Hidden in production. */}
-                          {IS_DEMO_MODE && (
-                            <span className="bg-[#1E293B] border border-[#334155] text-[#64748B] text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm">
-                              Example
-                            </span>
-                          )}
-                          {isDraft ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleAuthorizeDraft(r.id)}
-                                className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-3 py-1 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer"
-                              >
-                                Authorize →
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingRule(r)}
-                                className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteDraft(r.id)}
-                                className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#94A3B8] hover:text-[#B91C1C] hover:border-[#FECACA] transition-colors cursor-pointer"
-                              >
-                                Delete
-                              </button>
-                            </>
-                          ) : status !== "DEACTIVATED" ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => setEditingRule(r)}
-                                className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeactivate(r.id, r.name)}
-                                disabled={pending}
-                                className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#94A3B8] hover:border-[#FCA5A5] hover:text-[#B91C1C] transition-colors cursor-pointer disabled:opacity-50"
-                              >
-                                Deactivate
-                              </button>
-                            </>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      {/* C3 — narrative lifecycle pill, sits below the
-                          status badge row. Drafts skip the pill (the
-                          DRAFT status badge already says it). */}
-                      {(() => {
-                        const pill = lifecyclePillFor(r, status);
-                        if (!pill) return null;
-                        return (
-                          <div className="mb-2">
-                            <span
-                              className={`inline-block text-xs font-medium px-2 py-0.5 rounded-sm ${lifecyclePillClass(pill)}`}
-                            >
-                              {pill}
-                            </span>
-                          </div>
-                        );
-                      })()}
-
-                      {/* R1 — keyword count, last triggered, trigger count */}
-                      <div className="font-mono text-[10px] text-[#64748B] flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
-                        <span>
-                          {keywordCount} keyword{keywordCount !== 1 ? "s" : ""}
-                        </span>
-                        <span className="text-[#E5E7EB]" aria-hidden>·</span>
-                        <span>
-                          Last triggered: {r.last_triggered ? fmtDate(r.last_triggered) : "—"}
-                        </span>
-                        <span className="text-[#E5E7EB]" aria-hidden>·</span>
-                        <span>
-                          {triggers} trigger{triggers !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-
-                      {/* R17 — drift advisory copy */}
-                      {driftFlag && (
-                        <div className="text-[#64748B] text-xs mb-2 leading-relaxed">
-                          ERA CUE surfaces a possible keyword gap for your
-                          review. Whether the rule is adequately calibrated
-                          is a governance judgment.
-                        </div>
-                      )}
-
-                      {/* C6 — Authorized by [principal] on [date].
-                          Falls back to demo principal in IS_DEMO_MODE
-                          when the rule row carries no authorized_by;
-                          falls back to the legacy "Authorized [date]"
-                          line in production when nobody is on record. */}
-                      {(() => {
-                        const persisted = (r.authorized_by ?? "").trim();
-                        const principal =
-                          persisted ||
-                          (IS_DEMO_MODE ? "Sarah Chen · GC" : "");
-                        if (!r.effective_from) {
-                          return (
-                            <div className="text-[#64748B] text-xs">
-                              Not yet authorized
-                            </div>
-                          );
-                        }
-                        if (principal) {
-                          return (
-                            <div className="text-[#64748B] text-xs">
-                              Authorized by: {principal} on {fmtDate(r.effective_from)}
-                            </div>
-                          );
-                        }
-                        return (
-                          <div className="text-[#64748B] text-xs">
-                            Authorized {fmtDate(r.effective_from)}
-                          </div>
-                        );
-                      })()}
-
-                      {/* R18 — trigger history toggle */}
-                      <div className="mt-3 pt-3 border-t border-[#F1F5F9]">
-                        <button
-                          type="button"
-                          onClick={() => toggleHistory(r.id)}
-                          className="font-mono text-[10px] text-[#64748B] hover:text-[#0D1B2A] cursor-pointer flex items-center gap-1"
-                        >
-                          <span aria-hidden>{isHistoryExpanded ? "▼" : "▶"}</span>
-                          Trigger history
-                        </button>
-                        {isHistoryExpanded && (
-                          <div className="mt-2 border border-[#E2E8F0] rounded-sm overflow-hidden">
-                            <table className="w-full text-xs">
-                              <thead>
-                                <tr className="bg-[#F8FAFC] text-[#64748B]">
-                                  <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wider">Draft ID</th>
-                                  <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wider">Verdict</th>
-                                  <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wider">Timestamp</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr>
-                                  <td colSpan={3} className="px-3 py-4 text-center text-[#94A3B8]">
-                                    No triggers recorded for this rule.
-                                  </td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Active-tab "Check a draft" link is rendered globally;
-                          we keep the per-card surface focused on R1 fields. */}
-                      {!isActiveTab && status === "DEACTIVATED" && r.deactivated_reason &&
-                        r.deactivated_reason.trim().toLowerCase() !== "test" && (
-                          <div className="font-mono text-[10px] text-[#64748B] mt-2">
-                            Reason: {r.deactivated_reason}
-                          </div>
-                        )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+          <RulesTable
+            rules={tabRules}
+            now={now}
+            expandedMobileRows={expandedMobileRows}
+            onToggleMobile={toggleMobileRow}
+            onEdit={(r) => setEditingRule(r)}
+            onDeactivate={(r) => handleDeactivate(r.id, r.name)}
+            onAuthorizeDraft={(id) => handleAuthorizeDraft(id)}
+            onDeleteDraft={(id) => handleDeleteDraft(id)}
+            pending={pending}
+          />
         )}
+        {/* The grid of card markup that lived here was replaced by the
+            <RulesTable> component above. Trigger-history expandable
+            rows were removed (trigger history will live on each
+            rule's detail page once that route exists). */}
+        {/* Old card-grid layout was replaced by RulesTable above. */}
 
         {/* C3 — the standalone Rule Lifecycle section was removed.
             Each rule card now carries its own lifecycle pill (see
@@ -1484,75 +1274,9 @@ export function RulesClient({
             form (E2) and surfaces a per-campaign signal on the submit
             verdict view (F2). The rules page focuses on rules. */}
 
-        {/* R15-R16 — AI Content Detection */}
-        <section className="mt-12">
-          <h2
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-2xl font-light text-[#0D1B2A] mb-4"
-          >
-            AI Content Detection
-          </h2>
-          <div className="space-y-3">
-            {[
-              "LLM-generated content detection",
-              "Agent submission fingerprinting",
-              "EU AI Act Art. 50 automatic disclosure flagging",
-            ].map((label) => (
-              <div
-                key={label}
-                className="bg-white border border-[#E2E8F0] rounded-lg p-4"
-              >
-                <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                  <div className="text-sm font-medium text-[#0D1B2A]">
-                    {label}
-                  </div>
-                  <span className="font-mono text-[9px] uppercase px-2 py-0.5 rounded-sm bg-[#334155] text-[#94A3B8]">
-                    Coming soon
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                  <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-sm px-3 py-2">
-                    <div className="font-mono text-[10px] uppercase text-[#64748B] mb-1">Now</div>
-                    <div className="text-[#475569]">
-                      Manual declaration via checkbox at submission
-                    </div>
-                  </div>
-                  <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-sm px-3 py-2">
-                    <div className="font-mono text-[10px] uppercase text-[#64748B] mb-1">Coming</div>
-                    <div className="text-[#475569]">
-                      Automatic detection and routing
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* R19 — Governance Memory */}
-        <section className="mt-12 mb-6">
-          <h2
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-2xl font-light text-[#0D1B2A] mb-4"
-          >
-            Governance Memory
-          </h2>
-          <div className="bg-white border border-[#E2E8F0] rounded-lg p-5">
-            <div className="text-sm text-[#0D1B2A] mb-1">
-              Cleared drafts in corpus: {corpusCount}
-            </div>
-            <div className="text-sm text-[#0D1B2A]">
-              Date range:{" "}
-              {corpusCount > 0 && corpusEarliest && corpusLatest
-                ? `${fmtDate(corpusEarliest)} – ${fmtDate(corpusLatest)}`
-                : "—"}
-            </div>
-            <div className="text-[#64748B] text-xs mt-3 leading-relaxed">
-              What powers drift detection. Individual draft content is not
-              displayed here.
-            </div>
-          </div>
-        </section>
+        {/* AI Content Detection moved to /settings (separate page —
+            doesn't belong on the rules table). Governance Memory
+            moved to /dashboard (belongs with the corpus data). */}
       </div>
 
       <BottomMoatBar count={rulesActiveCount} />
@@ -1615,6 +1339,408 @@ function BottomMoatBar({ count }: { count: number }) {
         history.
       </span>
     </div>
+  );
+}
+
+// ---------- CHANGE 3 — Add a rule dropdown -----------------------------------
+
+function AddRuleDropdown({
+  open,
+  setOpen,
+  onSelect,
+}: {
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  onSelect: (key: "template" | "paste" | "build") => void;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  // Click-outside closes the popover. Pointer/keyboard hooks both
+  // listen so the dropdown can be dismissed with mouse, touch, or
+  // Escape.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, setOpen]);
+
+  const options: ReadonlyArray<{
+    key: "template" | "paste" | "build";
+    title: string;
+    description: string;
+  }> = [
+    {
+      key: "template",
+      title: "From a template",
+      description: "Regulated industry or campaign templates",
+    },
+    {
+      key: "paste",
+      title: "From existing policy",
+      description: "Paste your WSP, policy doc, or legal brief",
+    },
+    {
+      key: "build",
+      title: "Build from scratch",
+      description: "Define keywords, severity, and dates",
+    },
+  ];
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="bg-[#0EA5E9] text-white px-4 py-2 rounded text-sm font-medium hover:bg-[#0284C7] transition-colors cursor-pointer"
+      >
+        + Add a rule
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-80 bg-[#1E293B] border border-[#334155] rounded shadow-xl z-40">
+          {options.map((opt, i) => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => onSelect(opt.key)}
+              className={`w-full text-left px-4 py-3 hover:bg-[#0F172A] transition-colors cursor-pointer ${
+                i < options.length - 1 ? "border-b border-[#334155]" : ""
+              }`}
+            >
+              <div className="text-sm font-medium text-[#F8FAFC]">
+                {opt.title}
+              </div>
+              <div className="text-xs text-[#94A3B8] mt-0.5">
+                {opt.description}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- CHANGE 1 — Rules table ------------------------------------------
+//
+// Desktop (≥md): full <table> with the seven columns the spec
+// defines. Mobile (<md): each rule renders as a stacked card with
+// only name + status + actions visible; "Show details" expands the
+// rest inline. Action availability mirrors the prior card layout —
+// drafts get Authorize / Edit / Delete; active/expiring/silent get
+// Edit / Deactivate; deactivated rows render no actions.
+
+type RulesTableProps = {
+  rules: ReadonlyArray<RuleRow>;
+  now: number;
+  expandedMobileRows: Set<string>;
+  onToggleMobile: (id: string) => void;
+  onEdit: (rule: RuleRow) => void;
+  onDeactivate: (rule: RuleRow) => void;
+  onAuthorizeDraft: (id: string) => void;
+  onDeleteDraft: (id: string) => void;
+  pending: boolean;
+};
+
+function ruleSeverityBadge(verdict: string) {
+  const v = (verdict || "").toLowerCase();
+  if (v === "block") {
+    return (
+      <span className="font-mono text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm bg-[#EF4444] text-white shrink-0">
+        Block
+      </span>
+    );
+  }
+  if (v === "review" || v === "escalate") {
+    return (
+      <span className="font-mono text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm bg-[#F59E0B] text-white shrink-0">
+        Review
+      </span>
+    );
+  }
+  return (
+    <span className="font-mono text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm bg-[#334155] text-[#94A3B8] shrink-0">
+      Flag
+    </span>
+  );
+}
+
+function lifecycleStateLabel(rule: RuleRow, now: number): {
+  label: string;
+  className: string;
+} {
+  const status = classifyLifecycle(rule, now);
+  const pill = lifecyclePillFor(rule, status);
+  if (pill) {
+    return {
+      label: pill.toUpperCase(),
+      className: lifecyclePillClass(pill),
+    };
+  }
+  // DRAFT case
+  return {
+    label: "DRAFT",
+    className: "bg-[#1E293B] text-[#94A3B8]",
+  };
+}
+
+function authorizedByLabel(rule: RuleRow): string {
+  const persisted = (rule.authorized_by ?? "").trim();
+  if (persisted) return persisted;
+  if (IS_DEMO_MODE) return "Sarah Chen · GC";
+  return "—";
+}
+
+function RulesTable({
+  rules,
+  now,
+  expandedMobileRows,
+  onToggleMobile,
+  onEdit,
+  onDeactivate,
+  onAuthorizeDraft,
+  onDeleteDraft,
+  pending,
+}: RulesTableProps) {
+  if (rules.length === 0) {
+    return (
+      <div className="bg-[#1E293B] border border-[#334155] rounded p-12 text-center text-[#94A3B8] text-sm">
+        No rules in this view.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Desktop table — hidden under md breakpoint */}
+      <div className="hidden md:block w-full overflow-x-auto bg-[#0F172A] border border-[#334155] rounded">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-[#0F172A] border-b border-[#334155]">
+            <tr>
+              {[
+                "Rule name",
+                "Status",
+                "Keywords",
+                "Last triggered",
+                "Triggers",
+                "Authorized by",
+                "Actions",
+              ].map((h) => (
+                <th
+                  key={h}
+                  className="text-left font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] px-4 py-3"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rules.map((r) => {
+              const status = classifyLifecycle(r, now);
+              const isDraft = status === "DRAFT";
+              const lifecycle = lifecycleStateLabel(r, now);
+              const triggers = r.trigger_count ?? 0;
+              const keywordCount = (r.keywords ?? []).length;
+              return (
+                <tr
+                  key={r.id}
+                  id={`rule-${r.id}`}
+                  className="border-b border-[#1E293B] hover:bg-[#1E293B]/60 transition-colors"
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="font-medium text-[#F8FAFC] truncate">
+                        {r.name}
+                      </span>
+                      {ruleSeverityBadge(r.verdict)}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-block text-xs font-medium px-2 py-0.5 rounded-sm ${lifecycle.className}`}
+                    >
+                      {lifecycle.label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-[#94A3B8] text-sm">
+                    {keywordCount} keyword{keywordCount !== 1 ? "s" : ""}
+                  </td>
+                  <td className="px-4 py-3 text-[#94A3B8] text-sm">
+                    {r.last_triggered ? fmtDate(r.last_triggered) : "Never"}
+                  </td>
+                  <td className="px-4 py-3 text-[#F8FAFC] font-mono">
+                    {triggers}
+                  </td>
+                  <td className="px-4 py-3 text-[#94A3B8] text-xs">
+                    {authorizedByLabel(r)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      {isDraft ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => onAuthorizeDraft(r.id)}
+                            className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+                          >
+                            Authorize
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onEdit(r)}
+                            className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDeleteDraft(r.id)}
+                            className="text-[#94A3B8] text-xs hover:text-[#EF4444] cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      ) : status !== "DEACTIVATED" ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => onEdit(r)}
+                            className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDeactivate(r)}
+                            disabled={pending}
+                            className="text-[#0EA5E9] text-xs hover:underline cursor-pointer disabled:opacity-50"
+                          >
+                            Deactivate
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[#64748B] text-xs">—</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile cards — name + status + Actions visible; "Show
+          details" toggles the rest inline. Visible only under md. */}
+      <div className="md:hidden space-y-2">
+        {rules.map((r) => {
+          const status = classifyLifecycle(r, now);
+          const isDraft = status === "DRAFT";
+          const lifecycle = lifecycleStateLabel(r, now);
+          const expanded = expandedMobileRows.has(r.id);
+          const triggers = r.trigger_count ?? 0;
+          const keywordCount = (r.keywords ?? []).length;
+          return (
+            <div
+              key={r.id}
+              id={`rule-${r.id}-mobile`}
+              className="bg-[#0F172A] border border-[#334155] rounded p-3"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-[#F8FAFC] text-sm">
+                      {r.name}
+                    </span>
+                    {ruleSeverityBadge(r.verdict)}
+                  </div>
+                  <span
+                    className={`inline-block text-xs font-medium px-2 py-0.5 rounded-sm mt-1 ${lifecycle.className}`}
+                  >
+                    {lifecycle.label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {isDraft ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => onAuthorizeDraft(r.id)}
+                        className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+                      >
+                        Authorize
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onEdit(r)}
+                        className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                    </>
+                  ) : status !== "DEACTIVATED" ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => onEdit(r)}
+                        className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeactivate(r)}
+                        disabled={pending}
+                        className="text-[#0EA5E9] text-xs hover:underline cursor-pointer disabled:opacity-50"
+                      >
+                        Deactivate
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onToggleMobile(r.id)}
+                className="text-[#94A3B8] text-xs mt-2 hover:text-[#F8FAFC] cursor-pointer"
+                aria-expanded={expanded}
+              >
+                {expanded ? "Hide details" : "Show details"}
+              </button>
+              {expanded && (
+                <dl className="mt-2 grid grid-cols-[8rem_1fr] gap-y-1 text-xs">
+                  <dt className="text-[#94A3B8]">Keywords</dt>
+                  <dd className="text-[#F8FAFC]">
+                    {keywordCount} keyword
+                    {keywordCount !== 1 ? "s" : ""}
+                  </dd>
+                  <dt className="text-[#94A3B8]">Last triggered</dt>
+                  <dd className="text-[#F8FAFC]">
+                    {r.last_triggered ? fmtDate(r.last_triggered) : "Never"}
+                  </dd>
+                  <dt className="text-[#94A3B8]">Triggers</dt>
+                  <dd className="text-[#F8FAFC] font-mono">{triggers}</dd>
+                  <dt className="text-[#94A3B8]">Authorized by</dt>
+                  <dd className="text-[#F8FAFC]">{authorizedByLabel(r)}</dd>
+                </dl>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
