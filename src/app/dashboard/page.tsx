@@ -834,7 +834,7 @@ export default async function DashboardPage() {
             <div>
               {rulesPerf.length === 0 ? (
                 <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 text-center text-sm text-[#64748B]">
-                  No rules configured.
+                  No governance rules configured.
                 </div>
               ) : (
                 rulesPerf.map((r) => (

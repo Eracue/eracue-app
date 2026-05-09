@@ -1,19 +1,112 @@
 @import "tailwindcss";
 
+/*
+ * ERA CUE design system — color and typography tokens.
+ *
+ * This project uses Tailwind CSS v4, which configures design tokens in
+ * CSS via the `@theme` directive instead of a `tailwind.config.ts` file.
+ * Tokens declared below become available as utility classes — e.g.
+ * `--color-verdict-cleared` exposes `bg-verdict-cleared`,
+ * `text-verdict-cleared`, `border-verdict-cleared`, etc.
+ *
+ * Existing components reference the same hex codes via arbitrary values
+ * (e.g. `bg-[#0EA5E9]`); the named tokens below are the canonical
+ * source of truth and the recommended form for new code.
+ */
+
 :root {
   --background: #F8F9FB;
   --foreground: #0F172A;
 }
 
 @theme inline {
+  /* App chrome */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* D1 — Verdict palette. Verdict color drives every status surface
+     (badges, animated borders on the submit result card, status pills
+     on rule cards). Cleared = teal #0EA5E9; Block = red #EF4444;
+     Review = amber #F59E0B. */
+  --color-verdict-cleared: #0EA5E9;
+  --color-verdict-block: #EF4444;
+  --color-verdict-review: #F59E0B;
+
+  /* D1 — Surface + border palette. Used for the dark navigation band
+     and any subdued surface ("review pending" banners, etc.). */
+  --color-surface: #1E293B;
+  --color-border: #334155;
+
+  /* D1 — Text palette. text-primary on light surfaces; text-muted for
+     subdued metadata; text-legal for the legal-disclaimer footnote
+     style across examiner records and campaign exports. */
+  --color-text-primary: #F8FAFC;
+  --color-text-muted: #94A3B8;
+  --color-text-legal: #64748B;
+}
+
+/*
+ * D2 — Typography hierarchy. The brand uses Newsreader serif for page
+ * headings (text-3xl font-light) on marketing surfaces; the design
+ * system below is the equivalent semantic scale used inside the app:
+ *
+ *   Page headings    text-2xl font-bold        2.25rem · 700
+ *   Section headings text-xl font-semibold     1.5rem  · 600
+ *   Body text        text-base font-normal     1rem    · 400
+ *   Labels           text-sm font-medium       0.875rem · 500
+ *   Legal notes      text-xs font-normal       0.75rem · 400 · #64748B
+ *
+ * The class shortcuts below let any component opt into the canonical
+ * scale without re-declaring the same Tailwind classes.
+ */
+@layer components {
+  .ds-heading-page {
+    @apply text-2xl font-bold;
+  }
+  .ds-heading-section {
+    @apply text-xl font-semibold;
+  }
+  .ds-body {
+    @apply text-base font-normal;
+  }
+  .ds-label {
+    @apply text-sm font-medium;
+  }
+  .ds-legal {
+    @apply text-xs font-normal text-[#64748B];
+  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/*
+ * D8 — Print styles. Applied to every route. The examiner record and
+ * the campaign export surface their summary panels via `print-show` /
+ * `print:block`; everything decorative (nav, buttons, in-app links)
+ * carries `no-print` or `print:hidden` so the printed PDF reads as a
+ * clean compliance document, not a screen capture.
+ */
+@media print {
+  nav,
+  button,
+  .no-print {
+    display: none !important;
+  }
+  .print-show {
+    display: block !important;
+  }
+  body {
+    background: white;
+    color: black;
+  }
+  a {
+    color: black;
+    text-decoration: none;
+  }
 }

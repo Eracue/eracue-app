@@ -122,7 +122,7 @@ const REGULATORY_PANELS = [
 export default function Home() {
   return (
     <div className="bg-[#0D1B2A] min-h-screen">
-      <SiteHeader />
+      <SiteHeader variant="marketing" />
 
       {/* ============================================================
           SECTION 2 — HERO (dark, seamless with nav)

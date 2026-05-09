@@ -190,7 +190,9 @@ export function CampaignCommunications({ drafts, ruleNames }: Props) {
 
       {filtered.length === 0 ? (
         <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 text-center text-sm text-[#64748B]">
-          No drafts match the current filters.
+          {drafts.length === 0
+            ? "No drafts submitted this campaign."
+            : "No drafts match the current filters."}
         </div>
       ) : (
         filtered.map((d) => (

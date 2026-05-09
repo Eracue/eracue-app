@@ -93,7 +93,12 @@ async function getCampaignData(campaignName: string) {
 
   const allDrafts = (draftsRes.data || []) as unknown as DraftRow[];
   const drafts = allDrafts.filter((d) => d.campaigns?.name === campaignName);
-  if (drafts.length === 0) return null;
+  // The campaign meta lookup tells us whether the campaign itself
+  // exists; an unknown campaign 404s. A real campaign with zero drafts
+  // renders the D4 empty state ("No drafts submitted this campaign.")
+  // instead of bouncing the visitor.
+  const campaignExists = !!campaignsRes.data;
+  if (drafts.length === 0 && !campaignExists) return null;
 
   // Pull the actions we need to compute hasDecision per draft + each
   // draft's primary_match rule (drives the per-row rule chip and the

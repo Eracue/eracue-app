@@ -302,8 +302,11 @@ export function SubmitForm({
         </div>
       )}
 
-      {/* ─── Page header — step indicator + title + flow-aware sub ──── */}
-      <div className="mb-6">
+      {/* ─── Page header — step indicator + title + flow-aware sub ────
+          D7: collapsed on mobile when the verdict is visible so the
+          verdict badge + matched rule name stay above the fold at 375
+          × ~660 px. Desktop keeps the full header. */}
+      <div className={`mb-6 ${verdictLower ? "hidden md:block" : ""}`}>
         {fromRules && (
           <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
             Step 2 of 3 — Check a draft
@@ -750,11 +753,26 @@ function VerdictView({
   const checks = data?.checks ?? [];
   const isClear = verdictKey === "clear";
 
+  // D5 — verdict-colored 2px border applied to the result card with a
+  // 300ms ease-in transition. CLEAR/CLEARED → teal; BLOCK → red;
+  // ESCALATE / REVIEW / GUIDE → amber. The transition fires on first
+  // mount because the card itself is rendered fresh after the checking
+  // state unmounts, so the new border reads as an arrival animation.
+  const verdictBorder =
+    verdictKey === "clear"
+      ? "border-2 border-[#0EA5E9]"
+      : verdictKey === "block"
+        ? "border-2 border-[#EF4444]"
+        : "border-2 border-[#F59E0B]";
+
   return (
     <>
       {/* Verdict card — header carries the plain-English label + rule
-          context; body lists the checks that ran. */}
-      <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden mb-4">
+          context; body lists the checks that ran. The 2px verdict-
+          colored border + transition is the D5 delivery animation. */}
+      <div
+        className={`bg-white rounded-sm overflow-hidden mb-4 transition-all duration-300 ease-in ${verdictBorder}`}
+      >
         <div className={`px-5 py-4 border-b ${meta.headerBg} ${meta.headerBorder}`}>
           <div className="flex items-center gap-3 flex-wrap">
             <span

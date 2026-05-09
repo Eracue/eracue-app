@@ -1,13 +1,23 @@
 import Link from "next/link";
 
-// Static, dark-band nav. Wordmark only — every internal navigation
-// happens from in-page surfaces (hero CTAs, in-section links, the
-// bottom CTA). Renders identically across every route the layout
-// imports it from.
-export function SiteHeader() {
+// Static, dark-band nav. Two variants:
+//   • "marketing" — wordmark only. Used on the marketing homepage so
+//     visitors aren't pulled into app surfaces before they understand
+//     the product.
+//   • "app" (default) — wordmark + a single "Rules" link. Every
+//     in-product surface (submit, rules, dashboard, campaigns,
+//     examiner record) uses this variant so the nav is consistent
+//     across the workflow.
+//
+// `print:hidden` removes the nav from any printed PDF (examiner
+// record, campaign export); the print stylesheet in globals.css also
+// hides any element inside <nav> as a defensive measure.
+type Variant = "marketing" | "app";
+
+export function SiteHeader({ variant = "app" }: { variant?: Variant } = {}) {
   return (
     <header className="bg-[#0D1B2A] border-b border-white/[0.07] px-6 md:px-12 py-4 print:hidden">
-      <div className="max-w-[1100px] mx-auto flex items-center">
+      <nav className="max-w-[1100px] mx-auto flex items-center justify-between">
         <Link
           href="/"
           className="font-mono text-[13px] text-white tracking-[0.06em]"
@@ -16,7 +26,15 @@ export function SiteHeader() {
           <span className="font-bold">ERA</span>
           <span className="italic font-light"> CUE</span>
         </Link>
-      </div>
+        {variant === "app" && (
+          <Link
+            href="/rules"
+            className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/[0.62] hover:text-white transition-colors"
+          >
+            Rules
+          </Link>
+        )}
+      </nav>
     </header>
   );
 }
