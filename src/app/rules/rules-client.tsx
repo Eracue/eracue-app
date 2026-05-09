@@ -604,6 +604,12 @@ export function RulesClient({
     null,
   );
 
+  // "Review and confirm ruleset" full-screen modal. Triggered by the
+  // "Review all rules →" button below the rules table. Two render
+  // modes: the rules-list view (default) and the post-confirm success
+  // panel. Closing always resets both — every reopen starts fresh.
+  const [reviewOpen, setReviewOpen] = useState(false);
+
   // V4 — optimistic rule rows appended to the table when the live
   // refresh can't surface a freshly-created rule (demo mode mostly).
   // Rendered with a "Demo — session only" chip.
@@ -721,6 +727,32 @@ export function RulesClient({
         .map(({ rule }) => rule),
     [classified],
   );
+
+  // Every rule that's actually checking submissions right now —
+  // ACTIVE + EXPIRING + SILENT. Drives the "Review all rules" modal
+  // (drafts and deactivated rows are intentionally excluded from the
+  // ruleset-confirmation view).
+  const reviewableRules = useMemo(
+    () => [...activeRules, ...expiringRules, ...silentRules],
+    [activeRules, expiringRules, silentRules],
+  );
+
+  // Severity tally for the modal's summary line. Mirrors the bucket
+  // logic in `ruleSeverityBadge` so the counts match what's rendered
+  // on each card.
+  const reviewableSeverityCounts = useMemo(() => {
+    let block = 0;
+    let review = 0;
+    let flag = 0;
+    for (const r of reviewableRules) {
+      const v = (r.verdict || "").toLowerCase();
+      if (v === "block") block++;
+      else if (v === "review" || v === "escalate") review++;
+      else flag++;
+    }
+    return { block, review, flag };
+  }, [reviewableRules]);
+
   const draftRules = useMemo(
     () =>
       classified
@@ -1479,6 +1511,22 @@ export function RulesClient({
         {/* AI Content Detection moved to /settings (separate page —
             doesn't belong on the rules table). Governance Memory
             moved to /dashboard (belongs with the corpus data). */}
+
+        {/* "Review all rules →" trigger. Sits above the sticky
+            BottomMoatBar so a principal can scan the full ruleset
+            before signing off. Hidden when no active rules exist —
+            there'd be nothing to confirm. */}
+        {rulesActiveCount >= 1 && (
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setReviewOpen(true)}
+              className="border border-[#0EA5E9] text-[#0EA5E9] px-4 py-2 rounded text-sm hover:bg-[#0EA5E9]/5 transition-colors cursor-pointer"
+            >
+              Review all rules →
+            </button>
+          </div>
+        )}
       </div>
 
       <BottomMoatBar count={rulesActiveCount} />
@@ -1506,6 +1554,18 @@ export function RulesClient({
         <BuildRuleModal
           onClose={closeAndRefresh}
           onCreate={handleCreateCustomRule}
+        />
+      )}
+
+      {/* Full-screen ruleset review + confirm flow. Independent of the
+          four creation modals (template / paste / upload / build) so
+          opening one doesn't conflict with the other. */}
+      {reviewOpen && (
+        <ReviewRulesetModal
+          rules={reviewableRules}
+          now={now}
+          counts={reviewableSeverityCounts}
+          onClose={() => setReviewOpen(false)}
         />
       )}
 
@@ -4002,6 +4062,220 @@ function BuildRuleModal({
         </div>
       </div>
     </ModalShell>
+  );
+}
+
+// ---------- Review and confirm full ruleset --------------------------------
+//
+// Full-screen modal that lets a principal scan every active rule
+// before signing off — severity, name, full keyword list, lifecycle
+// pill, and authorized-by line per rule, plus a tally line at the
+// bottom of the list.
+//
+// State: `confirmed === false` renders the list view with a sticky
+// footer ("Edit rules" left / "Confirm ruleset" right). On confirm,
+// we replace the body with a centred success panel ("Ruleset
+// confirmed" + a "Check a draft →" CTA + Done) and console.log the
+// confirmation payload. There's no confirmations table yet, so the
+// log is the only durable side-effect — the visible audit trail is
+// added once the table lands.
+//
+// Custom shell rather than ModalShell because we need a separate
+// scroll region for the rule list with a sticky footer; ModalShell's
+// single `overflow-y-auto` container can't host that pattern cleanly.
+
+function ReviewRulesetModal({
+  rules,
+  now,
+  counts,
+  onClose,
+}: {
+  rules: ReadonlyArray<RuleRow>;
+  now: number;
+  counts: { block: number; review: number; flag: number };
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [confirmed, setConfirmed] = useState(false);
+  const ruleCount = rules.length;
+  // Today, ISO YYYY-MM-DD — feeds formatActivationDate so the success
+  // panel renders the same "May 9, 2026" shape used everywhere else.
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  function handleConfirm() {
+    // No confirmations table yet — log the payload so the
+    // authorisation event is recoverable from Vercel function logs
+    // until the durable record lands.
+    console.log("Ruleset confirmed:", {
+      ruleCount,
+      authorizedBy: "Sarah Chen · GC",
+      confirmedAt: new Date().toISOString(),
+    });
+    setConfirmed(true);
+  }
+
+  function goCheckDraft() {
+    onClose();
+    router.push("/check");
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {confirmed ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center px-8 py-12">
+            <div
+              className="text-[#16A34A] text-5xl leading-none mb-4"
+              aria-hidden
+            >
+              ✓
+            </div>
+            <h3
+              style={{ fontFamily: "var(--font-newsreader)" }}
+              className="text-3xl font-light text-[#0D1B2A] mb-3"
+            >
+              Ruleset confirmed
+            </h3>
+            <p className="text-sm text-[#475569] mb-2 max-w-md">
+              <span className="font-medium text-[#0F172A]">{ruleCount}</span>{" "}
+              rule{ruleCount === 1 ? "" : "s"} are now active and enforced
+              on every draft submission.
+            </p>
+            <div className="text-xs text-[#64748B] mb-8">
+              Authorized by: Sarah Chen · GC ·{" "}
+              {formatActivationDate(todayIso)}
+            </div>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={goCheckDraft}
+                className="bg-[#0EA5E9] text-white font-mono text-sm font-medium px-5 py-2.5 rounded hover:bg-[#0284C7] transition-colors cursor-pointer"
+              >
+                Check a draft →
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="font-mono text-sm text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer px-3 py-2.5"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Header (fixed) */}
+            <div className="border-b border-[#E2E8F0] px-6 py-5 shrink-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3
+                    style={{ fontFamily: "var(--font-newsreader)" }}
+                    className="text-2xl font-light text-[#0D1B2A]"
+                  >
+                    Your governance ruleset
+                  </h3>
+                  <p className="text-sm text-[#475569] mt-1.5 leading-relaxed">
+                    Review all{" "}
+                    <span className="font-medium text-[#0F172A]">
+                      {ruleCount}
+                    </span>{" "}
+                    active rule{ruleCount === 1 ? "" : "s"} before
+                    confirming. Every draft submission will be checked
+                    against these rules.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close"
+                  className="text-[#94A3B8] hover:text-[#0D1B2A] text-xl cursor-pointer leading-none -mt-0.5 shrink-0"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable rule list */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 bg-[#F8FAFC]">
+              <div className="space-y-3">
+                {rules.map((rule) => {
+                  const lifecycle = lifecycleStateLabel(rule, now);
+                  const keywords = rule.keywords ?? [];
+                  return (
+                    <div
+                      key={rule.id}
+                      className="bg-white border border-[#E2E8F0] rounded-sm p-4"
+                    >
+                      <div className="flex items-start gap-3 flex-wrap">
+                        {ruleSeverityBadge(rule.verdict)}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="font-medium text-[#0F172A]">
+                              {rule.name}
+                            </span>
+                            <span
+                              className={`inline-block text-xs font-medium px-2 py-0.5 rounded-sm ${lifecycle.className}`}
+                            >
+                              {lifecycle.label}
+                            </span>
+                          </div>
+                          {keywords.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {keywords.map((kw) => (
+                                <span
+                                  key={kw}
+                                  className="bg-[#F1F5F9] text-[#0F172A] text-xs px-2 py-0.5 rounded"
+                                >
+                                  {kw}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="text-[#64748B] text-xs mt-2">
+                            Authorized by: {authorizedByLabel(rule)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Summary line — counts + authorisation. */}
+              <div className="text-[#64748B] text-sm text-center mt-5 pt-4 border-t border-[#E2E8F0]">
+                {ruleCount} rule{ruleCount === 1 ? "" : "s"} ·{" "}
+                {counts.block} BLOCK · {counts.review} REVIEW ·{" "}
+                {counts.flag} FLAG · Authorized by Sarah Chen · GC
+              </div>
+            </div>
+
+            {/* Sticky footer */}
+            <div className="border-t border-[#E2E8F0] px-6 py-4 shrink-0 flex items-center justify-between gap-3 flex-wrap bg-white">
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-[#64748B] text-sm hover:text-[#0F172A] transition-colors cursor-pointer"
+              >
+                Not right? Edit rules →
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                className="bg-[#0EA5E9] text-white px-6 py-2 rounded font-medium text-sm hover:bg-[#0284C7] transition-colors cursor-pointer"
+              >
+                Confirm ruleset
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
