@@ -57,7 +57,13 @@ async function getRulesData(): Promise<{
         "id, name, description, keywords, scope, rule_status, deactivated_at, deactivated_reason, wsp_reference, verdict:rule_type, effective_from, effective_until:effective_to"
       )
       .eq("org_id", orgId)
-      .order("name"),
+      // Oldest first — the rules table renders newer rules at the
+      // bottom, where the post-create highlight pulse is most visible
+      // and the existing seed rules don't shift around when a new one
+      // lands. The optimistic-merge logic in rules-client.tsx appends
+      // pending rows to the end of the array, so this ordering is
+      // preserved through the create flow.
+      .order("effective_from", { ascending: true }),
     sb
       .from("actions")
       .select("draft_id, occurred_at, payload")
