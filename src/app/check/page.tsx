@@ -1,4 +1,9 @@
-import { SubmitForm, type SpeakerInfo, type SubmitFlow } from "./submit-form";
+import {
+  SubmitForm,
+  type ActiveRule,
+  type SpeakerInfo,
+  type SubmitFlow,
+} from "./submit-form";
 import { SiteHeader } from "@/app/site-header";
 import { resolveOrgId } from "@/lib/auth-helpers";
 import { getSupabaseAdmin } from "@/lib/supabase";
@@ -15,12 +20,23 @@ export const revalidate = 0;
 export default async function SubmitPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; count?: string; firmType?: string }>;
+  searchParams: Promise<{
+    from?: string;
+    count?: string;
+    firmType?: string;
+    campaign?: string;
+  }>;
 }) {
   const params = await searchParams;
   const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const fromRules = params.from === "rules";
   const activatedCount = parseInt(params.count ?? "0", 10) || 0;
+  // FIX 2 — `?campaign=` lets a VP Comms send speakers a pre-scoped
+  // submit link. The page needs the value at fetch time so it can
+  // resolve campaign_rules → the scoped rule allowlist alongside the
+  // active-rules query in one round trip; the form also reads the
+  // param client-side via useSearchParams for input prefill.
+  const campaignParam = params.campaign?.trim() ?? null;
 
   const sb = getSupabaseAdmin();
   const orgId = await resolveOrgId();
@@ -77,14 +93,65 @@ export default async function SubmitPage({
 
   const hasSpeakers = speakers.length > 0;
 
-  // Active rule count — drives the "X rules will be checked" tag below
-  // the draft textarea + the stage-1 label in the checking state.
-  const { count: ruleCountRaw } = await sb
+  // FIX 2 — full active-rule metadata (id, name, rule_type, keywords,
+  // regulatory_basis, authorized_by) so the "Rules active" expandable
+  // section and the post-verdict "Rules checked" panel can render
+  // without re-querying. The page-load `ruleCount` is still derived
+  // from this list.
+  type ActiveRuleRow = {
+    id: string;
+    name: string;
+    rule_type: "block" | "review" | "escalate" | "guide";
+    keywords: string[] | null;
+    regulatory_basis: string | null;
+    authorized_by: string | null;
+  };
+  const { data: activeRulesRaw } = await sb
     .from("rules")
-    .select("*", { count: "exact", head: true })
+    .select(
+      "id, name, rule_type, keywords, regulatory_basis, authorized_by",
+    )
     .eq("org_id", orgId)
-    .eq("rule_status", "active");
-  const ruleCount = ruleCountRaw ?? 0;
+    .eq("rule_status", "active")
+    .order("name");
+  const activeRules: ActiveRule[] = (
+    (activeRulesRaw ?? []) as ActiveRuleRow[]
+  ).map((r) => ({
+    id: r.id,
+    name: r.name,
+    verdict: r.rule_type,
+    keywords: r.keywords ?? [],
+    regulatoryBasis: r.regulatory_basis ?? null,
+    authorizedBy: r.authorized_by ?? null,
+  }));
+  const ruleCount = activeRules.length;
+
+  // FIX 2 — when ?campaign=Series%20B%20Announce is in the URL, look
+  // up the campaign + its campaign_rules selection so the form can
+  // pre-scope the rules section. An empty selection means
+  // implicit-all (every active rule applies); we surface that as
+  // null so the form renders the full list.
+  let campaignScopedRuleIds: string[] | null = null;
+  if (campaignParam) {
+    const { data: campaignRow } = await sb
+      .from("campaigns")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("name", campaignParam)
+      .maybeSingle();
+    const cid = (campaignRow?.id as string | undefined) ?? null;
+    if (cid) {
+      const { data: scopedRows } = await sb
+        .from("campaign_rules")
+        .select("rule_id")
+        .eq("campaign_id", cid);
+      const scoped = ((scopedRows ?? []) as Array<{ rule_id: string }>).map(
+        (r) => r.rule_id,
+      );
+      // Empty rows → implicit-all → null (no scoping).
+      if (scoped.length > 0) campaignScopedRuleIds = scoped;
+    }
+  }
 
   // Approved-draft count — drives the consistency-check stage-3 label
   // ("Checking against N prior approved statements"). Falls back to a
@@ -136,6 +203,8 @@ export default async function SubmitPage({
           firmType={firmType}
           speakers={speakers}
           ruleCount={ruleCount}
+          activeRules={activeRules}
+          campaignScopedRuleIds={campaignScopedRuleIds}
           corpusCount={corpusCount}
           currentUserName={currentUserName}
           isDemoMode={isDemoMode}

@@ -10,6 +10,121 @@ import {
 } from "@/lib/checks";
 import type { CheckEntry, CommunicationCategory, Verdict } from "@/lib/checks";
 
+// ---------- Default ruleset -----------------------------------------------
+//
+// When the org has zero `rule_status='active'` rules in the DB, the
+// check action falls back to this hard-coded set. Same shape as the
+// rules table (rule_type/keywords) so downstream rendering can treat
+// a defaults run identically to a custom run; only the
+// `usedDefaultRules` flag tells the client to label the section
+// "ERA CUE default governance rules" rather than "your active rules".
+//
+// Keyword matching mirrors `runChecks` Stage 1 (whole-word, case-
+// insensitive). Stage 2 (Claude context) and Stage 3 (Reg-2210 category
+// adjustment) are skipped on the defaults path — defaults are
+// illustrative scaffolding, not regulatory citations, so the simpler
+// match-and-go behaviour is intentional.
+
+type DefaultRule = {
+  id: string;
+  name: string;
+  rule_type: "block" | "review";
+  keywords: string[];
+};
+
+const DEFAULT_RULES: ReadonlyArray<DefaultRule> = [
+  {
+    id: "default-1",
+    name: "Quiet Period Language",
+    rule_type: "block",
+    keywords: [
+      "fundraising",
+      "raising",
+      "investors",
+      "closing our round",
+      "series",
+    ],
+  },
+  {
+    id: "default-2",
+    name: "Forward Guidance",
+    rule_type: "block",
+    keywords: ["expects", "projects", "anticipates", "guidance", "outlook"],
+  },
+  {
+    id: "default-3",
+    name: "Material Information",
+    rule_type: "block",
+    keywords: [
+      "material",
+      "non-public",
+      "confidential deal",
+      "embargoed",
+      "not yet announced",
+    ],
+  },
+  {
+    id: "default-4",
+    name: "Competitor Disparagement",
+    rule_type: "review",
+    keywords: [
+      "unlike our competitors",
+      "better than any competitor",
+      "no competitor can",
+    ],
+  },
+  {
+    id: "default-5",
+    name: "Unsubstantiated Claims",
+    rule_type: "review",
+    keywords: ["guaranteed", "always works", "never fails", "100% proven"],
+  },
+];
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Match the draft text against DEFAULT_RULES using the same whole-word
+// keyword logic as `runChecks`. Returns the per-rule pass/triggered
+// breakdown; the caller picks the highest-priority verdict.
+function matchAgainstDefaults(draftText: string): Array<{
+  rule: DefaultRule;
+  triggered: boolean;
+  matchedKeyword?: string;
+}> {
+  const lower = draftText.toLowerCase();
+  const out: Array<{
+    rule: DefaultRule;
+    triggered: boolean;
+    matchedKeyword?: string;
+  }> = [];
+  for (const rule of DEFAULT_RULES) {
+    let hit: string | undefined;
+    for (const kw of rule.keywords) {
+      if (!kw) continue;
+      const re = new RegExp("\\b" + escapeRegex(kw.toLowerCase()) + "\\b");
+      if (re.test(lower)) {
+        hit = kw;
+        break;
+      }
+    }
+    out.push({
+      rule,
+      triggered: hit !== undefined,
+      ...(hit !== undefined ? { matchedKeyword: hit } : {}),
+    });
+  }
+  return out;
+}
+
+const VERDICT_PRIORITY: Record<DefaultRule["rule_type"], number> = {
+  block: 4,
+  review: 2,
+};
+
+// ---------- Communication category resolution ----------------------------
+
 // Channels that are inherently public reach a retail audience and can never
 // downgrade to correspondence / institutional. Used as the auto-set rule
 // when the form doesn't pass an explicit category.
@@ -64,6 +179,40 @@ type SubmitInput = {
   // route can pass this through). Recorded on the `submitted` action
   // payload and surfaced on the examiner record.
   submissionMethod?: "web_app" | "api";
+  // Optional speaker title (when "Other" is chosen and the user types
+  // their own title; ignored for known speakers since we already have
+  // their title from `users.title`).
+  speakerTitle?: string | null;
+  // Optional campaign-scoped rule allowlist. When supplied, the action
+  // only runs the listed rule ids — the campaign-rule editor on the
+  // programs page surfaces what's in scope. An empty array means the
+  // campaign exists but has no rules attached, which we treat as the
+  // implicit-all default (run everything the org has active).
+  campaignScopedRuleIds?: string[];
+};
+
+// Per-rule check result returned alongside the verdict so the form can
+// render the "Rules checked (N total · X triggered · Y passed)" panel
+// without re-querying the rules table.
+export type RuleResult = {
+  ruleId: string;
+  ruleName: string;
+  verdict: "block" | "review" | "escalate" | "guide";
+  triggered: boolean;
+  matchedKeyword?: string;
+  regulatoryBasis?: string;
+  authorizedBy?: string;
+};
+
+export type CampaignConsistencyResult = {
+  priorCount: number;
+  gap: boolean;
+  // Keywords that the current draft contains AND that appeared in
+  // prior CLEARED drafts for the same campaign. A non-empty list is
+  // a proxy for "the team has previously cleared the same language;
+  // why is it being blocked now?" — the surface is informational and
+  // doesn't change the verdict.
+  gapKeywords?: string[];
 };
 
 export type SubmitSuccess = {
@@ -85,6 +234,28 @@ export type SubmitSuccess = {
     name: string;
     effectiveness: number | null;
   } | null;
+  // Defaults flag — true when the org had zero active rules and the
+  // check ran against DEFAULT_RULES. Drives the "ERA CUE default
+  // governance rules" labelling on the form.
+  usedDefaultRules: boolean;
+  // Per-rule pass/triggered breakdown for the "Rules checked" section
+  // on the verdict view. Always present (empty only when both the org
+  // and the defaults somehow yielded no rules).
+  ruleResults: RuleResult[];
+  // Every rule that triggered, ordered as encountered. The verdict
+  // header switches to a multi-rule banner when this has length > 1.
+  triggeredRules: RuleResult[];
+  // Live count of rules actually checked on this submission — the
+  // form swaps in this number wherever the page-load ruleCount was
+  // shown so the verdict reflects the run, not the snapshot.
+  ruleCountChecked: number;
+  // Routing target for the BLOCK "Route to … for review" card.
+  // First-triggered rule's authorized_by, or null when nothing
+  // triggered or the matched rule has no authorized_by on file.
+  authorizedBy?: string | null;
+  // Campaign consistency check — only populated when the submission
+  // had a non-null campaignName.
+  campaignConsistency?: CampaignConsistencyResult;
   error?: undefined;
 };
 type SubmitResult = SubmitSuccess | { draftId?: undefined; error: string };
@@ -179,21 +350,188 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
       submission_method: submissionMethod,
       channel: input.channel,
       campaign_id: campaignId,
+      ...(input.speakerTitle ? { speaker_title: input.speakerTitle } : {}),
     },
   });
 
-  // 3. Run checks. The category drives Stage 3 of the rule check — a hard
-  //    BLOCK on a non-retail communication relaxes to ESCALATE under
-  //    FINRA Rule 2210 (no pre-approval bar for correspondence /
-  //    institutional). Stage 2 (Claude context evaluation) runs inside
-  //    runChecks when ANTHROPIC_API_KEY is set.
-  const result = await runChecks(
-    sb,
-    orgId,
-    input.draftText,
-    draft.submitted_at,
-    communicationCategory,
-  );
+  // 3. Decide which ruleset to run. Count active rules; if zero, fall
+  //    through to the DEFAULT_RULES path (in-memory keyword match
+  //    only — no Stage 2 / Stage 3). When campaignScopedRuleIds is
+  //    present and non-empty, runChecks happens but we filter the
+  //    matches/rules-active list down to the campaign scope after
+  //    the fact (re-running runChecks on a sub-rule list would
+  //    require a refactor in lib/checks; filtering downstream is
+  //    safe and surface-only).
+  const { count: activeRuleCount } = await sb
+    .from("rules")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId)
+    .eq("rule_status", "active");
+
+  const usedDefaultRules = (activeRuleCount ?? 0) === 0;
+
+  // Rule metadata used for the per-rule breakdown returned to the
+  // client. For the defaults path we have it inline; for the DB path
+  // we fetch it once here (runChecks does its own select internally
+  // but doesn't return the description / regulatory_basis / authorized_by
+  // fields the form needs).
+  type DbRuleMeta = {
+    id: string;
+    name: string;
+    rule_type: "block" | "review" | "escalate" | "guide";
+    keywords: string[];
+    description?: string | null;
+    regulatory_basis?: string | null;
+    authorized_by?: string | null;
+    effective_from?: string | null;
+    effective_to?: string | null;
+    rule_status?: string | null;
+  };
+  let dbRules: DbRuleMeta[] = [];
+  if (!usedDefaultRules) {
+    const { data: rulesRaw } = await sb
+      .from("rules")
+      .select(
+        "id, name, rule_type, keywords, description, regulatory_basis, authorized_by, effective_from, effective_to, rule_status",
+      )
+      .eq("org_id", orgId)
+      .eq("rule_status", "active");
+    dbRules = (rulesRaw ?? []) as DbRuleMeta[];
+  }
+
+  type CheckResultLike = {
+    rule_check: {
+      matches: Array<{
+        rule_id: string;
+        rule_name: string;
+        rule_type: "block" | "review" | "escalate" | "guide";
+        rule_description: string;
+        matched_keyword: string;
+        match_position: number;
+      }>;
+    };
+    timing_check: {
+      rules_active_count: number;
+      rules_inactive_count: number;
+      submitted_at: string;
+    };
+    verdict: Verdict;
+    base_verdict: Verdict;
+    primary_match:
+      | {
+          rule_id: string;
+          rule_name: string;
+          rule_type: "block" | "review" | "escalate" | "guide";
+          rule_description: string;
+          matched_keyword: string;
+          match_position: number;
+        }
+      | null;
+    rules_active: string[];
+    communication_category: CommunicationCategory;
+    context_evaluation?: {
+      confirmed: boolean;
+      reasoning: string;
+      adjusted_verdict: string | null;
+    };
+    context_unavailable_reason?: string;
+  };
+
+  let result: CheckResultLike;
+  if (usedDefaultRules) {
+    const matched = matchAgainstDefaults(input.draftText);
+    const rawMatches = matched
+      .filter((m) => m.triggered)
+      .map((m) => ({
+        rule_id: m.rule.id,
+        rule_name: m.rule.name,
+        rule_type: m.rule.rule_type,
+        rule_description: "",
+        matched_keyword: m.matchedKeyword ?? "",
+        match_position: 0,
+      }));
+    let baseVerdict: Verdict = "clear";
+    let primaryMatch: CheckResultLike["primary_match"] = null;
+    for (const m of rawMatches) {
+      const prio = VERDICT_PRIORITY[m.rule_type as keyof typeof VERDICT_PRIORITY] ?? 0;
+      const cur =
+        baseVerdict === "block" ? 4 : baseVerdict === "review" ? 2 : 0;
+      if (prio > cur) {
+        baseVerdict = m.rule_type;
+        primaryMatch = m;
+      }
+    }
+    result = {
+      rule_check: { matches: rawMatches },
+      timing_check: {
+        rules_active_count: DEFAULT_RULES.length,
+        rules_inactive_count: 0,
+        submitted_at: draft.submitted_at,
+      },
+      verdict: baseVerdict,
+      base_verdict: baseVerdict,
+      primary_match: primaryMatch,
+      rules_active: DEFAULT_RULES.map((r) => r.id),
+      communication_category: communicationCategory,
+      context_unavailable_reason:
+        "Default ruleset — context evaluation skipped",
+    };
+  } else {
+    result = (await runChecks(
+      sb,
+      orgId,
+      input.draftText,
+      draft.submitted_at,
+      communicationCategory,
+    )) as CheckResultLike;
+  }
+
+  // Apply campaign rule scoping (DB path only — defaults are global).
+  let scopedResult = result;
+  if (
+    !usedDefaultRules &&
+    input.campaignScopedRuleIds &&
+    input.campaignScopedRuleIds.length > 0
+  ) {
+    const allowed = new Set(input.campaignScopedRuleIds);
+    const filteredMatches = result.rule_check.matches.filter((m) =>
+      allowed.has(m.rule_id),
+    );
+    let scopedBase: Verdict = "clear";
+    let scopedPrimary: CheckResultLike["primary_match"] = null;
+    for (const m of filteredMatches) {
+      const prio =
+        m.rule_type === "block"
+          ? 4
+          : m.rule_type === "escalate"
+            ? 3
+            : m.rule_type === "review"
+              ? 2
+              : 1;
+      const cur =
+        scopedBase === "block"
+          ? 4
+          : scopedBase === "escalate"
+            ? 3
+            : scopedBase === "review"
+              ? 2
+              : scopedBase === "guide"
+                ? 1
+                : 0;
+      if (prio > cur) {
+        scopedBase = m.rule_type;
+        scopedPrimary = m;
+      }
+    }
+    scopedResult = {
+      ...result,
+      rule_check: { matches: filteredMatches },
+      verdict: scopedBase,
+      base_verdict: scopedBase,
+      primary_match: scopedPrimary,
+      rules_active: result.rules_active.filter((id) => allowed.has(id)),
+    };
+  }
 
   // 4. rule_check action
   await sb.from("actions").insert({
@@ -203,10 +541,11 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     actor_kind: "ai_check",
     payload: {
       check: "rule_check",
-      matches: result.rule_check.matches,
-      match_count: result.rule_check.matches.length,
+      matches: scopedResult.rule_check.matches,
+      match_count: scopedResult.rule_check.matches.length,
+      used_default_rules: usedDefaultRules,
     },
-    rules_active: result.rules_active,
+    rules_active: scopedResult.rules_active,
   });
 
   // 5. timing_check action
@@ -217,11 +556,11 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     actor_kind: "ai_check",
     payload: {
       check: "timing_check",
-      rules_active_count: result.timing_check.rules_active_count,
-      rules_inactive_count: result.timing_check.rules_inactive_count,
-      submitted_at: result.timing_check.submitted_at,
+      rules_active_count: scopedResult.timing_check.rules_active_count,
+      rules_inactive_count: scopedResult.timing_check.rules_inactive_count,
+      submitted_at: scopedResult.timing_check.submitted_at,
     },
-    rules_active: result.rules_active,
+    rules_active: scopedResult.rules_active,
   });
 
   // 6. Consistency Check — Claude compares draft against the speaker's
@@ -238,34 +577,35 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
   // 7. verdict_issued action. Includes the Stage 1 base verdict + Stage 2
   //    context evaluation reasoning + the category so the examiner record
   //    can fully reconstruct how the final verdict was reached.
-  const checks = buildChecksArray(result, finalSourceOrigin, consistencyResult);
+  const checks = buildChecksArray(scopedResult, finalSourceOrigin, consistencyResult);
   await sb.from("actions").insert({
     org_id: orgId,
     draft_id: draft.id,
     action_type: "verdict_issued",
     actor_kind: "system",
     payload: {
-      verdict: result.verdict,
-      base_verdict: result.base_verdict,
-      primary_match: result.primary_match,
+      verdict: scopedResult.verdict,
+      base_verdict: scopedResult.base_verdict,
+      primary_match: scopedResult.primary_match,
       communication_category: communicationCategory,
       checks_passed: ["rule_check", "timing_check"],
       checks,
-      ...(result.context_evaluation
-        ? { context_evaluation: result.context_evaluation }
+      used_default_rules: usedDefaultRules,
+      ...(scopedResult.context_evaluation
+        ? { context_evaluation: scopedResult.context_evaluation }
         : {}),
-      ...(result.context_unavailable_reason
-        ? { context_unavailable_reason: result.context_unavailable_reason }
+      ...(scopedResult.context_unavailable_reason
+        ? { context_unavailable_reason: scopedResult.context_unavailable_reason }
         : {}),
       ...(consistencyResult.result === "warn"
         ? { consistency_warning: consistencyResult.detail }
         : {}),
     },
-    rules_active: result.rules_active,
+    rules_active: scopedResult.rules_active,
   });
 
   // 8. Update draft.status
-  const newStatus = verdictToStatus(result.verdict);
+  const newStatus = verdictToStatus(scopedResult.verdict);
   await sb.from("drafts").update({ status: newStatus }).eq("id", draft.id);
 
   // 9a. Pull the Consistency Check entry out of the existing checks
@@ -286,8 +626,8 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
   //     matched. The lookup excludes the current draft so the score
   //     reflects how the rule has performed before this submission.
   let ruleMatchOut: { name: string; effectiveness: number | null } | null = null;
-  if (result.primary_match) {
-    const ruleName = result.primary_match.rule_name;
+  if (scopedResult.primary_match && !usedDefaultRules) {
+    const ruleName = scopedResult.primary_match.rule_name;
     const { data: pastVerdicts } = await sb
       .from("actions")
       .select("draft_id, payload")
@@ -318,16 +658,129 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     ruleMatchOut = { name: ruleName, effectiveness };
   }
 
-  // 10. Flat return shape — primary_match unfolded into rule* fields so the
+  // 10. Build the per-rule pass/triggered breakdown for the verdict
+  //     view. Defaults path: walk the in-memory matched array.
+  //     DB path: walk dbRules and pair each with whatever scopedResult
+  //     contains. Always returns one entry per rule that ran.
+  const matchByRuleId = new Map<
+    string,
+    CheckResultLike["rule_check"]["matches"][number]
+  >();
+  for (const m of scopedResult.rule_check.matches) {
+    matchByRuleId.set(m.rule_id, m);
+  }
+
+  let ruleResults: RuleResult[];
+  if (usedDefaultRules) {
+    const matched = matchAgainstDefaults(input.draftText);
+    ruleResults = matched.map((m) => ({
+      ruleId: m.rule.id,
+      ruleName: m.rule.name,
+      verdict: m.rule.rule_type,
+      triggered: m.triggered,
+      ...(m.matchedKeyword ? { matchedKeyword: m.matchedKeyword } : {}),
+    }));
+  } else {
+    const allowed =
+      input.campaignScopedRuleIds && input.campaignScopedRuleIds.length > 0
+        ? new Set(input.campaignScopedRuleIds)
+        : null;
+    ruleResults = dbRules
+      .filter((r) => (allowed ? allowed.has(r.id) : true))
+      .map((r) => {
+        const m = matchByRuleId.get(r.id);
+        return {
+          ruleId: r.id,
+          ruleName: r.name,
+          verdict: r.rule_type,
+          triggered: !!m,
+          ...(m?.matched_keyword ? { matchedKeyword: m.matched_keyword } : {}),
+          ...(r.regulatory_basis
+            ? { regulatoryBasis: r.regulatory_basis }
+            : {}),
+          ...(r.authorized_by ? { authorizedBy: r.authorized_by } : {}),
+        };
+      });
+  }
+
+  const triggeredRules = ruleResults.filter((r) => r.triggered);
+  const authorizedBy =
+    triggeredRules.length > 0 ? (triggeredRules[0].authorizedBy ?? null) : null;
+  const ruleCountChecked = ruleResults.length;
+
+  // 11. Campaign consistency check. Only runs when the submission has
+  //     a resolvable campaign id. Pulls prior CLEARED drafts for the
+  //     same campaign and computes keyword overlap with the current
+  //     draft using the union of triggered + non-triggered BLOCK rules
+  //     (defaults or DB). A non-empty overlap means the team has
+  //     previously cleared the same language — surfaced as an amber
+  //     "possible consistency gap" indicator on the form.
+  let campaignConsistency: CampaignConsistencyResult | undefined;
+  if (campaignId) {
+    const { data: priorCleared } = await sb
+      .from("drafts")
+      .select("draft_text")
+      .eq("org_id", orgId)
+      .eq("campaign_id", campaignId)
+      .in("status", ["approved", "overridden"])
+      .neq("id", draft.id);
+    const priors = ((priorCleared ?? []) as Array<{ draft_text: string }>).map(
+      (d) => d.draft_text.toLowerCase(),
+    );
+    // Keyword universe: every BLOCK keyword from the ruleset that
+    // applied to this submission. Defaults path uses DEFAULT_RULES;
+    // DB path uses dbRules (already filtered to active rules).
+    const blockKeywords: string[] = [];
+    if (usedDefaultRules) {
+      for (const r of DEFAULT_RULES) {
+        if (r.rule_type === "block") blockKeywords.push(...r.keywords);
+      }
+    } else {
+      const allowed =
+        input.campaignScopedRuleIds && input.campaignScopedRuleIds.length > 0
+          ? new Set(input.campaignScopedRuleIds)
+          : null;
+      for (const r of dbRules) {
+        if (allowed && !allowed.has(r.id)) continue;
+        if (r.rule_type === "block") blockKeywords.push(...(r.keywords ?? []));
+      }
+    }
+    const lowerDraft = input.draftText.toLowerCase();
+    const gapKeywords: string[] = [];
+    for (const kw of blockKeywords) {
+      if (!kw) continue;
+      const lowerKw = kw.toLowerCase();
+      if (!lowerDraft.includes(lowerKw)) continue;
+      // Did at least one prior CLEARED draft contain the same keyword?
+      if (priors.some((p) => p.includes(lowerKw))) {
+        gapKeywords.push(kw);
+      }
+    }
+    campaignConsistency = {
+      priorCount: priors.length,
+      gap: gapKeywords.length > 0,
+      ...(gapKeywords.length > 0
+        ? { gapKeywords: Array.from(new Set(gapKeywords)) }
+        : {}),
+    };
+  }
+
+  // 12. Flat return shape — primary_match unfolded into rule* fields so the
   //     form can render directly without reaching into a nested object.
   return {
     draftId: draft.id,
-    verdict: result.verdict,
-    ruleName: result.primary_match?.rule_name,
-    ruleDescription: result.primary_match?.rule_description,
-    matchedKeyword: result.primary_match?.matched_keyword,
+    verdict: scopedResult.verdict,
+    ruleName: scopedResult.primary_match?.rule_name,
+    ruleDescription: scopedResult.primary_match?.rule_description,
+    matchedKeyword: scopedResult.primary_match?.matched_keyword,
     checks,
     ...(consistencyResultOut ? { consistencyResult: consistencyResultOut } : {}),
     ruleMatch: ruleMatchOut,
+    usedDefaultRules,
+    ruleResults,
+    triggeredRules,
+    ruleCountChecked,
+    authorizedBy,
+    ...(campaignConsistency ? { campaignConsistency } : {}),
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { submitDraftAction } from "./actions";
 import type { CheckEntry } from "@/lib/checks";
@@ -17,6 +17,99 @@ export type SpeakerInfo = {
   is_current_user: boolean;
 };
 
+// Active rule metadata threaded down from the server. Drives the
+// "Rules active" expandable section (FIX 2) and the post-verdict
+// "Rules checked" panel (FIX 6). Defaults are merged in client-side
+// when the action returns usedDefaultRules=true.
+export type ActiveRule = {
+  id: string;
+  name: string;
+  verdict: "block" | "review" | "escalate" | "guide";
+  keywords: string[];
+  regulatoryBasis: string | null;
+  authorizedBy: string | null;
+};
+
+// Mirrors `RuleResult` from actions.ts. Re-declared here so the form
+// doesn't have to import a server-action type at the top level.
+type RuleResult = {
+  ruleId: string;
+  ruleName: string;
+  verdict: "block" | "review" | "escalate" | "guide";
+  triggered: boolean;
+  matchedKeyword?: string;
+  regulatoryBasis?: string;
+  authorizedBy?: string;
+};
+
+type CampaignConsistency = {
+  priorCount: number;
+  gap: boolean;
+  gapKeywords?: string[];
+};
+
+// Defaults metadata mirrored from actions.ts. The form uses this
+// purely for the "Rules active" preview when the org has zero rules
+// — the server still owns the real ruleset on submission.
+const DEFAULT_RULES_PREVIEW: ReadonlyArray<ActiveRule> = [
+  {
+    id: "default-1",
+    name: "Quiet Period Language",
+    verdict: "block",
+    keywords: [
+      "fundraising",
+      "raising",
+      "investors",
+      "closing our round",
+      "series",
+    ],
+    regulatoryBasis: null,
+    authorizedBy: null,
+  },
+  {
+    id: "default-2",
+    name: "Forward Guidance",
+    verdict: "block",
+    keywords: ["expects", "projects", "anticipates", "guidance", "outlook"],
+    regulatoryBasis: null,
+    authorizedBy: null,
+  },
+  {
+    id: "default-3",
+    name: "Material Information",
+    verdict: "block",
+    keywords: [
+      "material",
+      "non-public",
+      "confidential deal",
+      "embargoed",
+      "not yet announced",
+    ],
+    regulatoryBasis: null,
+    authorizedBy: null,
+  },
+  {
+    id: "default-4",
+    name: "Competitor Disparagement",
+    verdict: "review",
+    keywords: [
+      "unlike our competitors",
+      "better than any competitor",
+      "no competitor can",
+    ],
+    regulatoryBasis: null,
+    authorizedBy: null,
+  },
+  {
+    id: "default-5",
+    name: "Unsubstantiated Claims",
+    verdict: "review",
+    keywords: ["guaranteed", "always works", "never fails", "100% proven"],
+    regulatoryBasis: null,
+    authorizedBy: null,
+  },
+];
+
 type Props = {
   flow: SubmitFlow;
   fromRules: boolean;
@@ -24,6 +117,11 @@ type Props = {
   firmType: string;
   speakers: SpeakerInfo[];
   ruleCount: number;
+  activeRules: ActiveRule[];
+  // FIX 2 — when ?campaign= matches a campaign that has a
+  // non-empty campaign_rules allowlist, the page passes those ids
+  // here. Null = implicit-all (every active rule applies).
+  campaignScopedRuleIds: string[] | null;
   corpusCount: number;
   currentUserName: string | null;
   isDemoMode: boolean;
@@ -39,6 +137,16 @@ type VerdictData = {
   matchedKeyword?: string;
   draftId?: string;
   checks?: CheckEntry[];
+  // FIX 6/7/12 — verdict-time data the form needs to render the
+  // post-submission rules-checked panel and the multi-rule banner.
+  usedDefaultRules?: boolean;
+  ruleResults?: RuleResult[];
+  triggeredRules?: RuleResult[];
+  ruleCountChecked?: number;
+  authorizedBy?: string | null;
+  // FIX 8 — campaign consistency outcome (only present when the
+  // submission carried a campaign name).
+  campaignConsistency?: CampaignConsistency;
 };
 
 // Channels offered in the pill row. AI agent post covers drafts
@@ -53,12 +161,24 @@ const CHANNELS: ReadonlyArray<{ key: string; label: string }> = [
   { key: "ai_agent_post", label: "AI agent post" },
 ];
 
-// Example draft surfaced behind the "Try an example →" link in demo
-// mode. Trips the Series B Quiet Period rule on the keywords
-// "expanding" and "fundraising" so a visitor sees a BLOCK verdict
-// the moment they click through.
-const DEMO_EXAMPLE_DRAFT =
+// Hardcoded fallback used by the demo "Try an example →" link when no
+// BLOCK rule keyword is available to splice into the smart template.
+// Trips the Series B Quiet Period rule on the keywords "expanding" and
+// "fundraising" so a visitor sees a BLOCK verdict the moment they click.
+const FALLBACK_EXAMPLE_DRAFT =
   "We're aggressively expanding our team and excited to share updates on our fundraising progress soon.";
+
+// FIX 11 — speaker allowlist. Sarah Chen is the GC (role='principal',
+// already filtered server-side), but the spec requires an explicit
+// belt-and-braces filter so she never appears in the speaker grid even
+// if the seed drift assigns her role='speaker'. The grid renders these
+// four names plus the "Other" tile.
+const ALLOWED_SPEAKER_NAMES = new Set([
+  "James Kim",
+  "Lena Brooks",
+  "Marcus Rivera",
+  "Priya Patel",
+]);
 
 // Plain-English verdict labels and palette. Rendered on the verdict
 // header so a non-compliance reader doesn't have to map BLOCK /
@@ -99,6 +219,31 @@ const VERDICT_META: Record<
   },
 };
 
+// ---------- Severity badge (matches the rules table) ---------------------
+
+function severityBadge(verdict: string) {
+  const v = (verdict || "").toLowerCase();
+  if (v === "block") {
+    return (
+      <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA] shrink-0">
+        Block
+      </span>
+    );
+  }
+  if (v === "review" || v === "escalate") {
+    return (
+      <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] shrink-0">
+        Review
+      </span>
+    );
+  }
+  return (
+    <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] shrink-0">
+      Flag
+    </span>
+  );
+}
+
 // ---------- Form ---------------------------------------------------------
 
 export function SubmitForm({
@@ -108,6 +253,8 @@ export function SubmitForm({
   firmType,
   speakers,
   ruleCount,
+  activeRules,
+  campaignScopedRuleIds,
   corpusCount,
   currentUserName,
   isDemoMode,
@@ -117,25 +264,48 @@ export function SubmitForm({
   // component but no longer surfaces in the UI — the new
   // three-line CheckingState narrative is static.
   void corpusCount;
-  // Initial speaker — preference order:
-  //   1. The current user (if they exist as a speaker)
-  //   2. Marcus Rivera (CEO) in demo mode — the canonical demo submitter
-  //   3. The first speaker in the list
-  //   4. null (new-user flow with no speakers)
+  // firmType is no longer used to route the example — the demo flow
+  // shows a single canonical draft. Reference the variable so an
+  // unused-prop lint never flags the page→form contract.
+  void firmType;
+
+  // FIX 11 — restrict the visible speaker grid to the allowlisted
+  // names, plus the current authenticated user (so a real returning
+  // visitor sees themselves regardless of their name). Sarah Chen
+  // never appears: she's role='principal' (filtered server-side) and
+  // her name isn't in ALLOWED_SPEAKER_NAMES anyway.
+  const filteredSpeakers = useMemo(
+    () =>
+      speakers.filter(
+        (s) => ALLOWED_SPEAKER_NAMES.has(s.display_name) || s.is_current_user,
+      ),
+    [speakers],
+  );
+
   const initialSpeaker: SpeakerInfo | null =
-    speakers.find((s) => s.is_current_user) ??
+    filteredSpeakers.find((s) => s.is_current_user) ??
     (flow === "demo"
-      ? (speakers.find((s) => s.display_name === "Marcus Rivera") ?? null)
+      ? (filteredSpeakers.find((s) => s.display_name === "Marcus Rivera") ??
+        null)
       : null) ??
-    speakers[0] ??
+    filteredSpeakers[0] ??
     null;
 
   const [selectedSpeakerId, setSelectedSpeakerId] = useState<string | null>(
     initialSpeaker?.id ?? null,
   );
+  // FIX 11 — "Other" pseudo-speaker. When selected, the speaker grid
+  // hands the action a free-text name + title rather than a known
+  // user id. The action's name → user lookup will surface "Speaker
+  // not found" if the name doesn't match any user row; we render
+  // that error inline.
+  const [otherSelected, setOtherSelected] = useState(false);
+  const [otherName, setOtherName] = useState("");
+  const [otherTitle, setOtherTitle] = useState("");
   const [showAllSpeakers, setShowAllSpeakers] = useState(false);
   const [channel, setChannel] = useState<string>("linkedin");
   const [draftText, setDraftText] = useState("");
+  const draftTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Campaign is visible by default; demo flow pre-selects "Series B" so
   // the first-time visitor sees a fully-populated submission.
   //
@@ -147,8 +317,7 @@ export function SubmitForm({
   const searchParams = useSearchParams();
   const initialCampaignFromUrl = searchParams.get("campaign");
   const [campaign, setCampaign] = useState(
-    initialCampaignFromUrl?.trim() ||
-      (flow === "demo" ? "Series B" : ""),
+    initialCampaignFromUrl?.trim() || (flow === "demo" ? "Series B" : ""),
   );
   // Submission origin — submission_method is read-only "web app" in this
   // surface; aiInvolvement is the EU AI Act / FINRA disclosure checkbox.
@@ -159,12 +328,41 @@ export function SubmitForm({
   const [error, setError] = useState<string | null>(null);
   const [verdict, setVerdict] = useState<string | null>(null);
   const [verdictData, setVerdictData] = useState<VerdictData | null>(null);
-  // firmType is no longer used to route the example — the demo flow
-  // shows a single canonical draft. Reference the variable so an
-  // unused-prop lint never flags the page→form contract.
-  void firmType;
 
-  const exampleDraft = DEMO_EXAMPLE_DRAFT;
+  // FIX 3 — AI agent post auto-declares AI involvement and disables
+  // the checkbox. Clearing the channel restores manual control.
+  useEffect(() => {
+    if (channel === "ai_agent_post") setAiInvolvement(true);
+  }, [channel]);
+
+  // FIX 2 — auto-expand the rules section when arriving via a
+  // ?campaign= deep link, so the speaker immediately sees what
+  // they're about to be checked against. Manual clicks afterwards
+  // still toggle as expected.
+  const [rulesExpanded, setRulesExpanded] = useState<boolean>(
+    Boolean(initialCampaignFromUrl?.trim()),
+  );
+
+  // FIX 5 — smart "Try an example" template. Picks the first BLOCK
+  // rule (campaign-scoped if applicable) and splices its first
+  // keyword into the canonical sentence. Falls back to the original
+  // hardcoded draft when no BLOCK rule is available.
+  const exampleDraft = useMemo(() => {
+    const allowed = campaignScopedRuleIds
+      ? new Set(campaignScopedRuleIds)
+      : null;
+    const pool: ReadonlyArray<ActiveRule> =
+      ruleCount === 0 ? DEFAULT_RULES_PREVIEW : activeRules;
+    const blockRule = pool.find(
+      (r) =>
+        r.verdict === "block" &&
+        (r.keywords?.length ?? 0) > 0 &&
+        (!allowed || allowed.has(r.id)),
+    );
+    const kw = blockRule?.keywords?.[0];
+    if (!kw) return FALLBACK_EXAMPLE_DRAFT;
+    return `We're excited to share that we're ${kw} and growing fast — more updates coming soon.`;
+  }, [activeRules, campaignScopedRuleIds, ruleCount]);
 
   // For new-user with zero speakers — we still render a "Yourself"
   // card in the speaker section, but submission against the action
@@ -172,22 +370,26 @@ export function SubmitForm({
   // side; we keep the button enabled and surface the error inline
   // if the lookup fails.
   const selectedSpeaker =
-    speakers.find((s) => s.id === selectedSpeakerId) ?? null;
+    filteredSpeakers.find((s) => s.id === selectedSpeakerId) ?? null;
 
-  const speakerNameForSubmit =
-    selectedSpeaker?.display_name ?? currentUserName ?? "";
+  const speakerNameForSubmit = otherSelected
+    ? otherName.trim()
+    : (selectedSpeaker?.display_name ?? currentUserName ?? "");
 
   // Speakers visible in the grid before the user clicks "+ N more".
   // For more than six speakers we collapse the grid to the first
   // six so the page doesn't scroll on a normal viewport.
   const displaySpeakers =
-    showAllSpeakers || speakers.length <= 6
-      ? speakers
-      : speakers.slice(0, 6);
+    showAllSpeakers || filteredSpeakers.length <= 6
+      ? filteredSpeakers
+      : filteredSpeakers.slice(0, 6);
 
   async function handleSubmit() {
+    // FIX 4 — empty-draft validation. Inline error + focus textarea;
+    // do not run the check.
     if (!draftText.trim()) {
-      setError("Please enter a draft.");
+      setError("Add your draft text before submitting.");
+      draftTextareaRef.current?.focus();
       return;
     }
     if (!speakerNameForSubmit) {
@@ -218,6 +420,12 @@ export function SubmitForm({
         // to "api"; the action stores the value verbatim.
         submissionMethod: "web_app",
         campaignName: campaign.trim() || null,
+        ...(otherSelected && otherTitle.trim()
+          ? { speakerTitle: otherTitle.trim() }
+          : {}),
+        ...(campaignScopedRuleIds
+          ? { campaignScopedRuleIds }
+          : {}),
       });
 
       if ("error" in result && result.error) {
@@ -236,6 +444,12 @@ export function SubmitForm({
         matchedKeyword: result.matchedKeyword,
         draftId: result.draftId,
         checks: result.checks,
+        usedDefaultRules: result.usedDefaultRules,
+        ruleResults: result.ruleResults,
+        triggeredRules: result.triggeredRules,
+        ruleCountChecked: result.ruleCountChecked,
+        authorizedBy: result.authorizedBy ?? null,
+        campaignConsistency: result.campaignConsistency,
       });
     } catch {
       setError("Submission failed. Please try again.");
@@ -251,7 +465,7 @@ export function SubmitForm({
     setVerdictData(null);
     setDraftText("");
     setCampaign(flow === "demo" ? "Series B" : "");
-    setAiInvolvement(false);
+    setAiInvolvement(channel === "ai_agent_post");
     setError(null);
   }
 
@@ -282,33 +496,28 @@ export function SubmitForm({
       ? { href: "/onboarding/speakers", label: "Invite your team to submit drafts" }
       : { href: "/review", label: "Go to review queue" };
 
-  // G2 — no rules configured, no point in rendering the form. Replace
-  // the entire surface with an empty state that points the visitor at
-  // /rules so they configure governance before submitting any draft.
-  // Demo mode is excluded because the seed always supplies rules; this
-  // is the production-fresh-org path.
-  if (ruleCount === 0 && !isDemoMode) {
-    return (
-      <div className="max-w-[720px] mx-auto px-6 py-20 text-center">
-        <h1
-          style={{ fontFamily: "var(--font-newsreader)" }}
-          className="text-3xl font-light text-[#0F172A] mb-3"
-        >
-          No governance rules configured.
-        </h1>
-        <p className="text-sm text-[#64748B] leading-relaxed max-w-md mx-auto mb-8">
-          Set up your rules first — ERA CUE checks every draft against
-          your active rules before submission.
-        </p>
-        <a
-          href="/rules"
-          className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#1447C0] transition-colors inline-block"
-        >
-          Set up rules →
-        </a>
-      </div>
-    );
-  }
+  // FIX 1 — page headline + subhead. Submit page renders ALWAYS now,
+  // even when ruleCount === 0 (defaults will be used). Subhead branches
+  // by rule count.
+  const headline = "Submit for governance review";
+  const subhead =
+    ruleCount > 0
+      ? `ERA CUE checks every draft against your ${ruleCount} active rule${ruleCount !== 1 ? "s" : ""} before it reaches any platform.`
+      : "ERA CUE will check against 5 default governance rules. Configure your own rules for specific requirements.";
+
+  // FIX 2 — the rule list shown in the "Rules active" expandable
+  // section. When the org has zero rules we surface the defaults so
+  // the speaker can still inspect what will be checked. When a
+  // campaign is selected with a non-empty allowlist, we filter to
+  // those ids.
+  const rulesForDisplay = useMemo<ActiveRule[]>(() => {
+    if (ruleCount === 0) return [...DEFAULT_RULES_PREVIEW];
+    if (campaignScopedRuleIds && campaignScopedRuleIds.length > 0) {
+      const allow = new Set(campaignScopedRuleIds);
+      return activeRules.filter((r) => allow.has(r.id));
+    }
+    return activeRules;
+  }, [activeRules, campaignScopedRuleIds, ruleCount]);
 
   return (
     <div className="max-w-[720px] mx-auto px-6 py-10">
@@ -332,29 +541,43 @@ export function SubmitForm({
         </div>
       )}
 
-      {flow === "new_user" && (
+      {flow === "new_user" && ruleCount > 0 && (
         <div className="bg-[#EFF8FF] border border-[#BAE6FD] rounded-sm p-4 mb-6 flex items-start gap-3">
           <span className="text-[#1A56DB] shrink-0 text-base mt-0.5" aria-hidden>
             →
           </span>
           <div>
             <div className="text-sm font-medium text-[#0F172A] mb-0.5">
-              {ruleCount > 0
-                ? `${ruleCount} rule${ruleCount !== 1 ? "s" : ""} are active.`
-                : "No rules configured yet."}
+              {`${ruleCount} rule${ruleCount !== 1 ? "s" : ""} are active.`}
             </div>
             <div className="text-sm text-[#64748B]">
-              {ruleCount > 0
-                ? "ERA CUE will check this draft against your active rules."
-                : "ERA CUE will run its standard checks. Set up governance rules to add your own policies."}
-              {ruleCount === 0 && (
-                <a
-                  href="/rules"
-                  className="text-[#1A56DB] hover:text-[#1447C0] ml-1 transition-colors"
-                >
-                  Set up rules →
-                </a>
-              )}
+              ERA CUE will check this draft against your active rules.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FIX 1 — yellow defaults notice when the org has zero rules.
+          The form below still renders so the speaker can submit; the
+          server falls through to DEFAULT_RULES on the action side. */}
+      {!isDemoMode && ruleCount === 0 && !verdictLower && (
+        <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-sm p-4 mb-6 flex items-start gap-3">
+          <span className="text-[#92400E] shrink-0 text-base mt-0.5" aria-hidden>
+            ⚠
+          </span>
+          <div>
+            <div className="text-sm font-medium text-[#0F172A] mb-0.5">
+              No custom rules configured — checking against ERA CUE
+              defaults.
+            </div>
+            <div className="text-sm text-[#64748B]">
+              5 built-in governance rules will run on every submission.{" "}
+              <a
+                href="/rules"
+                className="text-[#1A56DB] hover:text-[#1447C0] transition-colors"
+              >
+                Set up your own rules →
+              </a>
             </div>
           </div>
         </div>
@@ -374,20 +597,16 @@ export function SubmitForm({
           style={{ fontFamily: "var(--font-newsreader)" }}
           className="text-3xl font-light text-[#0F172A] mb-2"
         >
-          Check this draft before it goes out.
+          {headline}
         </h1>
         <p className="text-sm text-[#64748B] leading-relaxed max-w-lg">
-          {flow === "demo"
-            ? "ERA CUE checks it against active governance rules and prior approved statements. Verdict in seconds."
-            : flow === "new_user"
-              ? "ERA CUE runs five checks on every draft. Set up rules to add your organization’s specific policies."
-              : `ERA CUE checks against your ${ruleCount} active rule${ruleCount !== 1 ? "s" : ""} and prior approved statements.`}
+          {subhead}
         </p>
       </div>
 
       {/* ─── Body — three modes (form / checking / verdict) ─────────── */}
       {checking ? (
-        <CheckingState stage={checkingStage} ruleCount={ruleCount} />
+        <CheckingState stage={checkingStage} ruleCount={Math.max(ruleCount, 5)} />
       ) : verdictLower && verdictMeta ? (
         <VerdictView
           verdictKey={verdictLower}
@@ -401,21 +620,39 @@ export function SubmitForm({
           draftText={draftText}
           isDemoMode={isDemoMode}
           hasPrincipal={hasPrincipal}
+          campaignName={campaign.trim() || null}
+          fallbackRuleCount={ruleCount}
+          isCampaignScoped={Boolean(
+            campaignScopedRuleIds && campaignScopedRuleIds.length > 0,
+          )}
         />
       ) : (
         <FormBody
           flow={flow}
-          speakers={speakers}
+          speakers={filteredSpeakers}
           displaySpeakers={displaySpeakers}
           showAllSpeakers={showAllSpeakers}
           setShowAllSpeakers={setShowAllSpeakers}
           selectedSpeakerId={selectedSpeakerId}
-          setSelectedSpeakerId={setSelectedSpeakerId}
+          setSelectedSpeakerId={(id) => {
+            setSelectedSpeakerId(id);
+            setOtherSelected(false);
+          }}
+          otherSelected={otherSelected}
+          setOtherSelected={(v) => {
+            setOtherSelected(v);
+            if (v) setSelectedSpeakerId(null);
+          }}
+          otherName={otherName}
+          setOtherName={setOtherName}
+          otherTitle={otherTitle}
+          setOtherTitle={setOtherTitle}
           currentUserName={currentUserName}
           channel={channel}
           setChannel={setChannel}
           draftText={draftText}
           setDraftText={setDraftText}
+          draftTextareaRef={draftTextareaRef}
           campaign={campaign}
           setCampaign={setCampaign}
           submissionMethod={submissionMethod}
@@ -424,6 +661,13 @@ export function SubmitForm({
           isDemoMode={isDemoMode}
           exampleDraft={exampleDraft}
           ruleCount={ruleCount}
+          rulesForDisplay={rulesForDisplay}
+          rulesExpanded={rulesExpanded}
+          setRulesExpanded={setRulesExpanded}
+          campaignFromUrl={initialCampaignFromUrl?.trim() ?? null}
+          isCampaignScoped={Boolean(
+            campaignScopedRuleIds && campaignScopedRuleIds.length > 0,
+          )}
           checking={checking}
           error={error}
           onSubmit={handleSubmit}
@@ -443,11 +687,18 @@ function FormBody({
   setShowAllSpeakers,
   selectedSpeakerId,
   setSelectedSpeakerId,
+  otherSelected,
+  setOtherSelected,
+  otherName,
+  setOtherName,
+  otherTitle,
+  setOtherTitle,
   currentUserName,
   channel,
   setChannel,
   draftText,
   setDraftText,
+  draftTextareaRef,
   campaign,
   setCampaign,
   submissionMethod,
@@ -456,6 +707,11 @@ function FormBody({
   isDemoMode,
   exampleDraft,
   ruleCount,
+  rulesForDisplay,
+  rulesExpanded,
+  setRulesExpanded,
+  campaignFromUrl,
+  isCampaignScoped,
   checking,
   error,
   onSubmit,
@@ -467,11 +723,18 @@ function FormBody({
   setShowAllSpeakers: (v: boolean) => void;
   selectedSpeakerId: string | null;
   setSelectedSpeakerId: (id: string) => void;
+  otherSelected: boolean;
+  setOtherSelected: (v: boolean) => void;
+  otherName: string;
+  setOtherName: (v: string) => void;
+  otherTitle: string;
+  setOtherTitle: (v: string) => void;
   currentUserName: string | null;
   channel: string;
   setChannel: (v: string) => void;
   draftText: string;
   setDraftText: (v: string) => void;
+  draftTextareaRef: React.RefObject<HTMLTextAreaElement | null>;
   campaign: string;
   setCampaign: (v: string) => void;
   submissionMethod: string;
@@ -480,15 +743,32 @@ function FormBody({
   isDemoMode: boolean;
   exampleDraft: string;
   ruleCount: number;
+  rulesForDisplay: ActiveRule[];
+  rulesExpanded: boolean;
+  setRulesExpanded: (v: boolean) => void;
+  campaignFromUrl: string | null;
+  isCampaignScoped: boolean;
   checking: boolean;
   error: string | null;
   onSubmit: () => void;
 }) {
+  const usingDefaults = ruleCount === 0;
   const submitDisabled =
     !draftText.trim() ||
-    (speakers.length > 0 && !selectedSpeakerId) ||
-    (flow === "new_user" && speakers.length === 0 && !currentUserName) ||
+    (otherSelected
+      ? !otherName.trim()
+      : speakers.length > 0 && !selectedSpeakerId) ||
+    (flow === "new_user" && speakers.length === 0 && !otherSelected && !currentUserName) ||
     checking;
+
+  // Header label for the rules section: scoped to campaign when the
+  // ?campaign= scope is active, defaults variant when ruleCount is 0,
+  // generic otherwise.
+  const ruleSectionLabel = isCampaignScoped
+    ? `Rules active for ${campaignFromUrl ?? "this campaign"}`
+    : usingDefaults
+      ? "ERA CUE default governance rules"
+      : `${rulesForDisplay.length} rule${rulesForDisplay.length !== 1 ? "s" : ""} active — see what will be checked`;
 
   return (
     <>
@@ -501,7 +781,7 @@ function FormBody({
           </div>
         </div>
         <div className="p-4">
-          {flow === "new_user" && speakers.length === 0 ? (
+          {flow === "new_user" && speakers.length === 0 && !otherSelected ? (
             <>
               <div className="border border-[#1A56DB] bg-[#EFF8FF] rounded-sm p-3 mb-3 flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-[#1A56DB] text-white font-mono text-xs font-bold flex items-center justify-center shrink-0">
@@ -533,7 +813,8 @@ function FormBody({
             <>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {displaySpeakers.map((speaker) => {
-                  const selected = selectedSpeakerId === speaker.id;
+                  const selected =
+                    !otherSelected && selectedSpeakerId === speaker.id;
                   return (
                     <button
                       key={speaker.id}
@@ -561,6 +842,29 @@ function FormBody({
                     </button>
                   );
                 })}
+                {/* FIX 11 — "Other" pseudo-speaker tile. Selecting it
+                    deselects any preset speaker and reveals two text
+                    inputs (name + optional title) inline below the
+                    grid. The action submits the typed name verbatim;
+                    when the name doesn't match a known user the
+                    server returns "Speaker not found", surfaced
+                    inline. */}
+                <button
+                  type="button"
+                  onClick={() => setOtherSelected(!otherSelected)}
+                  className={`text-left p-3 rounded-sm border transition-colors cursor-pointer ${
+                    otherSelected
+                      ? "border-[#1A56DB] bg-[#EFF8FF]"
+                      : "border-dashed border-[#94A3B8] bg-white hover:border-[#1A56DB]"
+                  }`}
+                >
+                  <div className="text-sm font-medium text-[#0F172A]">
+                    Other
+                  </div>
+                  <div className="font-mono text-[10px] text-[#64748B]">
+                    Custom name + title
+                  </div>
+                </button>
               </div>
               {speakers.length > 6 && !showAllSpeakers && (
                 <button
@@ -570,6 +874,37 @@ function FormBody({
                 >
                   + {speakers.length - 6} more
                 </button>
+              )}
+              {otherSelected && (
+                <div className="mt-3 pt-3 border-t border-[#E2E8F0] grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1">
+                      Speaker name
+                    </label>
+                    <input
+                      type="text"
+                      value={otherName}
+                      onChange={(e) => setOtherName(e.target.value)}
+                      placeholder="e.g. Jordan Lee"
+                      className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1">
+                      Title{" "}
+                      <span className="normal-case ml-1 text-[#94A3B8]">
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      value={otherTitle}
+                      onChange={(e) => setOtherTitle(e.target.value)}
+                      placeholder="e.g. VP Communications"
+                      className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+                    />
+                  </div>
+                </div>
               )}
             </>
           )}
@@ -606,6 +941,60 @@ function FormBody({
         </div>
       </div>
 
+      {/* FIX 2 — Rules-that-will-run collapsible. Sits below the channel
+          pills so the speaker sees the contract before drafting. The
+          ?campaign= deep link auto-expands; manual interaction toggles
+          freely afterwards. */}
+      <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden mb-4">
+        <button
+          type="button"
+          onClick={() => setRulesExpanded(!rulesExpanded)}
+          aria-expanded={rulesExpanded}
+          className="w-full px-4 py-3 flex items-center justify-between gap-2 cursor-pointer hover:bg-[#F8F9FB] transition-colors"
+        >
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] flex items-center gap-2">
+            {ruleSectionLabel}
+            {usingDefaults && (
+              <span className="font-mono text-[9px] uppercase tracking-widest bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] px-1.5 py-0.5 rounded-sm normal-case">
+                defaults
+              </span>
+            )}
+          </span>
+          <span aria-hidden className="text-[#94A3B8] text-xs">
+            {rulesExpanded ? "▴" : "▾"}
+          </span>
+        </button>
+        {rulesExpanded && (
+          <div className="border-t border-[#E2E8F0] divide-y divide-[#F1F5F9]">
+            {rulesForDisplay.length === 0 ? (
+              <div className="p-4 text-sm text-[#94A3B8]">
+                No rules in scope for this campaign yet.
+              </div>
+            ) : (
+              rulesForDisplay.map((r) => {
+                const firstKw = r.keywords?.[0];
+                return (
+                  <div
+                    key={r.id}
+                    className="px-4 py-2.5 flex items-center gap-3 flex-wrap"
+                  >
+                    {severityBadge(r.verdict)}
+                    <span className="text-sm text-[#0F172A] font-medium">
+                      {r.name}
+                    </span>
+                    {firstKw && (
+                      <span className="font-mono text-xs bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0] px-2 py-0.5 rounded-sm">
+                        {firstKw}
+                      </span>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Submission origin — submission_method is auto-populated and
           read-only in this surface (web app). ai_involvement_declared is
           a self-attestation; ERA CUE records what is declared, not what
@@ -631,20 +1020,35 @@ function FormBody({
             </div>
           </div>
 
-          <label className="flex items-start gap-2.5 cursor-pointer">
+          {/* FIX 3 — AI agent post auto-checks AI involvement and
+              disables the checkbox. Note explains why; un-checking is
+              suppressed because an autonomous agent submission is by
+              definition AI-involved. */}
+          <label
+            className={`flex items-start gap-2.5 ${
+              channel === "ai_agent_post" ? "cursor-not-allowed" : "cursor-pointer"
+            }`}
+          >
             <input
               type="checkbox"
               checked={aiInvolvement}
-              onChange={(e) => setAiInvolvement(e.target.checked)}
-              className="mt-0.5 w-4 h-4 accent-[#1A56DB] cursor-pointer"
+              onChange={(e) => {
+                if (channel !== "ai_agent_post") {
+                  setAiInvolvement(e.target.checked);
+                }
+              }}
+              disabled={channel === "ai_agent_post"}
+              aria-disabled={channel === "ai_agent_post"}
+              className="mt-0.5 w-4 h-4 accent-[#1A56DB] cursor-pointer disabled:cursor-not-allowed"
             />
             <span>
               <span className="block text-sm text-[#0F172A]">
                 This draft included AI assistance.
               </span>
               <span className="block text-xs text-[#64748B] mt-1 leading-relaxed">
-                ERA CUE records what is declared. Disclosure obligations
-                should be confirmed with qualified legal counsel.
+                {channel === "ai_agent_post"
+                  ? "AI agent posts automatically declare AI involvement."
+                  : "ERA CUE records what is declared. Disclosure obligations should be confirmed with qualified legal counsel."}
               </span>
             </span>
           </label>
@@ -664,6 +1068,11 @@ function FormBody({
                 // D5 — restore the canonical demo state in one click
                 // even if the visitor edited the speaker / channel /
                 // campaign earlier on the page.
+                //
+                // FIX 5 — example draft is now derived from the active
+                // BLOCK ruleset; the campaign default still snaps back
+                // to "Series B" so the canonical fully-populated demo
+                // submission still trips a rule.
                 setDraftText(exampleDraft);
                 setChannel("linkedin");
                 setCampaign("Series B");
@@ -681,6 +1090,7 @@ function FormBody({
 
         <div className="p-4">
           <textarea
+            ref={draftTextareaRef}
             value={draftText}
             onChange={(e) => setDraftText(e.target.value)}
             placeholder={
@@ -713,14 +1123,9 @@ function FormBody({
             stays consistent across the two surfaces. */}
         <div className="px-4 py-3 border-t border-[#E2E8F0] bg-[#F8F9FB] flex items-center justify-between gap-3 flex-wrap">
           <div className="font-mono text-[10px] text-[#94A3B8]">
-            {/* C5 — rule count is sourced from the same `rules` query
-                as the rules page (see src/app/submit/page.tsx). The
-                previous hardcoded "4 governance rules active" string
-                drifted from the live count when the seed changed; the
-                live count is the only source of truth now. */}
-            {ruleCount > 0
-              ? `${ruleCount} governance rule${ruleCount !== 1 ? "s" : ""} active`
-              : "Standard governance checks will run"}
+            {usingDefaults
+              ? "ERA CUE default governance rules will run"
+              : `${ruleCount} governance rule${ruleCount !== 1 ? "s" : ""} active`}
           </div>
           <button
             type="button"
@@ -827,6 +1232,9 @@ function VerdictView({
   draftText,
   isDemoMode,
   hasPrincipal,
+  campaignName,
+  fallbackRuleCount,
+  isCampaignScoped,
 }: {
   verdictKey: string;
   meta: { label: string; headerBg: string; headerBorder: string; badgeBg: string };
@@ -839,15 +1247,21 @@ function VerdictView({
   draftText: string;
   isDemoMode: boolean;
   hasPrincipal: boolean;
+  campaignName: string | null;
+  fallbackRuleCount: number;
+  isCampaignScoped: boolean;
 }) {
   const draftId = data?.draftId;
   const checks = data?.checks ?? [];
   const isClear = verdictKey === "clear";
+  const ruleResults = data?.ruleResults ?? [];
+  const triggeredRules = data?.triggeredRules ?? [];
+  const usedDefaults = data?.usedDefaultRules === true;
+  const ruleCountChecked = data?.ruleCountChecked ?? fallbackRuleCount;
+  const passedCount = ruleResults.length - triggeredRules.length;
+  const consistency = data?.campaignConsistency;
 
   // D4 — SHA-256 of the draft text for the "Record created" block.
-  // Computed client-side via SubtleCrypto when the cleared verdict
-  // arrives. Falls back to "—" when the API isn't available (older
-  // browsers; SSR pre-hydration).
   const [draftHash, setDraftHash] = useState<string | null>(null);
   useEffect(() => {
     if (!isClear) return;
@@ -872,17 +1286,28 @@ function VerdictView({
     };
   }, [isClear, draftText]);
 
-  // D5 — verdict-colored 2px border applied to the result card with a
-  // 300ms ease-in transition. CLEAR/CLEARED → teal; BLOCK → red;
-  // ESCALATE / REVIEW / GUIDE → amber. The transition fires on first
-  // mount because the card itself is rendered fresh after the checking
-  // state unmounts, so the new border reads as an arrival animation.
+  // D5 — verdict-colored 2px border applied to the result card.
   const verdictBorder =
     verdictKey === "clear"
       ? "border-2 border-[#0EA5E9]"
       : verdictKey === "block"
         ? "border-2 border-[#EF4444]"
         : "border-2 border-[#F59E0B]";
+
+  // FIX 7 — multi-rule banner. When more than one rule triggers we
+  // swap the rule-name line for a count-led header and list every
+  // triggered rule below the badge.
+  const multiRule = triggeredRules.length > 1;
+
+  // FIX 10 — first triggered rule's authorized_by drives the routing
+  // copy on the BLOCK card. When unavailable, fall back to "principal".
+  const routeTarget = data?.authorizedBy?.trim() || "principal";
+
+  // FIX 6 header — distinguishes defaults vs. custom rules and
+  // surfaces the totals.
+  const rulesCheckedHeader = usedDefaults
+    ? `Default governance rules checked (${ruleCountChecked} total · ${triggeredRules.length} triggered · ${passedCount} passed)`
+    : `Rules checked (${ruleCountChecked} total · ${triggeredRules.length} triggered · ${passedCount} passed)`;
 
   return (
     <>
@@ -899,13 +1324,22 @@ function VerdictView({
             >
               {meta.label}
             </span>
-            {data?.ruleName && (
+            {multiRule ? (
               <span className="text-sm font-medium text-[#0F172A]">
-                {data.ruleName}
+                {triggeredRules.length} rules triggered — draft blocked
               </span>
+            ) : (
+              data?.ruleName && (
+                <span className="text-sm font-medium text-[#0F172A]">
+                  {data.ruleName}
+                </span>
+              )
             )}
           </div>
-          {data?.matchedKeyword && (
+          {/* Single-rule legacy line (keyword + description). For
+              multi-rule, the per-rule list below renders the same
+              info per row. */}
+          {!multiRule && data?.matchedKeyword && (
             <div className="font-mono text-[10px] text-[#64748B] mt-2">
               Keyword: &ldquo;{data.matchedKeyword}&rdquo;
               {data.ruleDescription && (
@@ -913,9 +1347,85 @@ function VerdictView({
               )}
             </div>
           )}
+          {multiRule && (
+            <ul className="mt-3 space-y-1">
+              {triggeredRules.map((r) => (
+                <li
+                  key={r.ruleId}
+                  className="font-mono text-[11px] text-[#0F172A] flex items-start gap-2"
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-[#B91C1C] mt-1.5 shrink-0"
+                    aria-hidden
+                  />
+                  <span>
+                    <span className="font-medium">{r.ruleName}</span>
+                    {r.matchedKeyword && (
+                      <span className="text-[#64748B]">
+                        {" "}
+                        · matched: &ldquo;{r.matchedKeyword}&rdquo;
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
-        {checks.length > 0 && (
+        {/* FIX 6 — Rules checked panel. Replaces the legacy "Checks
+            performed" list: every rule that ran appears, triggered
+            rules with a red dot + matched keyword + regulatory basis,
+            passed rules with a grey checkmark. */}
+        {ruleResults.length > 0 && (
+          <div className="px-5 py-4">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+              {rulesCheckedHeader}
+              {isCampaignScoped && campaignName && (
+                <span className="normal-case ml-2 text-[#94A3B8]">
+                  · scoped to {campaignName}
+                </span>
+              )}
+            </div>
+            <div className="space-y-1">
+              {ruleResults.map((r) => (
+                <div
+                  key={r.ruleId}
+                  className="flex items-start gap-2 py-1 flex-wrap"
+                >
+                  {r.triggered ? (
+                    <span
+                      className="w-2 h-2 rounded-full bg-[#B91C1C] mt-1.5 shrink-0"
+                      aria-hidden
+                    />
+                  ) : (
+                    <span className="text-[#94A3B8] text-xs mt-0.5" aria-hidden>
+                      ✓
+                    </span>
+                  )}
+                  <span className="font-mono text-xs text-[#0F172A]">
+                    {r.ruleName}
+                  </span>
+                  {r.triggered && r.matchedKeyword && (
+                    <span className="font-mono text-[10px] text-[#B91C1C]">
+                      · matched: &ldquo;{r.matchedKeyword}&rdquo;
+                    </span>
+                  )}
+                  {r.triggered && r.regulatoryBasis && (
+                    <span className="font-mono text-[10px] text-[#64748B]">
+                      · {r.regulatoryBasis}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Legacy "Checks performed" list — only renders when the
+            new ruleResults breakdown is unavailable (older check
+            shapes / future-action error paths). */}
+        {ruleResults.length === 0 && checks.length > 0 && (
           <div className="px-5 py-4">
             <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
               Checks performed
@@ -956,6 +1466,53 @@ function VerdictView({
         )}
       </div>
 
+      {/* FIX 8 — Campaign consistency panel. Only renders when the
+          submission carried a campaign name and the server returned
+          a campaignConsistency payload. Amber banner when a gap is
+          found, green banner when the prior cleared corpus is
+          consistent. Always carries the legal note. */}
+      {campaignName && consistency && (
+        <div
+          className={`rounded-sm p-4 mb-4 border ${
+            consistency.gap
+              ? "bg-[#FFFBEB] border-[#FDE68A]"
+              : "bg-[#F0FDF4] border-[#BBF7D0]"
+          }`}
+        >
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
+            Campaign consistency: {consistency.priorCount} prior draft
+            {consistency.priorCount === 1 ? "" : "s"} compared
+          </div>
+          <div
+            className={`text-sm font-medium mb-1 ${
+              consistency.gap ? "text-[#92400E]" : "text-[#166534]"
+            }`}
+          >
+            {consistency.gap
+              ? "Possible consistency gap — review recommended."
+              : "Consistent with prior approved campaign drafts."}
+          </div>
+          {consistency.gap && (
+            <div className="text-sm text-[#92400E] mb-2">
+              ERA CUE surfaces this for your team&apos;s judgment.
+              {consistency.gapKeywords && consistency.gapKeywords.length > 0 && (
+                <span className="block font-mono text-xs text-[#0F172A] mt-1">
+                  Overlapping keywords:{" "}
+                  {consistency.gapKeywords
+                    .map((k) => `"${k}"`)
+                    .join(", ")}
+                </span>
+              )}
+            </div>
+          )}
+          <div className="text-[#64748B] text-xs leading-relaxed">
+            ERA CUE surfaces keyword patterns for review. Whether this
+            creates a consistency issue is a judgment for your
+            communications team.
+          </div>
+        </div>
+      )}
+
       {/* F2 — Message House contradiction signal. Demo-only,
           BLOCK-only: the surface illustrates how a campaign-level
           pillar contradiction would surface alongside the rule
@@ -990,31 +1547,28 @@ function VerdictView({
         </div>
       )}
 
-      {/* D3 — BLOCK verdict shows two side-by-side action cards
-          (stacked on mobile). ESCALATE keeps the same affordances —
-          principal review or revise — since the visitor is the same
-          submitter and the choice space is the same.
-          FIX 2 — when no principal is on record (solo founder path),
-          the "Route to principal review" card is replaced by a
-          single configuration-prompt block. The "Revise and
-          resubmit" card stays as the primary action. */}
+      {/* FIX 10 — BLOCK / ESCALATE next-steps cards. Card 1 routes to
+          the rule's authorized_by reviewer; Card 2 keeps the existing
+          "Revise and resubmit" affordance. Solo-founder path replaces
+          Card 1 with a configuration prompt. */}
       {isBlockOrEscalate && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           {hasPrincipal ? (
             <div className="bg-white border border-[#E2E8F0] rounded-sm p-5 flex flex-col">
               <div className="text-sm font-semibold text-[#0F172A] mb-2">
-                Route to principal review
+                Route to {routeTarget} for review
               </div>
               <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
-                Send this draft to your named principal for a governance
-                decision.
+                Send this draft to{" "}
+                {routeTarget === "principal" ? "your named principal" : routeTarget}{" "}
+                for a governance decision.
               </p>
               {draftId ? (
                 <a
                   href={`/review/${draftId}`}
                   className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#1447C0] transition-colors text-center"
                 >
-                  Request review →
+                  Route to {routeTarget} for review →
                 </a>
               ) : (
                 <span className="font-mono text-xs text-[#94A3B8]">
@@ -1046,15 +1600,15 @@ function VerdictView({
               onClick={onRevise}
               className="bg-white text-[#0F172A] font-mono text-sm font-medium px-4 py-2 rounded-sm border border-[#0F172A] hover:bg-[#F8F9FB] transition-colors cursor-pointer"
             >
-              Revise draft →
+              Revise and resubmit →
             </button>
           </div>
         </div>
       )}
 
-      {/* D4 — CLEARED gets a "Record created" confirmation block with
-          the draft id, the SHA-256 of the draft text, and a link to
-          the full examiner record. */}
+      {/* FIX 9 — CLEARED record block. "Governance record created"
+          header, optional [Campaign Name] · prefix, "Checked against
+          [N] rules · all passed" line, defaults variant. */}
       {isClear && (
         <div className="bg-[#0EA5E9]/5 border border-[#0EA5E9]/20 rounded p-4 mb-4">
           <div className="flex items-start gap-3">
@@ -1077,7 +1631,13 @@ function VerdictView({
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-[#0F172A] mb-2">
-                Governance record created
+                {campaignName ? `${campaignName} · ` : ""}Governance record
+                created
+              </div>
+              <div className="text-xs text-[#475569] mb-2">
+                {usedDefaults
+                  ? "Checked against 5 ERA CUE default rules · all passed"
+                  : `Checked against ${ruleCountChecked} rule${ruleCountChecked === 1 ? "" : "s"} · all passed`}
               </div>
               <dl className="grid grid-cols-[6rem_1fr] gap-y-1 text-xs">
                 <dt className="font-mono text-[#64748B]">Record ID</dt>
@@ -1086,14 +1646,9 @@ function VerdictView({
                 </dd>
                 <dt className="font-mono text-[#64748B]">SHA-256</dt>
                 <dd className="font-mono text-[#0F172A] break-all">
-                  {draftHash ? `${draftHash.slice(0, 8)}...` : "—"}
+                  {draftHash ? `${draftHash.slice(0, 16)}...` : "—"}
                 </dd>
               </dl>
-              {/* G3 — always render the link. When the verdict
-                  payload carries a draftId we route directly to that
-                  draft's examiner record; otherwise fall back to the
-                  dashboard so the visitor lands somewhere they can act
-                  rather than seeing the link disappear. */}
               <a
                 href={draftId ? `/drafts/${draftId}/examiner` : "/review"}
                 className="font-mono text-xs text-[#0EA5E9] hover:text-[#0369A1] transition-colors mt-3 inline-block"
