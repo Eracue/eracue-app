@@ -265,6 +265,34 @@ export function SubmitForm({
       ? { href: "/onboarding/speakers", label: "Invite your team to submit drafts" }
       : { href: "/dashboard", label: "Go to review queue" };
 
+  // G2 — no rules configured, no point in rendering the form. Replace
+  // the entire surface with an empty state that points the visitor at
+  // /rules so they configure governance before submitting any draft.
+  // Demo mode is excluded because the seed always supplies rules; this
+  // is the production-fresh-org path.
+  if (ruleCount === 0 && !isDemoMode) {
+    return (
+      <div className="max-w-[720px] mx-auto px-6 py-20 text-center">
+        <h1
+          style={{ fontFamily: "var(--font-newsreader)" }}
+          className="text-3xl font-light text-[#0F172A] mb-3"
+        >
+          No governance rules configured.
+        </h1>
+        <p className="text-sm text-[#64748B] leading-relaxed max-w-md mx-auto mb-8">
+          Set up your rules first — ERA CUE checks every draft against
+          your active rules before submission.
+        </p>
+        <a
+          href="/rules"
+          className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#1447C0] transition-colors inline-block"
+        >
+          Set up rules →
+        </a>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-[720px] mx-auto px-6 py-10">
       {/* ─── Context bar — flow-specific ────────────────────────────── */}
@@ -1024,14 +1052,17 @@ function VerdictView({
                   {draftHash ? `${draftHash.slice(0, 8)}...` : "—"}
                 </dd>
               </dl>
-              {draftId && (
-                <a
-                  href={`/drafts/${draftId}/examiner`}
-                  className="font-mono text-xs text-[#0EA5E9] hover:text-[#0369A1] transition-colors mt-3 inline-block"
-                >
-                  View full record →
-                </a>
-              )}
+              {/* G3 — always render the link. When the verdict
+                  payload carries a draftId we route directly to that
+                  draft's examiner record; otherwise fall back to the
+                  dashboard so the visitor lands somewhere they can act
+                  rather than seeing the link disappear. */}
+              <a
+                href={draftId ? `/drafts/${draftId}/examiner` : "/dashboard"}
+                className="font-mono text-xs text-[#0EA5E9] hover:text-[#0369A1] transition-colors mt-3 inline-block"
+              >
+                View full record →
+              </a>
             </div>
           </div>
         </div>

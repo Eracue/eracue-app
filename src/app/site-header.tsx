@@ -27,12 +27,20 @@ export function SiteHeader({ variant = "app" }: { variant?: Variant } = {}) {
           <span className="italic font-light"> CUE</span>
         </Link>
         {variant === "app" && (
-          <Link
-            href="/rules"
-            className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/[0.62] hover:text-white transition-colors"
-          >
-            Rules
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link
+              href="/rules"
+              className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/[0.62] hover:text-white transition-colors"
+            >
+              Rules
+            </Link>
+            <Link
+              href="/dashboard"
+              className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/[0.62] hover:text-white transition-colors"
+            >
+              Dashboard
+            </Link>
+          </div>
         )}
       </nav>
     </header>

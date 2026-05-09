@@ -131,6 +131,8 @@ async function getDashboardData() {
     speakerStatsRes,
     queueRes,
     allDecisionsRes,
+    campaignsRes,
+    campaignDraftsRes,
   ] = await Promise.all([
     sb.from("drafts").select("id, status, source_origin").eq("org_id", orgId),
     sb
@@ -176,6 +178,20 @@ async function getDashboardData() {
       .eq("org_id", orgId)
       .eq("action_type", "reviewer_decided")
       .in("payload->>decision", ["override", "confirm_block", "approve", "reject"]),
+    // G4 — campaigns + per-campaign draft counts. Drives the
+    // "Campaigns" section on the dashboard. Each row links to
+    // /campaigns/[name] (the campaign-name URL segment is what the
+    // route uses today; the slugified form would require a
+    // schema-side slug column).
+    sb
+      .from("campaigns")
+      .select("id, name, starts_at, ends_at")
+      .eq("org_id", orgId)
+      .order("starts_at", { ascending: false }),
+    sb
+      .from("drafts")
+      .select("campaign_id")
+      .eq("org_id", orgId),
   ]);
 
   if (draftsRes.error) throw new Error("drafts: " + draftsRes.error.message);
@@ -428,6 +444,35 @@ async function getDashboardData() {
       r.timesTriggered >= 3,
   );
 
+  // G4 — Campaigns list for the dashboard. Each row aggregates the
+  // draft count from a single `campaign_id → count` map so the per-
+  // row number reflects every draft submitted under the campaign,
+  // not just the queue / decided slices already computed above.
+  type CampaignRow = {
+    id: string;
+    name: string;
+    starts_at: string | null;
+    ends_at: string | null;
+  };
+  const campaignRows = (campaignsRes.data ?? []) as CampaignRow[];
+  const campaignDraftsRows = (campaignDraftsRes.data ??
+    []) as Array<{ campaign_id: string | null }>;
+  const draftsByCampaign = new Map<string, number>();
+  for (const d of campaignDraftsRows) {
+    if (!d.campaign_id) continue;
+    draftsByCampaign.set(
+      d.campaign_id,
+      (draftsByCampaign.get(d.campaign_id) ?? 0) + 1,
+    );
+  }
+  const campaigns = campaignRows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    starts_at: c.starts_at,
+    ends_at: c.ends_at,
+    draftCount: draftsByCampaign.get(c.id) ?? 0,
+  }));
+
   return {
     health: { draftsReviewed, blockRatePct, overrideRatePct, gapExposure, pendingReview },
     rulesPerf,
@@ -436,6 +481,7 @@ async function getDashboardData() {
     queueGroups,
     examinerRecords,
     clearedWithoutSignoff,
+    campaigns,
     moat: { corpusCount, decisionCount },
     governance: {
       avgDuration,
@@ -534,6 +580,7 @@ export default async function DashboardPage() {
     queueGroups,
     examinerRecords,
     clearedWithoutSignoff,
+    campaigns,
     moat,
     governance,
   } = await getDashboardData();
@@ -827,6 +874,69 @@ export default async function DashboardPage() {
                 );
               })}
             </div>
+          </section>
+
+          {/* G4 — Campaigns. Each row links to /campaigns/[name]
+              (the existing campaign route uses the campaign name as
+              the path segment). Empty state mirrors the rest of the
+              dashboard's empty-state phrasing. */}
+          <section className="mt-10">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
+              CAMPAIGNS
+            </div>
+            <p className="text-sm text-[#64748B] mt-1 mb-4">
+              Every campaign on record. Click into a campaign to see its
+              communications and export the compliance summary.
+            </p>
+            {campaigns.length === 0 ? (
+              <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 text-center text-sm text-[#64748B]">
+                No campaigns on record.
+              </div>
+            ) : (
+              campaigns.map((c) => {
+                const range =
+                  c.starts_at && c.ends_at
+                    ? `${new Date(c.starts_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })} – ${new Date(c.ends_at).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}`
+                    : "—";
+                return (
+                  <Link
+                    key={c.id}
+                    href={`/campaigns/${encodeURIComponent(c.name)}`}
+                    className="bg-white border border-[#E2E8F0] rounded-sm mb-1 px-5 py-4 flex items-center justify-between gap-4 flex-wrap hover:bg-[#F8F9FB] transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-base font-medium text-[#0F172A] truncate">
+                        {c.name}
+                      </div>
+                      <div className="font-mono text-xs text-[#64748B] mt-0.5">
+                        {range}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="text-right">
+                        <div className="font-mono text-xl font-light text-[#0F172A]">
+                          {c.draftCount}
+                        </div>
+                        <div className="font-mono text-xs text-[#64748B]">
+                          draft{c.draftCount !== 1 ? "s" : ""}
+                        </div>
+                      </div>
+                      <span className="font-mono text-sm text-[#1A56DB]">
+                        View →
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })
+            )}
           </section>
 
           {/* SECTION 3 — Rules performance (rows, not a table) */}

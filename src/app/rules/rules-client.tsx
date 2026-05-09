@@ -947,7 +947,9 @@ export function RulesClient({
             onActivate={handleActivateExtractedRule}
           />
         )}
-        <BottomMoatBar />
+        {/* Empty state has zero active rules — bar self-hides on count=0
+            but we pass it explicitly so the contract is uniform. */}
+        <BottomMoatBar count={0} />
       </main>
     );
   }
@@ -1507,7 +1509,7 @@ export function RulesClient({
         </section>
       </div>
 
-      <BottomMoatBar />
+      <BottomMoatBar count={rulesActiveCount} />
 
       {/* Modals */}
       {openModal === "template" && (
@@ -1546,19 +1548,29 @@ export function RulesClient({
   );
 }
 
-// ---------- MOAT bar -------------------------------------------------------
+// ---------- G1 sticky bottom CTA bar --------------------------------------
+//
+// Persistent sticky bar with a single call to action: "Check a draft
+// →" linking to /submit. Renders only when the org has at least one
+// active rule — the bar's whole proposition (you can check now) only
+// makes sense once governance is live. The bar replaces the prior
+// MOAT-branding bar which carried a positioning statement; the page
+// now focuses entirely on what the visitor can do next.
 
-function BottomMoatBar() {
+function BottomMoatBar({ count }: { count: number }) {
+  if (count <= 0) return null;
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-[#0D1B2A] border-t border-white/[0.08] px-6 py-3 flex items-center gap-3 z-20">
-      <span className="font-mono text-[9px] font-bold text-[#0EA5E9] uppercase tracking-[0.14em] shrink-0">
-        MOAT
+    <div className="fixed bottom-0 left-0 right-0 bg-[#0F172A] border-t border-[#334155] px-6 py-3 flex items-center justify-between z-50">
+      <span className="text-[#94A3B8] text-sm">
+        <span className="text-white font-medium">{count}</span>{" "}
+        rule{count !== 1 ? "s" : ""} active · Ready to check a draft
       </span>
-      <span className="font-mono text-[9px] text-white/[0.42] leading-relaxed">
-        Governance Memory Graph · Every rule authorization is a node. Every
-        trigger is an edge. Calibration compounds over time — competitors
-        starting today have none.
-      </span>
+      <a
+        href="/submit"
+        className="bg-[#0EA5E9] text-white px-4 py-2 rounded text-sm font-medium hover:bg-[#0284C7] transition-colors whitespace-nowrap"
+      >
+        Check a draft →
+      </a>
     </div>
   );
 }
