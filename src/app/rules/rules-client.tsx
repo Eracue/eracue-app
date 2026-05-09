@@ -1157,7 +1157,7 @@ export function RulesClient({
                 { key: "active" as const, label: "Active", count: activeRules.length, alert: false },
                 { key: "expiring" as const, label: "Expiring", count: expiringRules.length, alert: expiringRules.length > 0 },
                 { key: "silent" as const, label: "Silent", count: silentRules.length, alert: false },
-                { key: "drafts" as const, label: "Drafts", count: draftRules.length, alert: false },
+                { key: "drafts" as const, label: "Pending Authorization", count: draftRules.length, alert: false },
                 { key: "deactivated" as const, label: "Deactivated", count: deactivatedRules.length, alert: false },
                 { key: "history" as const, label: "History", count: null, alert: false },
               ]
@@ -1192,12 +1192,11 @@ export function RulesClient({
           </div>
         )}
 
-        {/* Demo label */}
-        {IS_DEMO_MODE && (
-          <div className="font-mono text-[10px] text-[#94A3B8] mb-5 pb-4 border-b border-[#E2E8F0]">
-            Demo rules — live data from a sample organization.
-          </div>
-        )}
+        {/* The prior demo-mode banner ("Demo rules — live data from a
+            sample organization.") was removed. Demo rules are rules;
+            apologetic framing doesn't belong inside the product. The
+            per-card "Example" pill (added below) is the only signal
+            that the seed isn't user-configured. */}
 
         {/* History tab */}
         {!IS_DEMO_MODE && activeTab === "history" && (
@@ -1300,6 +1299,15 @@ export function RulesClient({
                           </span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                          {/* ISSUE 7 — "Example" pill in demo mode only.
+                              Signals that this card is seeded sample
+                              data, not a rule the visitor configured.
+                              Hidden in production. */}
+                          {IS_DEMO_MODE && (
+                            <span className="bg-[#1E293B] border border-[#334155] text-[#64748B] text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 rounded-sm">
+                              Example
+                            </span>
+                          )}
                           {isDraft ? (
                             <>
                               <button
@@ -1586,29 +1594,26 @@ export function RulesClient({
   );
 }
 
-// ---------- G1 sticky bottom CTA bar --------------------------------------
+// ---------- Sticky bottom info bar ----------------------------------------
 //
-// Persistent sticky bar with a single call to action: "Check a draft
-// →" linking to /submit. Renders only when the org has at least one
-// active rule — the bar's whole proposition (you can check now) only
-// makes sense once governance is live. The bar replaces the prior
-// MOAT-branding bar which carried a positioning statement; the page
-// now focuses entirely on what the visitor can do next.
+// Persistent footer-style bar that frames what ERA CUE accumulates as
+// the org's governance history grows. Renders only when the org has at
+// least one active rule — the message ("calibrates over time as your
+// organization builds its governance history") only resolves once
+// there's a history to calibrate against.
 
 function BottomMoatBar({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-[#0F172A] border-t border-[#334155] px-6 py-3 flex items-center justify-between z-50">
-      <span className="text-[#94A3B8] text-sm">
-        <span className="text-white font-medium">{count}</span>{" "}
-        rule{count !== 1 ? "s" : ""} active · Ready to check a draft
+    <div className="fixed bottom-0 left-0 right-0 bg-[#0F172A] border-t border-[#334155] px-6 py-3 flex items-center gap-3 z-50">
+      <span className="font-mono text-[9px] font-bold text-[#0EA5E9] uppercase tracking-[0.14em] shrink-0">
+        Governance Memory
       </span>
-      <a
-        href="/submit"
-        className="bg-[#0EA5E9] text-white px-4 py-2 rounded text-sm font-medium hover:bg-[#0284C7] transition-colors whitespace-nowrap"
-      >
-        Check a draft →
-      </a>
+      <span className="text-[#94A3B8] text-sm leading-relaxed">
+        Every rule authorization and trigger is recorded. ERA CUE
+        calibrates over time as your organization builds its governance
+        history.
+      </span>
     </div>
   );
 }

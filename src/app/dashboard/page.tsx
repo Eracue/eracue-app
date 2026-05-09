@@ -968,45 +968,27 @@ export default async function DashboardPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-8 shrink-0">
-                      <div className="text-right">
-                        <div className="font-mono text-xl font-light text-[#0F172A]">{r.timesTriggered}</div>
-                        <div className="font-mono text-xs text-[#64748B]">triggers</div>
-                        {/* Effectiveness score — (matches − overrides) / matches.
-                            Green ≥80, slate 50-79, amber <50 with at least
-                            3 matches (avoids noisy 0% signals on 1-trigger
-                            rules). Hidden when the rule has never matched.
-                            C4 — muted sub-label clarifies the metric is
-                            derived from real trigger and override history,
-                            not a static value. */}
-                        {r.effectivenessScore !== null && (
-                          <>
-                            {r.effectivenessScore >= 80 ? (
-                              <div
-                                className="font-mono text-[10px] text-[#166534] mt-0.5"
-                                title="Based on trigger and override history."
-                              >
-                                {r.effectivenessScore}% effective
-                              </div>
-                            ) : r.effectivenessScore < 50 && r.timesTriggered >= 3 ? (
-                              <div
-                                className="font-mono text-[10px] text-[#C2410C] mt-0.5"
-                                title="Based on trigger and override history."
-                              >
-                                {r.effectivenessScore}% effective · Consider refining this rule
-                              </div>
-                            ) : (
-                              <div
-                                className="font-mono text-[10px] text-[#64748B] mt-0.5"
-                                title="Based on trigger and override history."
-                              >
-                                {r.effectivenessScore}% effective
-                              </div>
-                            )}
-                            <div className="font-mono text-[9px] text-[#94A3B8] mt-0.5">
-                              Based on trigger and override history.
-                            </div>
-                          </>
-                        )}
+                      {/* ISSUE 3 — effectiveness percentage moved to a
+                          tooltip on the trigger count rather than a
+                          card-face stat. The metric is still computed
+                          (see effectivenessScore in getDashboardData)
+                          and surfaced via the title attribute; "Rules
+                          to refine" below still uses it as a refinement
+                          signal. */}
+                      <div
+                        className="text-right"
+                        title={
+                          r.effectivenessScore !== null
+                            ? `Based on trigger and override history. Effectiveness: ${r.effectivenessScore}%.`
+                            : undefined
+                        }
+                      >
+                        <div className="font-mono text-xl font-light text-[#0F172A]">
+                          {r.timesTriggered}
+                        </div>
+                        <div className="font-mono text-xs text-[#64748B]">
+                          triggers
+                        </div>
                       </div>
                       <div className="font-mono text-xs text-[#94A3B8] w-20 text-right">
                         {fmtRelative(r.lastTriggered)}
