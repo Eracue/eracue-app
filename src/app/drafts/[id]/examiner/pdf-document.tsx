@@ -243,6 +243,17 @@ export function ExaminerPdf({ draft, actions, rules, actors }: Props) {
               <Text style={styles.valueMono}>{draft.ai_model_used}</Text>
             </View>
           ) : null}
+          {/* X3 — prompt hash renders only when the value is a real
+              SHA-256 digest. Placeholder/zero values (the engine writes
+              "0".repeat(64) for non-human submissions today) are
+              suppressed so the record never carries a meaningless hash. */}
+          {draft.prompt_hash &&
+          draft.prompt_hash.replace(/0/g, "").length > 0 ? (
+            <View style={styles.row}>
+              <Text style={styles.label}>Prompt hash (SHA-256)</Text>
+              <Text style={styles.valueMono}>{draft.prompt_hash}</Text>
+            </View>
+          ) : null}
           <View style={styles.row}>
             <Text style={styles.label}>Submitted at</Text>
             <Text style={styles.valueMono}>{fmtTime(draft.submitted_at)}</Text>

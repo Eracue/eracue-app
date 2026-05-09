@@ -963,28 +963,10 @@ function FullView({
           <dd className="col-span-2 text-neutral-900 font-mono">{fmtTime(draft.submitted_at)}</dd>
           <dt className="text-neutral-500">Final status</dt>
           <dd className="col-span-2 text-neutral-900 font-medium uppercase">{draft.status}</dd>
-          <dt className="text-neutral-500">Communication category</dt>
-          <dd className="col-span-2 text-neutral-900">
-            {(draft.communication_category ?? "retail") === "retail"
-              ? "Retail Communication · Rule 2210(a)(1)"
-              : (draft.communication_category ?? "retail") === "institutional"
-              ? "Institutional Communication · Rule 2210(a)(2)"
-              : "Correspondence · Rule 2210(a)(3)"}
-          </dd>
-          <dt className="text-neutral-500">Content type</dt>
-          <dd className="col-span-2 text-neutral-900">
-            {(draft.content_type ?? "static") === "static"
-              ? "Static · Principal pre-approval required"
-              : "Interactive · Supervision required"}
-          </dd>
-          <dt className="text-neutral-500">Intended audience</dt>
-          <dd className="col-span-2 text-neutral-900">
-            {(draft.intended_audience ?? "public") === "public"
-              ? "Public · Retail standard applies"
-              : (draft.intended_audience ?? "public") === "institutional"
-              ? "Institutional investors only"
-              : "Limited distribution (under 25 retail investors)"}
-          </dd>
+          {/* X4 — Three FINRA Rule 2210(a) sub-classification rows
+              were removed. ERA CUE records the governance process;
+              that classification is a regulatory determination for
+              qualified legal counsel, not a system call. */}
         </dl>
       </section>
 
@@ -1129,11 +1111,8 @@ function FullView({
           </dd>
 
           <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">SEC Rule 17a-4 · FINRA Rule 4511</dt>
-          <dd className="text-sm text-neutral-900 mt-0.5">
-            Record retention · Per applicable regulatory requirements. Consult qualified legal counsel.
-          </dd>
-          <dd className="font-mono text-xs text-neutral-500 mb-4">
-            Format: Append-only · SHA-256 hashed · Tamper-evident per Rule 17a-4(f)
+          <dd className="text-sm text-neutral-900 mt-0.5 mb-4">
+            Retention period: determined by applicable regulatory requirements. Consult qualified legal counsel.
           </dd>
 
           <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">EU AI Act Article 50</dt>
