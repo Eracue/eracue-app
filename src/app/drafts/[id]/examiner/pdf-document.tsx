@@ -239,8 +239,13 @@ export function ExaminerPdf({ draft, actions, rules, actors }: Props) {
           </View>
           {draft.ai_model_used ? (
             <View style={styles.row}>
-              <Text style={styles.label}>AI model used</Text>
-              <Text style={styles.valueMono}>{draft.ai_model_used}</Text>
+              <Text style={styles.label}>AI involvement</Text>
+              {/* X13 — the specific model name is preserved on the
+                  database row (`ai_model_used`) but is not rendered on
+                  the examiner record face. The on-record entry simply
+                  documents that AI involvement was declared at
+                  submission. */}
+              <Text style={styles.value}>AI model declared at submission</Text>
             </View>
           ) : null}
           {/* X3 — prompt hash renders only when the value is a real
