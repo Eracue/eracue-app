@@ -201,12 +201,6 @@ function fmtTime(iso: string): string {
   return d.toISOString().replace("T", " ").replace(/\.\d+Z/, " UTC");
 }
 
-function shortHash(h: string | null | undefined): string {
-  if (!h) return "—";
-  if (h.length <= 16) return h;
-  return h.slice(0, 8) + "..." + h.slice(-8);
-}
-
 export function ExaminerPdf({ draft, actions, rules, actors }: Props) {
   const generatedAt = new Date().toISOString();
   return (
@@ -247,12 +241,6 @@ export function ExaminerPdf({ draft, actions, rules, actors }: Props) {
             <View style={styles.row}>
               <Text style={styles.label}>AI model used</Text>
               <Text style={styles.valueMono}>{draft.ai_model_used}</Text>
-            </View>
-          ) : null}
-          {draft.prompt_hash ? (
-            <View style={styles.row}>
-              <Text style={styles.label}>Prompt hash (SHA-256)</Text>
-              <Text style={styles.valueMono}>{shortHash(draft.prompt_hash)}</Text>
             </View>
           ) : null}
           <View style={styles.row}>

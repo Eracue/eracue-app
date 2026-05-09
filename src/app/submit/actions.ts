@@ -59,6 +59,11 @@ type SubmitInput = {
   // "≤25 retail investors" correspondence rule when no explicit category
   // is supplied.
   audienceSize?: number | null;
+  // Origin of the submission request. "web_app" when a browser session
+  // hits the submit form; "api" when the API path is used (a future
+  // route can pass this through). Recorded on the `submitted` action
+  // payload and surfaced on the examiner record.
+  submissionMethod?: "web_app" | "api";
 };
 
 export type SubmitSuccess = {
@@ -157,7 +162,11 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
 
   if (draftErr || !draft) return { error: "Failed to save draft: " + (draftErr?.message || "unknown") };
 
-  // 2. submitted action (records the actor + submission type)
+  // 2. submitted action (records the actor + submission type +
+  //    request origin). submission_method defaults to "web_app" when
+  //    the form doesn't pass one — the submit form always does, but
+  //    older callers / the future API path may not.
+  const submissionMethod = input.submissionMethod ?? "web_app";
   await sb.from("actions").insert({
     org_id: orgId,
     draft_id: draft.id,
@@ -167,6 +176,7 @@ export async function submitDraftAction(input: SubmitInput): Promise<SubmitResul
     payload: {
       source_origin: finalSourceOrigin,
       submission_type: input.submissionType,
+      submission_method: submissionMethod,
       channel: input.channel,
       campaign_id: campaignId,
     },

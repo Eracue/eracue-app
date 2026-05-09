@@ -197,6 +197,9 @@ export function SubmitForm({
         // EU AI Act Article 50 — what the user declared on this submission.
         sourceOrigin: aiInvolvement ? "ai_assisted" : "human",
         submissionType: channel === "ai_agent_post" ? "agent" : "human",
+        // Browser request → web_app. The future API path will set this
+        // to "api"; the action stores the value verbatim.
+        submissionMethod: "web_app",
         campaignName: campaign.trim() || null,
       });
 

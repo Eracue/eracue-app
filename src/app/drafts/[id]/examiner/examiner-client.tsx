@@ -72,6 +72,13 @@ type Props = {
   generatedAt: string;
 };
 
+// Demo mode strips identity-specific framing from the record. The
+// seeded principal (Sarah Chen, GC) is fictional; surfacing her name in
+// a demo would imply the visitor's record is being attributed to a real
+// person they don't know. Demo deployments substitute "[Principal on
+// record]" — the real-deployment record carries the resolved actor name.
+const IS_DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 // ---------- Helpers --------------------------------------------------------
 
 function fmtTime(iso: string): string {
@@ -184,7 +191,9 @@ function formatActorKind(actor: ActionRow, actors: Actors): string {
       const u = actors[actor.actor_id];
       return `${u.name}${u.title ? ` (${u.title})` : ""}`;
     }
-    return "Sarah Chen, GC (Designated Principal)";
+    return IS_DEMO_MODE
+      ? "[Principal on record]"
+      : "Sarah Chen, GC (Designated Principal)";
   }
   return kind;
 }
@@ -334,7 +343,9 @@ export function ExaminerClient({
     (lastDecision?.payload?.reviewer_name as string | undefined) ||
     (lookupReviewer
       ? `${lookupReviewer.name}${lookupReviewer.title ? `, ${lookupReviewer.title}` : ""}`
-      : "Sarah Chen, GC");
+      : IS_DEMO_MODE
+        ? "[Principal on record]"
+        : "Sarah Chen, GC");
 
   return (
     <>
@@ -420,6 +431,24 @@ export function ExaminerClient({
               generatedAt={generatedAt}
             />
           )}
+
+          {/* Standing footer disclaimer — applies to every examiner
+              record regardless of view. The retention period and the
+              applicability of cited rules are explicitly deferred to
+              qualified legal counsel; the record documents the
+              governance process, not a legal determination. */}
+          <p className="mt-12 pt-6 border-t border-[#E2E8F0] text-xs text-[#64748B] leading-relaxed">
+            ERA CUE creates supervisory records and governance evidence
+            to support organizational compliance workflows. This record
+            documents the governance process applied to the above
+            communication. ERA CUE does not provide legal advice. The
+            applicability of FINRA Rules 3110 and 2210, SEC Rules 17a-4
+            and Regulation FD, and EU AI Act Article 50 to any specific
+            organization or circumstance should be confirmed with
+            qualified legal counsel. The retention period applicable to
+            this record should be determined by your organization&apos;s
+            legal and compliance advisers.
+          </p>
         </div>
       </main>
     </>
@@ -519,7 +548,11 @@ function SummaryView({
     {
       action: openedAction,
       label: "Principal opened",
-      actor: openedAction ? "Sarah Chen, GC" : "Not yet opened",
+      actor: openedAction
+        ? IS_DEMO_MODE
+          ? "[Principal on record]"
+          : "Sarah Chen, GC"
+        : "Not yet opened",
       done: !!openedAction,
     },
     {
@@ -527,7 +560,7 @@ function SummaryView({
       label: decidedAction ? "Decision recorded" : "Awaiting decision",
       actor: decidedAction
         ? [
-            "Sarah Chen",
+            IS_DEMO_MODE ? "[Principal on record]" : "Sarah Chen",
             reviewDurationLabel,
             !reviewDurationLabel && approvalDuration !== null
               ? formatApprovalSpan(approvalDuration)
@@ -827,7 +860,7 @@ function FullView({
     <>
       {/* Section 1: Speaker & Submission */}
       <section className="mb-8">
-        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">1. Speaker & Submission</h2>
+        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">Speaker & Submission</h2>
 
         {hasDecision ? (
           (() => {
@@ -837,7 +870,9 @@ function FullView({
               (last?.payload?.reviewer_name as string | undefined) ||
               (lookupActor
                 ? `${lookupActor.name}${lookupActor.title ? `, ${lookupActor.title}` : ""}`
-                : "Sarah Chen, GC");
+                : IS_DEMO_MODE
+                  ? "[Principal on record]"
+                  : "Sarah Chen, GC");
             const occurredLabel = last?.occurred_at ? fmtFriendlyDateTime(last.occurred_at) : "";
             return (
               <div className="mb-6 p-4 bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm">
@@ -851,7 +886,7 @@ function FullView({
                   <div className="font-mono text-xs text-[#374151] mt-1">{occurredLabel}</div>
                 )}
                 <div className="font-mono text-[10px] text-[#166534] mt-2">
-                  FINRA Rule 3110(a) supervisory evidence · EU AI Act Article 50(4) exemption applies
+                  FINRA Rule 3110(a) supervisory evidence · EU AI Act Art. 50 — see legal counsel
                 </div>
               </div>
             );
@@ -904,6 +939,26 @@ function FullView({
               </div>
             </dd>
           </>)}
+          {(() => {
+            // Submission method rides on the `submitted` action payload —
+            // "web_app" or "api". Falls back to web_app when the field
+            // is missing on legacy rows.
+            const submitted = actions.find(
+              (a) =>
+                a.action_type === "submitted" ||
+                a.action_type === "draft_submitted",
+            );
+            const method =
+              (submitted?.payload?.submission_method as string | undefined) ??
+              "web_app";
+            const label = method === "api" ? "ERA CUE API" : "ERA CUE web app";
+            return (
+              <>
+                <dt className="text-neutral-500">Submission method</dt>
+                <dd className="col-span-2 text-neutral-900">{label}</dd>
+              </>
+            );
+          })()}
           <dt className="text-neutral-500">Submitted at</dt>
           <dd className="col-span-2 text-neutral-900 font-mono">{fmtTime(draft.submitted_at)}</dd>
           <dt className="text-neutral-500">Final status</dt>
@@ -933,237 +988,23 @@ function FullView({
         </dl>
       </section>
 
-      {/* Section 1.5: Regulatory Framework */}
+      {/* Principal Review — moved to the top of the record, immediately
+          after Speaker & Submission and before Regulatory Framework, so
+          the principal decision is the first substantive content a
+          regulator reads when they open the file. */}
       <section className="mb-8">
-        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">Regulatory Framework</h2>
-        <dl>
-          <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">FINRA Rule 3110(a)</dt>
-          <dd className="text-sm text-neutral-900 mt-0.5">
-            Supervision · Named principal review required
-          </dd>
-          <dd className="font-mono text-xs text-neutral-500 mb-4">
-            Principal: Sarah Chen · CCO · Designated Principal
-          </dd>
-
-          <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">FINRA Rule 2210(b)</dt>
-          <dd className="text-sm text-neutral-900 mt-0.5 mb-4">
-            {(() => {
-              // 2210(b)'s pre-approval requirement is retail-only. Pending vs
-              // satisfied also depends on whether a principal has decided.
-              const cat = draft.communication_category ?? "retail";
-              if (cat === "retail") {
-                return hasDecision
-                  ? "Pre-approval satisfied — retail communication reviewed by designated principal per Rule 2210(b)"
-                  : "Pre-approval pending — principal review required before publication per Rule 2210(b)";
-              }
-              if (cat === "correspondence") {
-                return "Correspondence — lighter supervision standard applies per Rule 2210(a)(3). Pre-approval requirement does not apply.";
-              }
-              return "Institutional communication — content standards apply per Rule 2210(a)(2)";
-            })()}
-          </dd>
-
-          <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">SEC Rule 17a-4 · FINRA Rule 4511</dt>
-          <dd className="text-sm text-neutral-900 mt-0.5">
-            Record retention · 36 months from submission date
-          </dd>
-          <dd className="font-mono text-xs text-neutral-500">
-            Accessible period: First 24 months · Total: 36 months
-          </dd>
-          <dd className="font-mono text-xs text-neutral-500">
-            Retention expiry:{" "}
-            {new Date(
-              new Date(draft.submitted_at).getTime() + 36 * 30 * 24 * 60 * 60 * 1000,
-            ).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-          </dd>
-          <dd className="font-mono text-xs text-neutral-500 mb-4">
-            Format: Append-only · SHA-256 hashed · Tamper-evident per Rule 17a-4(f)
-          </dd>
-
-          <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">EU AI Act Article 50</dt>
-          {(() => {
-            const isAi =
-              draft.source_origin === "ai_assisted" ||
-              draft.source_origin === "ai_generated";
-            const latestDecision = reviewerDecisions.length > 0
-              ? reviewerDecisions[reviewerDecisions.length - 1]
-              : null;
-            if (isAi && latestDecision) {
-              const ts = new Date(latestDecision.occurred_at).toLocaleDateString(
-                "en-US",
-                { month: "long", day: "numeric", year: "numeric" },
-              );
-              return (
-                <>
-                  <dd className="text-sm text-[#0F172A] mt-0.5">Human review exemption applies</dd>
-                  <dd className="mt-2 mb-4">
-                    <span className="text-sm text-[#166534] bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm px-3 py-2 inline-block">
-                      Editorial responsibility assumed by Sarah Chen, GC on {ts} — EU AI Act Article 50(4) human review exemption applies. AI disclosure label not required at publication.
-                    </span>
-                  </dd>
-                </>
-              );
-            }
-            if (isAi) {
-              return (
-                <>
-                  <dd className="text-sm text-[#0F172A] mt-0.5">Disclosure required at publication</dd>
-                  <dd className="font-mono text-xs text-[#C2410C] mt-1 mb-4 leading-relaxed">
-                    Principal review pending. Once a designated principal approves this draft, the EU AI Act Article 50(4) human review exemption will apply and AI disclosure at publication will not be required.
-                  </dd>
-                </>
-              );
-            }
-            if (draft.source_origin === "agent_submitted") {
-              return (
-                <>
-                  <dd className="text-sm text-[#0F172A] mt-0.5">
-                    AI-generated content — disclosure required at publication
-                  </dd>
-                  <dd className="font-mono text-xs text-neutral-500 mt-1 mb-4 leading-relaxed">
-                    ERA CUE principal review satisfies FINRA agentic AI supervision requirement (separate from EU AI Act disclosure).
-                  </dd>
-                </>
-              );
-            }
-            return (
-              <dd className="text-sm text-[#0F172A] mt-0.5 mb-4">
-                No disclosure required — human-authored content
-              </dd>
-            );
-          })()}
-        </dl>
-      </section>
-
-      {/* Tamper evidence — sits prominently right after the regulatory
-          framework so the immutability claim is read alongside the
-          regulatory citations it supports, not buried at the end. The
-          dark slate palette intentionally breaks the white card rhythm
-          to make this read as a guarantee, not a note. */}
-      <div className="bg-[#0F172A] rounded-sm p-5 mb-6">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
-          Tamper evidence
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          {[
-            {
-              label: "Enforcement",
-              value: "Database-level",
-              sub: "UPDATE + DELETE refused",
-            },
-            {
-              label: "Hash algorithm",
-              value: "SHA-256",
-              sub: "Computed at insert time",
-            },
-            {
-              label: "Records altered",
-              value: "0",
-              sub: "Since this record was created",
-            },
-          ].map((item) => (
-            <div key={item.label}>
-              <div className="font-mono text-[10px] text-[#64748B] mb-0.5">
-                {item.label}
-              </div>
-              <div className="text-white font-semibold text-sm">{item.value}</div>
-              <div className="font-mono text-[10px] text-[#64748B]">{item.sub}</div>
-            </div>
-          ))}
-        </div>
-        <div className="font-mono text-[10px] text-[#64748B] border-t border-white/10 pt-3">
-          Not a policy claim. A database constraint. The actions table enforces append-only at the PostgreSQL level — no application code can override this.
-        </div>
-      </div>
-
-      {/* Section 2: Draft text */}
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">2. Draft Text (verbatim)</h2>
-        <div className="p-4 border border-neutral-300 rounded text-base text-[#0F172A] whitespace-pre-wrap leading-relaxed bg-neutral-50">
-          {draft.draft_text}
-        </div>
-      </section>
-
-      {/* Section 3: Rules active at submission */}
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">3. Governance Rules Active at Submission</h2>
-        {rules.length === 0 ? (
-          <p className="text-sm text-neutral-500">No rule snapshots recorded.</p>
-        ) : (
-          <ul className="space-y-3 text-sm">
-            {rules.map((r) => (
-              <li key={r.id} className="border border-neutral-200 rounded p-3">
-                <div className="flex items-baseline justify-between gap-3 mb-1">
-                  <div className="font-medium text-neutral-900">{r.name}</div>
-                  {ruleTypeBadge(r.rule_type)}
-                </div>
-                {r.wsp_reference && (
-                  <div className="font-mono text-[10px] text-[#1447C0] mb-1">
-                    WSP: {r.wsp_reference}
-                  </div>
-                )}
-                <div className="text-xs text-neutral-700 mb-1">{r.description}</div>
-                <div className="text-xs text-neutral-500">
-                  Effective {formatRuleDate(r.effective_from)} – {formatRuleDate(r.effective_to)}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* Section 4: Checks Performed */}
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">4. Checks Performed</h2>
-        <p className="text-xs text-neutral-500 mb-3">
-          ERA CUE runs a fixed five-check chain. Pass / Fail / Warn results are recorded for every draft, so the absence of a check is itself auditable.
-        </p>
-        <ul className="space-y-2 text-sm">
-          {checks.map((c, i) => (
-            <li key={`${c.check_name}-${i}`} className="border border-neutral-200 rounded p-3 flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-neutral-900">{c.check_name}</div>
-                {c.detail && <div className="text-xs text-neutral-700 mt-0.5">{c.detail}</div>}
-                {c.matched_keyword && (
-                  <div className="text-xs text-neutral-500 mt-0.5">
-                    Matched keyword: <span className="font-mono bg-neutral-100 px-1.5 py-0.5 rounded">{c.matched_keyword}</span>
-                  </div>
-                )}
-                {/* Stage 2 reasoning — surfaces ERA CUE's contextual
-                    evaluation of the keyword match so FINRA examiners can
-                    see ERA CUE evaluated context, not just keywords. */}
-                {c.context_evaluation && (
-                  <div className="font-mono text-[10px] text-[#64748B] mt-1 italic">
-                    Context: {c.context_evaluation}
-                  </div>
-                )}
-                {c.check_name === "Consistency Check" && typeof c.corpus_size === "number" && (
-                  <div className="font-mono text-[10px] text-[#64748B] mt-1 ml-4">
-                    Corpus at submission: {c.corpus_size} approved statements from this speaker
-                  </div>
-                )}
-                {c.check_name === "Consistency Check" && c.prior_statement && (
-                  <div className="text-xs text-neutral-700 mt-1 ml-4 pl-3 border-l-2 border-[#FED7AA] italic">
-                    Prior statement: &ldquo;{c.prior_statement}&rdquo;
-                  </div>
-                )}
-              </div>
-              <CheckResultLabel result={c.result} />
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* Section 5: Principal Review (always renders, with pending state when no decisions) */}
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">5. Principal Review</h2>
+        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">Principal Review</h2>
         {hasDecision ? (
           <>
             <div className="bg-amber-50 border border-amber-200 rounded px-4 py-2 text-xs mb-4">
               <div className="flex items-baseline justify-between gap-4">
                 <div className="text-amber-900">
                   <span className="text-amber-700">Reviewing principal:</span>{" "}
-                  <span className="font-medium">Sarah Chen · CCO · Designated Principal</span>
+                  <span className="font-medium">
+                    {IS_DEMO_MODE
+                      ? "[Principal on record] · Review pending"
+                      : "Sarah Chen · CCO · Designated Principal"}
+                  </span>
                 </div>
                 <div className="text-amber-900 text-right">
                   <span className="text-amber-700">Authority:</span>{" "}
@@ -1249,15 +1090,225 @@ function FullView({
           </div>
         )}
 
-        {/* Section 5 also surfaces the clearance token (when present)
-            so the FINRA-ready record carries it inline alongside
-            the principal decision. */}
+        {/* Clearance token (when present) sits inline with the principal
+            decision so the FINRA-ready record carries it alongside the
+            decision, not in a separate section further down. */}
         <PublishTokenBlock draft={draft} variant="compact" />
       </section>
 
-      {/* Section 6: Audit Trail */}
+      {/* Regulatory Framework */}
       <section className="mb-8">
-        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">6. Audit Trail (Append-Only)</h2>
+        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">Regulatory Framework</h2>
+        <dl>
+          <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">FINRA Rule 3110(a)</dt>
+          <dd className="text-sm text-neutral-900 mt-0.5">
+            Supervision · Named principal review required
+          </dd>
+          <dd className="font-mono text-xs text-neutral-500 mb-4">
+            {IS_DEMO_MODE
+              ? "Principal: [Principal on record] · Review pending"
+              : "Principal: Sarah Chen · CCO · Designated Principal"}
+          </dd>
+
+          <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">FINRA Rule 2210(b)</dt>
+          <dd className="text-sm text-neutral-900 mt-0.5 mb-4">
+            {(() => {
+              // 2210(b)'s pre-approval requirement is retail-only. Pending vs
+              // satisfied also depends on whether a principal has decided.
+              const cat = draft.communication_category ?? "retail";
+              if (cat === "retail") {
+                return hasDecision
+                  ? "Pre-approval satisfied — retail communication reviewed by designated principal per Rule 2210(b)"
+                  : "Pre-approval pending — principal review required before publication per Rule 2210(b)";
+              }
+              if (cat === "correspondence") {
+                return "Correspondence — lighter supervision standard applies per Rule 2210(a)(3). Pre-approval requirement does not apply.";
+              }
+              return "Institutional communication — content standards apply per Rule 2210(a)(2)";
+            })()}
+          </dd>
+
+          <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">SEC Rule 17a-4 · FINRA Rule 4511</dt>
+          <dd className="text-sm text-neutral-900 mt-0.5">
+            Record retention · Per applicable regulatory requirements. Consult qualified legal counsel.
+          </dd>
+          <dd className="font-mono text-xs text-neutral-500 mb-4">
+            Format: Append-only · SHA-256 hashed · Tamper-evident per Rule 17a-4(f)
+          </dd>
+
+          <dt className="font-mono text-xs uppercase tracking-widest text-[#64748B]">EU AI Act Article 50</dt>
+          {(() => {
+            const isAi =
+              draft.source_origin === "ai_assisted" ||
+              draft.source_origin === "ai_generated";
+            const latestDecision = reviewerDecisions.length > 0
+              ? reviewerDecisions[reviewerDecisions.length - 1]
+              : null;
+            if (isAi && latestDecision) {
+              return (
+                <>
+                  <dd className="text-sm text-[#0F172A] mt-0.5">Principal review documented</dd>
+                  <dd className="mt-2 mb-4">
+                    <span className="text-sm text-[#374151] bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm px-3 py-2 inline-block leading-relaxed">
+                      Principal review documented at submission. Whether this review satisfies applicable disclosure obligations under EU AI Act Article 50 is a legal determination. Consult qualified legal counsel.
+                    </span>
+                  </dd>
+                </>
+              );
+            }
+            if (isAi) {
+              return (
+                <>
+                  <dd className="text-sm text-[#0F172A] mt-0.5">Principal review pending</dd>
+                  <dd className="font-mono text-xs text-[#64748B] mt-1 mb-4 leading-relaxed">
+                    Principal review documented at submission. Whether this review satisfies applicable disclosure obligations under EU AI Act Article 50 is a legal determination. Consult qualified legal counsel.
+                  </dd>
+                </>
+              );
+            }
+            if (draft.source_origin === "agent_submitted") {
+              return (
+                <>
+                  <dd className="text-sm text-[#0F172A] mt-0.5">
+                    AI-generated content — disclosure required at publication
+                  </dd>
+                  <dd className="font-mono text-xs text-neutral-500 mt-1 mb-4 leading-relaxed">
+                    ERA CUE principal review satisfies FINRA agentic AI supervision requirement (separate from EU AI Act disclosure).
+                  </dd>
+                </>
+              );
+            }
+            return (
+              <dd className="text-sm text-[#0F172A] mt-0.5 mb-4">
+                No disclosure required — human-authored content
+              </dd>
+            );
+          })()}
+        </dl>
+      </section>
+
+      {/* Tamper evidence — sits prominently right after the regulatory
+          framework so the immutability claim is read alongside the
+          regulatory citations it supports, not buried at the end. The
+          dark slate palette intentionally breaks the white card rhythm
+          to make this read as a guarantee, not a note. */}
+      <div className="bg-[#0F172A] rounded-sm p-5 mb-6">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
+          Tamper evidence
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {[
+            {
+              label: "Enforcement",
+              value: "Database-level",
+              sub: "UPDATE + DELETE refused",
+            },
+            {
+              label: "Hash algorithm",
+              value: "SHA-256",
+              sub: "Computed at insert time",
+            },
+            {
+              label: "Records altered",
+              value: "0",
+              sub: "Since this record was created",
+            },
+          ].map((item) => (
+            <div key={item.label}>
+              <div className="font-mono text-[10px] text-[#64748B] mb-0.5">
+                {item.label}
+              </div>
+              <div className="text-white font-semibold text-sm">{item.value}</div>
+              <div className="font-mono text-[10px] text-[#64748B]">{item.sub}</div>
+            </div>
+          ))}
+        </div>
+        <div className="font-mono text-[10px] text-[#64748B] border-t border-white/10 pt-3">
+          Not a policy claim. A database constraint. The actions table enforces append-only at the PostgreSQL level — no application code can override this.
+        </div>
+      </div>
+
+      {/* Section 2: Draft text */}
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">Draft Text (verbatim)</h2>
+        <div className="p-4 border border-neutral-300 rounded text-base text-[#0F172A] whitespace-pre-wrap leading-relaxed bg-neutral-50">
+          {draft.draft_text}
+        </div>
+      </section>
+
+      {/* Section 3: Rules active at submission */}
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">Governance Rules Active at Submission</h2>
+        {rules.length === 0 ? (
+          <p className="text-sm text-neutral-500">No rule snapshots recorded.</p>
+        ) : (
+          <ul className="space-y-3 text-sm">
+            {rules.map((r) => (
+              <li key={r.id} className="border border-neutral-200 rounded p-3">
+                <div className="flex items-baseline justify-between gap-3 mb-1">
+                  <div className="font-medium text-neutral-900">{r.name}</div>
+                  {ruleTypeBadge(r.rule_type)}
+                </div>
+                {r.wsp_reference && (
+                  <div className="font-mono text-[10px] text-[#1447C0] mb-1">
+                    WSP: {r.wsp_reference}
+                  </div>
+                )}
+                <div className="text-xs text-neutral-700 mb-1">{r.description}</div>
+                <div className="text-xs text-neutral-500">
+                  Effective {formatRuleDate(r.effective_from)} – {formatRuleDate(r.effective_to)}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Section 4: Checks Performed */}
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">Checks Performed</h2>
+        <p className="text-xs text-neutral-500 mb-3">
+          ERA CUE runs a fixed five-check chain. Pass / Fail / Warn results are recorded for every draft, so the absence of a check is itself auditable.
+        </p>
+        <ul className="space-y-2 text-sm">
+          {checks.map((c, i) => (
+            <li key={`${c.check_name}-${i}`} className="border border-neutral-200 rounded p-3 flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-neutral-900">{c.check_name}</div>
+                {c.detail && <div className="text-xs text-neutral-700 mt-0.5">{c.detail}</div>}
+                {c.matched_keyword && (
+                  <div className="text-xs text-neutral-500 mt-0.5">
+                    Matched keyword: <span className="font-mono bg-neutral-100 px-1.5 py-0.5 rounded">{c.matched_keyword}</span>
+                  </div>
+                )}
+                {/* Stage 2 reasoning — surfaces ERA CUE's contextual
+                    evaluation of the keyword match so FINRA examiners can
+                    see ERA CUE evaluated context, not just keywords. */}
+                {c.context_evaluation && (
+                  <div className="font-mono text-[10px] text-[#64748B] mt-1 italic">
+                    Context: {c.context_evaluation}
+                  </div>
+                )}
+                {c.check_name === "Consistency Check" && typeof c.corpus_size === "number" && (
+                  <div className="font-mono text-[10px] text-[#64748B] mt-1 ml-4">
+                    Corpus at submission: {c.corpus_size} approved statements from this speaker
+                  </div>
+                )}
+                {c.check_name === "Consistency Check" && c.prior_statement && (
+                  <div className="text-xs text-neutral-700 mt-1 ml-4 pl-3 border-l-2 border-[#FED7AA] italic">
+                    Prior statement: &ldquo;{c.prior_statement}&rdquo;
+                  </div>
+                )}
+              </div>
+              <CheckResultLabel result={c.result} />
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Audit Trail */}
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold text-[#0F172A] mb-3 border-b border-neutral-200 pb-2">Audit Trail (Append-Only)</h2>
         <p className="text-xs text-neutral-500 mb-3">
           Each entry below was written to the database with a SHA-256 row hash computed at insert time. The actions table enforces append-only at the database level — UPDATE and DELETE are refused.
         </p>
