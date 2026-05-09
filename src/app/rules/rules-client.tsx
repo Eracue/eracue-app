@@ -6,6 +6,7 @@ import {
   createRuleAction,
   deactivateRuleAction,
   deleteDraftRuleAction,
+  deleteRuleAction,
   reactivateRuleAction,
   updateRuleAction,
 } from "./actions";
@@ -589,6 +590,14 @@ export function RulesClient({
     string | null
   >(null);
 
+  // FIX 2 — id of the rule whose hard-delete confirmation strip is
+  // open. Mirrors confirmingDeactivateId; opening one closes the
+  // other (and the inline edit panel) so only one row is mid-action
+  // at a time.
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<
+    string | null
+  >(null);
+
   // V4 — newly created rule id; row gets a 3s teal highlight before
   // settling back to default styling.
   const [highlightedRuleId, setHighlightedRuleId] = useState<string | null>(
@@ -1044,6 +1053,31 @@ export function RulesClient({
     }
   }
 
+  // FIX 2 — hard-delete a rule that has never fired. The Delete
+  // affordance only renders for trigger_count === 0, so this never
+  // erases an audit chain. On success the optimistic copy (if any) is
+  // dropped, the strip is closed, and a confirmation toast surfaces.
+  async function handleDeleteRule(
+    id: string,
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      const result = await deleteRuleAction(id);
+      if (!result.ok) {
+        showToast(`Could not delete rule — ${result.error}.`, "error");
+        return { ok: false, error: result.error };
+      }
+      setOptimisticRules((prev) => prev.filter((r) => r.id !== id));
+      setConfirmingDeleteId(null);
+      showToast("Rule deleted — record removed.", "success");
+      router.refresh();
+      return { ok: true };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Unknown error";
+      showToast(`Could not delete rule — ${message}.`, "error");
+      return { ok: false, error: message };
+    }
+  }
+
   // V2 — inline edit save handler. The inline panel passes the rule
   // id explicitly so this no longer depends on a sheet-level
   // `editingRule` state. On success the panel closes itself and the
@@ -1396,6 +1430,7 @@ export function RulesClient({
             onStartEdit={(id) => {
               setInlineEditId(id);
               setConfirmingDeactivateId(null);
+              setConfirmingDeleteId(null);
             }}
             onCancelEdit={() => setInlineEditId(null)}
             onSaveEdit={handleSaveEdit}
@@ -1403,9 +1438,18 @@ export function RulesClient({
             onStartDeactivate={(id) => {
               setConfirmingDeactivateId(id);
               setInlineEditId(null);
+              setConfirmingDeleteId(null);
             }}
             onCancelDeactivate={() => setConfirmingDeactivateId(null)}
             onConfirmDeactivate={handleDeactivate}
+            confirmingDeleteId={confirmingDeleteId}
+            onStartDelete={(id) => {
+              setConfirmingDeleteId(id);
+              setInlineEditId(null);
+              setConfirmingDeactivateId(null);
+            }}
+            onCancelDelete={() => setConfirmingDeleteId(null)}
+            onConfirmDelete={handleDeleteRule}
             onReactivate={handleReactivate}
             onAuthorizeDraft={(id) => handleAuthorizeDraft(id)}
             onDeleteDraft={(id) => handleDeleteDraft(id)}
@@ -1649,6 +1693,13 @@ type RulesTableProps = {
   onConfirmDeactivate: (
     id: string,
   ) => Promise<{ ok: true } | { ok: false; error: string }>;
+  // FIX 2 — inline hard-delete confirmation strip (zero-trigger rules only).
+  confirmingDeleteId: string | null;
+  onStartDelete: (id: string) => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: (
+    id: string,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
   // V5 — reactivate handler for deactivated rows.
   onReactivate: (id: string) => void | Promise<void>;
   onAuthorizeDraft: (id: string) => void;
@@ -1665,24 +1716,27 @@ type RulesTableProps = {
   pending: boolean;
 };
 
+// FIX 3 — soft-tinted severity badges shared by the desktop "Severity"
+// column and the mobile inline-with-name badge. Three styles:
+// BLOCK / REVIEW / FLAG.
 function ruleSeverityBadge(verdict: string) {
   const v = (verdict || "").toLowerCase();
   if (v === "block") {
     return (
-      <span className="font-mono text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm bg-[#EF4444] text-white shrink-0">
+      <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA] shrink-0">
         Block
       </span>
     );
   }
   if (v === "review" || v === "escalate") {
     return (
-      <span className="font-mono text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm bg-[#F59E0B] text-white shrink-0">
+      <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] shrink-0">
         Review
       </span>
     );
   }
   return (
-    <span className="font-mono text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm bg-[#334155] text-[#94A3B8] shrink-0">
+    <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] shrink-0">
       Flag
     </span>
   );
@@ -1714,6 +1768,12 @@ function authorizedByLabel(rule: RuleRow): string {
   return "—";
 }
 
+// FIX 5 — sort state. `null` column means default order
+// (effective_from ascending — oldest first per spec). Clicking a
+// sortable header sets the column; clicking it again flips direction.
+type SortColumn = "name" | "status" | "lastTriggered" | "triggers" | null;
+type SortDir = "asc" | "desc";
+
 function RulesTable({
   rules,
   now,
@@ -1727,6 +1787,10 @@ function RulesTable({
   onStartDeactivate,
   onCancelDeactivate,
   onConfirmDeactivate,
+  confirmingDeleteId,
+  onStartDelete,
+  onCancelDelete,
+  onConfirmDelete,
   onReactivate,
   onAuthorizeDraft,
   onDeleteDraft,
@@ -1736,11 +1800,78 @@ function RulesTable({
   onOpenModal,
   pending,
 }: RulesTableProps) {
+  // FIX 5 — column sort. Default sort is effective_from ascending;
+  // clicking any sortable header overrides that.
+  const [sortColumn, setSortColumn] = useState<SortColumn>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function handleSort(col: NonNullable<SortColumn>) {
+    if (sortColumn === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(col);
+      setSortDir("asc");
+    }
+  }
+
+  function sortIndicator(col: NonNullable<SortColumn>): string {
+    if (sortColumn !== col) return "↕";
+    return sortDir === "asc" ? "↑" : "↓";
+  }
+
+  // Sorted copy of `rules`. The bucket split below preserves this order
+  // within each bucket (active rules sorted, deactivated rules sorted).
+  const sortedRules = useMemo(() => {
+    const rows = [...rules];
+    if (sortColumn === null) {
+      rows.sort((a, b) => {
+        const at = a.effective_from
+          ? new Date(a.effective_from).getTime()
+          : 0;
+        const bt = b.effective_from
+          ? new Date(b.effective_from).getTime()
+          : 0;
+        return at - bt;
+      });
+      return rows;
+    }
+    const dir = sortDir === "asc" ? 1 : -1;
+    rows.sort((a, b) => {
+      let cmp = 0;
+      switch (sortColumn) {
+        case "name":
+          cmp = (a.name ?? "").localeCompare(b.name ?? "");
+          break;
+        case "status": {
+          const al = lifecycleStateLabel(a, now).label;
+          const bl = lifecycleStateLabel(b, now).label;
+          cmp = al.localeCompare(bl);
+          break;
+        }
+        case "lastTriggered": {
+          const at = a.last_triggered
+            ? new Date(a.last_triggered).getTime()
+            : -Infinity;
+          const bt = b.last_triggered
+            ? new Date(b.last_triggered).getTime()
+            : -Infinity;
+          cmp = at === bt ? 0 : at < bt ? -1 : 1;
+          break;
+        }
+        case "triggers":
+          cmp = (a.trigger_count ?? 0) - (b.trigger_count ?? 0);
+          break;
+      }
+      return cmp * dir;
+    });
+    return rows;
+  }, [rules, sortColumn, sortDir, now]);
+
   // V6 — split active and deactivated rules so the deactivated set
   // renders as a separate, dimmed section at the bottom.
   const activeBucket: RuleRow[] = [];
   const deactivatedBucket: RuleRow[] = [];
-  for (const r of rules) {
+  for (const r of sortedRules) {
     if (classifyLifecycle(r, now) === "DEACTIVATED") {
       deactivatedBucket.push(r);
     } else {
@@ -1804,28 +1935,79 @@ function RulesTable({
     <>
       {showEmptyCard && emptyStateCard()}
 
-      {/* Desktop table — hidden under md breakpoint */}
+      {/* Desktop table — hidden under md breakpoint.
+          FIX 3 — Severity is the new first column.
+          FIX 5 — Rule name / Status / Last triggered / Triggers headers are
+          sortable buttons with ↑↓↕ indicators. */}
       {(activeBucket.length > 0 || deactivatedBucket.length > 0) && (
         <div className="hidden md:block w-full overflow-x-auto bg-white border border-[#E2E8F0] rounded">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-[#F1F5F9] border-b border-[#E2E8F0]">
               <tr>
-                {[
-                  "Rule name",
-                  "Status",
-                  "Keywords",
-                  "Last triggered",
-                  "Triggers",
-                  "Authorized by",
-                  "Actions",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="text-left font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-3"
+                <th className="text-left font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-3">
+                  Severity
+                </th>
+                <th className="text-left font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("name")}
+                    className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer flex items-center gap-1"
+                    aria-label="Sort by rule name"
                   >
-                    {h}
-                  </th>
-                ))}
+                    Rule name
+                    <span aria-hidden className={sortColumn === "name" ? "text-[#0EA5E9]" : "text-[#CBD5E1]"}>
+                      {sortIndicator("name")}
+                    </span>
+                  </button>
+                </th>
+                <th className="text-left font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("status")}
+                    className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer flex items-center gap-1"
+                    aria-label="Sort by status"
+                  >
+                    Status
+                    <span aria-hidden className={sortColumn === "status" ? "text-[#0EA5E9]" : "text-[#CBD5E1]"}>
+                      {sortIndicator("status")}
+                    </span>
+                  </button>
+                </th>
+                <th className="text-left font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-3">
+                  Keywords
+                </th>
+                <th className="text-left font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("lastTriggered")}
+                    className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer flex items-center gap-1"
+                    aria-label="Sort by last triggered"
+                  >
+                    Last triggered
+                    <span aria-hidden className={sortColumn === "lastTriggered" ? "text-[#0EA5E9]" : "text-[#CBD5E1]"}>
+                      {sortIndicator("lastTriggered")}
+                    </span>
+                  </button>
+                </th>
+                <th className="text-left font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("triggers")}
+                    className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer flex items-center gap-1"
+                    aria-label="Sort by triggers"
+                  >
+                    Triggers
+                    <span aria-hidden className={sortColumn === "triggers" ? "text-[#0EA5E9]" : "text-[#CBD5E1]"}>
+                      {sortIndicator("triggers")}
+                    </span>
+                  </button>
+                </th>
+                <th className="text-left font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-3">
+                  Authorized by
+                </th>
+                <th className="text-left font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-3">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -1837,6 +2019,7 @@ function RulesTable({
                   deactivated={false}
                   inlineEditOpen={inlineEditId === r.id}
                   confirmingDeactivate={confirmingDeactivateId === r.id}
+                  confirmingDelete={confirmingDeleteId === r.id}
                   highlightClass={highlightRowClass(r.id)}
                   isOptimistic={optimisticIds.has(r.id)}
                   onStartEdit={onStartEdit}
@@ -1845,6 +2028,9 @@ function RulesTable({
                   onStartDeactivate={onStartDeactivate}
                   onCancelDeactivate={onCancelDeactivate}
                   onConfirmDeactivate={onConfirmDeactivate}
+                  onStartDelete={onStartDelete}
+                  onCancelDelete={onCancelDelete}
+                  onConfirmDelete={onConfirmDelete}
                   onReactivate={onReactivate}
                   onAuthorizeDraft={onAuthorizeDraft}
                   onDeleteDraft={onDeleteDraft}
@@ -1856,7 +2042,7 @@ function RulesTable({
                 <>
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] py-3 px-4 border-t border-[#E2E8F0] bg-[#F8FAFC]"
                     >
                       Deactivated rules ({deactivatedBucket.length})
@@ -1870,6 +2056,7 @@ function RulesTable({
                       deactivated
                       inlineEditOpen={false}
                       confirmingDeactivate={false}
+                      confirmingDelete={false}
                       highlightClass={highlightRowClass(r.id)}
                       isOptimistic={optimisticIds.has(r.id)}
                       onStartEdit={onStartEdit}
@@ -1878,6 +2065,9 @@ function RulesTable({
                       onStartDeactivate={onStartDeactivate}
                       onCancelDeactivate={onCancelDeactivate}
                       onConfirmDeactivate={onConfirmDeactivate}
+                      onStartDelete={onStartDelete}
+                      onCancelDelete={onCancelDelete}
+                      onConfirmDelete={onConfirmDelete}
                       onReactivate={onReactivate}
                       onAuthorizeDraft={onAuthorizeDraft}
                       onDeleteDraft={onDeleteDraft}
@@ -1905,6 +2095,7 @@ function RulesTable({
             onToggleMobile={onToggleMobile}
             inlineEditOpen={inlineEditId === r.id}
             confirmingDeactivate={confirmingDeactivateId === r.id}
+            confirmingDelete={confirmingDeleteId === r.id}
             highlightClass={highlightRowClass(r.id)}
             isOptimistic={optimisticIds.has(r.id)}
             onStartEdit={onStartEdit}
@@ -1913,6 +2104,9 @@ function RulesTable({
             onStartDeactivate={onStartDeactivate}
             onCancelDeactivate={onCancelDeactivate}
             onConfirmDeactivate={onConfirmDeactivate}
+            onStartDelete={onStartDelete}
+            onCancelDelete={onCancelDelete}
+            onConfirmDelete={onConfirmDelete}
             onReactivate={onReactivate}
             onAuthorizeDraft={onAuthorizeDraft}
             onDeleteDraft={onDeleteDraft}
@@ -1935,6 +2129,7 @@ function RulesTable({
                 onToggleMobile={onToggleMobile}
                 inlineEditOpen={false}
                 confirmingDeactivate={false}
+                confirmingDelete={false}
                 highlightClass={highlightRowClass(r.id)}
                 isOptimistic={optimisticIds.has(r.id)}
                 onStartEdit={onStartEdit}
@@ -1943,6 +2138,9 @@ function RulesTable({
                 onStartDeactivate={onStartDeactivate}
                 onCancelDeactivate={onCancelDeactivate}
                 onConfirmDeactivate={onConfirmDeactivate}
+                onStartDelete={onStartDelete}
+                onCancelDelete={onCancelDelete}
+                onConfirmDelete={onConfirmDelete}
                 onReactivate={onReactivate}
                 onAuthorizeDraft={onAuthorizeDraft}
                 onDeleteDraft={onDeleteDraft}
@@ -1965,6 +2163,7 @@ type DesktopRowProps = {
   deactivated: boolean;
   inlineEditOpen: boolean;
   confirmingDeactivate: boolean;
+  confirmingDelete: boolean;
   highlightClass: string;
   isOptimistic: boolean;
   onStartEdit: (id: string) => void;
@@ -1973,6 +2172,9 @@ type DesktopRowProps = {
   onStartDeactivate: (id: string) => void;
   onCancelDeactivate: () => void;
   onConfirmDeactivate: RulesTableProps["onConfirmDeactivate"];
+  onStartDelete: (id: string) => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: RulesTableProps["onConfirmDelete"];
   onReactivate: RulesTableProps["onReactivate"];
   onAuthorizeDraft: (id: string) => void;
   onDeleteDraft: (id: string) => void;
@@ -1986,6 +2188,7 @@ function DesktopRuleRow({
   deactivated,
   inlineEditOpen,
   confirmingDeactivate,
+  confirmingDelete,
   highlightClass,
   isOptimistic,
   onStartEdit,
@@ -1994,6 +2197,9 @@ function DesktopRuleRow({
   onStartDeactivate,
   onCancelDeactivate,
   onConfirmDeactivate,
+  onStartDelete,
+  onCancelDelete,
+  onConfirmDelete,
   onReactivate,
   onAuthorizeDraft,
   onDeleteDraft,
@@ -2004,7 +2210,11 @@ function DesktopRuleRow({
   const isDraft = status === "DRAFT";
   const lifecycle = lifecycleStateLabel(rule, now);
   const triggers = rule.trigger_count ?? 0;
-  const keywordCount = (rule.keywords ?? []).length;
+  const keywords = rule.keywords ?? [];
+  const keywordCount = keywords.length;
+  // FIX 4 — local click-to-expand state for the keyword cell. Resets on
+  // unmount; intentional that switching tabs collapses the open list.
+  const [keywordsExpanded, setKeywordsExpanded] = useState(false);
   const baseRowClass =
     "border-b border-[#F1F5F9] hover:bg-[#F8FAFC] transition-colors";
   const dimmed = deactivated ? "opacity-50" : "";
@@ -2034,10 +2244,11 @@ function DesktopRuleRow({
         id={`rule-${rule.id}`}
         className={`${baseRowClass} ${dimmed} ${highlightClass}`.trim()}
       >
+        {/* FIX 3 — Severity badge in its own first column on desktop. */}
+        <td className="px-4 py-3">{ruleSeverityBadge(rule.verdict)}</td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <span className={`${nameTextClass} truncate`}>{rule.name}</span>
-            {ruleSeverityBadge(rule.verdict)}
             {isOptimistic && (
               <span className="font-mono text-[9px] uppercase tracking-widest bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] px-1.5 py-0.5 rounded-sm">
                 Demo — session only
@@ -2046,8 +2257,28 @@ function DesktopRuleRow({
           </div>
         </td>
         <td className="px-4 py-3">{statusPill}</td>
-        <td className={`px-4 py-3 ${muted}`}>
-          {keywordCount} keyword{keywordCount !== 1 ? "s" : ""}
+        {/* FIX 4 — Keyword count is now a button that expands the full
+            chip list inline below the row. Disabled when there are
+            zero keywords (no point expanding into an empty cell). */}
+        <td className="px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setKeywordsExpanded((v) => !v)}
+            disabled={keywordCount === 0}
+            aria-expanded={keywordsExpanded}
+            className={`${muted} text-left hover:text-[#0F172A] transition-colors ${
+              keywordCount === 0
+                ? "cursor-default"
+                : "cursor-pointer hover:underline"
+            }`}
+          >
+            {keywordCount} keyword{keywordCount !== 1 ? "s" : ""}
+            {keywordCount > 0 && (
+              <span aria-hidden className="ml-1 text-[#94A3B8]">
+                {keywordsExpanded ? "▴" : "▾"}
+              </span>
+            )}
+          </button>
         </td>
         <td className={`px-4 py-3 ${muted}`}>
           {rule.last_triggered ? fmtDate(rule.last_triggered) : "Never"}
@@ -2111,14 +2342,45 @@ function DesktopRuleRow({
                 >
                   Deactivate
                 </button>
+                {/* FIX 2 — Delete only renders for zero-trigger rules so
+                    we never erase fired-rule audit history. */}
+                {triggers === 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      confirmingDelete ? onCancelDelete() : onStartDelete(rule.id)
+                    }
+                    disabled={pending}
+                    className="text-[#EF4444] text-xs hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    {confirmingDelete ? "Cancel" : "Delete"}
+                  </button>
+                )}
               </>
             )}
           </div>
         </td>
       </tr>
+      {/* FIX 4 — Keyword chip drawer. */}
+      {keywordsExpanded && keywordCount > 0 && (
+        <tr className="bg-[#F8FAFC] border-b border-[#F1F5F9]">
+          <td colSpan={8} className="px-4 py-3">
+            <div className="flex flex-wrap gap-1.5">
+              {keywords.map((kw) => (
+                <span
+                  key={kw}
+                  className="font-mono text-xs bg-white text-[#475569] border border-[#E2E8F0] px-2 py-1 rounded-sm"
+                >
+                  {kw}
+                </span>
+              ))}
+            </div>
+          </td>
+        </tr>
+      )}
       {inlineEditOpen && (
         <tr className="bg-[#F8FAFC] border-b border-[#F1F5F9]">
-          <td colSpan={7} className="px-4 py-4">
+          <td colSpan={8} className="px-4 py-4">
             <InlineEditPanel
               rule={rule}
               onCancel={onCancelEdit}
@@ -2130,12 +2392,26 @@ function DesktopRuleRow({
       )}
       {confirmingDeactivate && (
         <tr className="bg-[#FEF2F2] border-b border-[#F1F5F9]">
-          <td colSpan={7} className="px-4 py-3">
+          <td colSpan={8} className="px-4 py-3">
             <DeactivateConfirmStrip
               ruleName={rule.name}
               ruleId={rule.id}
               onCancel={onCancelDeactivate}
               onConfirm={onConfirmDeactivate}
+              pending={pending}
+            />
+          </td>
+        </tr>
+      )}
+      {/* FIX 2 — Inline delete confirmation strip. */}
+      {confirmingDelete && (
+        <tr className="bg-[#FEF2F2] border-b border-[#F1F5F9]">
+          <td colSpan={8} className="px-4 py-3">
+            <DeleteConfirmStrip
+              ruleName={rule.name}
+              ruleId={rule.id}
+              onCancel={onCancelDelete}
+              onConfirm={onConfirmDelete}
               pending={pending}
             />
           </td>
@@ -2155,6 +2431,7 @@ type MobileCardProps = {
   onToggleMobile: (id: string) => void;
   inlineEditOpen: boolean;
   confirmingDeactivate: boolean;
+  confirmingDelete: boolean;
   highlightClass: string;
   isOptimistic: boolean;
   onStartEdit: (id: string) => void;
@@ -2163,6 +2440,9 @@ type MobileCardProps = {
   onStartDeactivate: (id: string) => void;
   onCancelDeactivate: () => void;
   onConfirmDeactivate: RulesTableProps["onConfirmDeactivate"];
+  onStartDelete: (id: string) => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: RulesTableProps["onConfirmDelete"];
   onReactivate: RulesTableProps["onReactivate"];
   onAuthorizeDraft: (id: string) => void;
   // Drafts on mobile expose a Delete affordance only inside the
@@ -2181,6 +2461,7 @@ function MobileRuleCard({
   onToggleMobile,
   inlineEditOpen,
   confirmingDeactivate,
+  confirmingDelete,
   highlightClass,
   isOptimistic,
   onStartEdit,
@@ -2189,6 +2470,9 @@ function MobileRuleCard({
   onStartDeactivate,
   onCancelDeactivate,
   onConfirmDeactivate,
+  onStartDelete,
+  onCancelDelete,
+  onConfirmDelete,
   onReactivate,
   onAuthorizeDraft,
   onDeleteDraft,
@@ -2199,7 +2483,8 @@ function MobileRuleCard({
   const isDraft = status === "DRAFT";
   const lifecycle = lifecycleStateLabel(rule, now);
   const triggers = rule.trigger_count ?? 0;
-  const keywordCount = (rule.keywords ?? []).length;
+  const keywords = rule.keywords ?? [];
+  const keywordCount = keywords.length;
   const dimmed = deactivated ? "opacity-50" : "";
   const nameTextClass = deactivated ? "text-[#94A3B8]" : "text-[#0F172A]";
   return (
@@ -2286,6 +2571,19 @@ function MobileRuleCard({
               >
                 Deactivate
               </button>
+              {/* FIX 2 — same zero-trigger gate as desktop. */}
+              {triggers === 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    confirmingDelete ? onCancelDelete() : onStartDelete(rule.id)
+                  }
+                  disabled={pending}
+                  className="text-[#EF4444] text-xs hover:underline cursor-pointer disabled:opacity-50"
+                >
+                  {confirmingDelete ? "Cancel" : "Delete"}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -2302,8 +2600,23 @@ function MobileRuleCard({
         <dl className="mt-2 grid grid-cols-[8rem_1fr] gap-y-1 text-xs">
           <dt className="text-[#64748B]">Keywords</dt>
           <dd className="text-[#0F172A]">
-            {keywordCount} keyword
-            {keywordCount !== 1 ? "s" : ""}
+            {keywordCount === 0 ? (
+              <span className="text-[#94A3B8]">None</span>
+            ) : (
+              // FIX 4 — mobile expanded details render the full chip
+              // list (no need for a click-to-expand here since the
+              // entire details block is already revealed on tap).
+              <div className="flex flex-wrap gap-1">
+                {keywords.map((kw) => (
+                  <span
+                    key={kw}
+                    className="font-mono text-[10px] bg-white text-[#475569] border border-[#E2E8F0] px-1.5 py-0.5 rounded-sm"
+                  >
+                    {kw}
+                  </span>
+                ))}
+              </div>
+            )}
           </dd>
           <dt className="text-[#64748B]">Last triggered</dt>
           <dd className="text-[#0F172A]">
@@ -2332,6 +2645,18 @@ function MobileRuleCard({
             ruleId={rule.id}
             onCancel={onCancelDeactivate}
             onConfirm={onConfirmDeactivate}
+            pending={pending}
+          />
+        </div>
+      )}
+      {/* FIX 2 — Mobile delete confirmation strip (mirrors deactivate). */}
+      {confirmingDelete && (
+        <div className="mt-3 pt-3 border-t border-[#F1F5F9]">
+          <DeleteConfirmStrip
+            ruleName={rule.name}
+            ruleId={rule.id}
+            onCancel={onCancelDelete}
+            onConfirm={onConfirmDelete}
             pending={pending}
           />
         </div>
@@ -2591,6 +2916,78 @@ function DeactivateConfirmStrip({
   );
 }
 
+// ---------- FIX 2 Delete confirmation strip --------------------------------
+//
+// Mirrors DeactivateConfirmStrip — same shape, different copy ("Delete
+// … This cannot be undone.") and different button label. Surfaced
+// inline below the row when the visitor clicks the red "Delete" link
+// in the Actions column. Only ever rendered for trigger_count === 0
+// rules, so the audit trail loses no fired-rule history.
+
+function DeleteConfirmStrip({
+  ruleName,
+  ruleId,
+  onCancel,
+  onConfirm,
+  pending,
+}: {
+  ruleName: string;
+  ruleId: string;
+  onCancel: () => void;
+  onConfirm: RulesTableProps["onConfirmDelete"];
+  pending: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function handleConfirm() {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await onConfirm(ruleId);
+      if (!result.ok) {
+        setError(result.error);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="text-sm text-[#0F172A] flex-1 min-w-0">
+        Delete{" "}
+        <span className="font-semibold">&ldquo;{ruleName}&rdquo;</span>?
+        This cannot be undone.
+      </span>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={busy || pending}
+          className={`bg-[#EF4444] text-white font-mono text-xs font-medium px-3 py-2 rounded-sm hover:bg-[#DC2626] disabled:opacity-50 transition-colors ${
+            busy ? "animate-pulse cursor-not-allowed" : "cursor-pointer"
+          }`}
+        >
+          {busy ? "Deleting..." : "Confirm delete"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+      </div>
+      {error && (
+        <div className="text-[#EF4444] text-sm w-full">
+          Delete failed — {error}. Try again.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------- Modal shell -----------------------------------------------------
 
 function ModalShell({
@@ -2746,6 +3143,88 @@ function PostActionConfirmation({
   );
 }
 
+// ---------- FIX 1 — Saved-rule confirmation panel --------------------------
+//
+// Shared by BuildRuleModal, TemplateModal, and PastePolicyModal. After
+// a successful save the modal swaps its body for this panel:
+//
+//   • Large green ✓
+//   • "Rule active" headline
+//   • "<rule name> is now checking every draft submission."
+//   • Confirmed keyword chips in the soft-green tint
+//   • Authorized-by / date line
+//   • "Add another rule →" (host modal resets its form to empty state)
+//   • "Done" (host modal closes; closeAndRefresh fires router.refresh)
+
+type SavedConfirmationProps = {
+  ruleName: string;
+  keywords: string[];
+  activationDateIso: string;
+  onAddAnother: () => void;
+  onDone: () => void;
+};
+
+function SavedConfirmation({
+  ruleName,
+  keywords,
+  activationDateIso,
+  onAddAnother,
+  onDone,
+}: SavedConfirmationProps) {
+  return (
+    <div className="text-center py-2">
+      <div
+        className="text-[#16A34A] text-4xl leading-none mb-3"
+        aria-hidden
+      >
+        ✓
+      </div>
+      <h3
+        style={{ fontFamily: "var(--font-newsreader)" }}
+        className="text-2xl font-light text-[#0D1B2A] mb-2"
+      >
+        Rule active
+      </h3>
+      <p className="text-sm text-[#475569] mb-4">
+        <span className="font-medium text-[#0F172A]">{ruleName}</span>{" "}
+        is now checking every draft submission.
+      </p>
+      {keywords.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-1.5 mb-4">
+          {keywords.map((kw) => (
+            <span
+              key={kw}
+              className="font-mono text-xs bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0] px-2 py-1 rounded-sm"
+            >
+              {kw}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="text-xs text-[#64748B] mb-6">
+        Authorized by: Sarah Chen · GC ·{" "}
+        {formatActivationDate(activationDateIso)}
+      </div>
+      <div className="flex items-center justify-center gap-3 flex-wrap">
+        <button
+          type="button"
+          onClick={onAddAnother}
+          className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer"
+        >
+          Add another rule →
+        </button>
+        <button
+          type="button"
+          onClick={onDone}
+          className="font-mono text-sm text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer px-3 py-2.5"
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ---------- R3 Template modal ----------------------------------------------
 
 function TemplateModal({
@@ -2761,9 +3240,15 @@ function TemplateModal({
   >;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
-  const [confirmation, setConfirmation] = useState<ConfirmationPanelProps | null>(
-    null,
-  );
+  // FIX 1 — saved state replaces the prior PostActionConfirmation
+  // panel. Keeps the keyword list so the confirmation panel can show
+  // the chips, and the activation date so the panel can render
+  // "Authorized by … · <date>".
+  const [saved, setSaved] = useState<{
+    ruleName: string;
+    keywords: string[];
+    activationDateIso: string;
+  } | null>(null);
   // FIX 3 — inline error keyed by template id so the failed card
   // shows its own retry message rather than blocking the whole grid.
   const [error, setError] = useState<{ id: string; message: string } | null>(
@@ -2771,10 +3256,23 @@ function TemplateModal({
   );
   const [tab, setTab] = useState<TemplateTab>("regulated");
 
-  if (confirmation) {
+  function resetForm() {
+    setBusy(null);
+    setError(null);
+    setSaved(null);
+    // Tab stays as-is so the visitor keeps their browsing context.
+  }
+
+  if (saved) {
     return (
-      <ModalShell title="Rule activated" onClose={onClose}>
-        <PostActionConfirmation {...confirmation} />
+      <ModalShell title="Rule active" onClose={onClose}>
+        <SavedConfirmation
+          ruleName={saved.ruleName}
+          keywords={saved.keywords}
+          activationDateIso={saved.activationDateIso}
+          onAddAnother={resetForm}
+          onDone={onClose}
+        />
       </ModalShell>
     );
   }
@@ -2865,15 +3363,12 @@ function TemplateModal({
                   try {
                     const result = await onEnable(t);
                     if (result.ok) {
-                      setConfirmation({
+                      setSaved({
                         ruleName: result.ruleName,
-                        severity: t.severity,
-                        keywordCount: result.keywordCount,
-                        authorizedBy: "Sarah Chen · GC",
+                        keywords: [...t.keywords],
                         activationDateIso: new Date()
                           .toISOString()
                           .slice(0, 10),
-                        onBack: onClose,
                       });
                     } else {
                       setError({ id: t.id, message: result.error });
@@ -2927,9 +3422,13 @@ function PastePolicyModal({
   const [name, setName] = useState("Custom Policy Rule");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmation, setConfirmation] = useState<ConfirmationPanelProps | null>(
-    null,
-  );
+  // FIX 1 — same pattern as TemplateModal: saved state with keywords +
+  // date drives the new SavedConfirmation panel.
+  const [saved, setSaved] = useState<{
+    ruleName: string;
+    keywords: string[];
+    activationDateIso: string;
+  } | null>(null);
 
   // B2 — auto-generate the rule name from the first six words of the
   // pasted text + "— Policy Rule" suffix. Runs at extraction time so
@@ -2955,6 +3454,15 @@ function PastePolicyModal({
     setChips(chips.filter((c) => c !== kw));
   }
 
+  function resetForm() {
+    setText("");
+    setChips(null);
+    setName("Custom Policy Rule");
+    setBusy(false);
+    setError(null);
+    setSaved(null);
+  }
+
   async function handleActivate() {
     if (!chips || chips.length === 0) return;
     setBusy(true);
@@ -2963,13 +3471,10 @@ function PastePolicyModal({
     try {
       const result = await onActivate(finalName, chips);
       if (result.ok) {
-        setConfirmation({
+        setSaved({
           ruleName: result.ruleName,
-          severity: "BLOCK",
-          keywordCount: result.keywordCount,
-          authorizedBy: "Sarah Chen · GC",
+          keywords: [...chips],
           activationDateIso: new Date().toISOString().slice(0, 10),
-          onBack: onClose,
         });
       } else {
         setError(result.error);
@@ -2981,10 +3486,16 @@ function PastePolicyModal({
     }
   }
 
-  if (confirmation) {
+  if (saved) {
     return (
-      <ModalShell title="Rule activated" onClose={onClose}>
-        <PostActionConfirmation {...confirmation} />
+      <ModalShell title="Rule active" onClose={onClose}>
+        <SavedConfirmation
+          ruleName={saved.ruleName}
+          keywords={saved.keywords}
+          activationDateIso={saved.activationDateIso}
+          onAddAnother={resetForm}
+          onDone={onClose}
+        />
       </ModalShell>
     );
   }
@@ -3320,9 +3831,25 @@ function BuildRuleModal({
   const [expiry, setExpiry] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmation, setConfirmation] = useState<ConfirmationPanelProps | null>(
-    null,
-  );
+  // FIX 1 — saved state replaces the prior PostActionConfirmation
+  // panel. Stores keywords + date so SavedConfirmation can render the
+  // chips and the authorization line.
+  const [saved, setSaved] = useState<{
+    ruleName: string;
+    keywords: string[];
+    activationDateIso: string;
+  } | null>(null);
+
+  function resetForm() {
+    setName("");
+    setChips([]);
+    setSeverity("BLOCK");
+    setActivation(today);
+    setExpiry("");
+    setBusy(false);
+    setError(null);
+    setSaved(null);
+  }
 
   async function handleCreate() {
     if (!name.trim() || chips.length === 0) return;
@@ -3337,13 +3864,10 @@ function BuildRuleModal({
         effectiveUntil: expiry ? expiry : null,
       });
       if (result.ok) {
-        setConfirmation({
+        setSaved({
           ruleName: result.ruleName,
-          severity,
-          keywordCount: result.keywordCount,
-          authorizedBy: "Sarah Chen · GC",
+          keywords: [...chips],
           activationDateIso: activation,
-          onBack: onClose,
         });
       } else {
         setError(result.error);
@@ -3355,10 +3879,16 @@ function BuildRuleModal({
     }
   }
 
-  if (confirmation) {
+  if (saved) {
     return (
-      <ModalShell title="Rule activated" onClose={onClose}>
-        <PostActionConfirmation {...confirmation} />
+      <ModalShell title="Rule active" onClose={onClose}>
+        <SavedConfirmation
+          ruleName={saved.ruleName}
+          keywords={saved.keywords}
+          activationDateIso={saved.activationDateIso}
+          onAddAnother={resetForm}
+          onDone={onClose}
+        />
       </ModalShell>
     );
   }

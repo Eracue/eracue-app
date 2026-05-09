@@ -126,6 +126,36 @@ export async function deleteDraftRuleAction(
   }
 }
 
+// Hard-delete a rule by id + org_id, regardless of status. Used by the
+// rules-table Delete affordance (only surfaced on rules with zero
+// triggers, so deletion never erases a fired-rule audit chain). The
+// IS_DEMO_MODE fallback is intentionally omitted here so real DB
+// errors surface to the operator and the Vercel function logs.
+export async function deleteRuleAction(
+  ruleId: string,
+): Promise<DeleteResult> {
+  try {
+    const sb = getSupabaseAdmin();
+    const { error } = await sb
+      .from("rules")
+      .delete()
+      .eq("id", ruleId)
+      .eq("org_id", DEMO_ORG_ID);
+    if (error) {
+      console.error("deleteRuleAction DB error:", JSON.stringify(error));
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    console.error(
+      "deleteRuleAction caught:",
+      e instanceof Error ? e.message : String(e),
+    );
+    return { ok: false, error: message };
+  }
+}
+
 export type CreateRuleInput = {
   name: string;
   description: string;
