@@ -3454,8 +3454,19 @@ function BuildRuleModal({
             </button>
           </div>
           {error && (
-            <div className="text-[#EF4444] text-sm mt-2">
-              Save failed — {error}. Try again.
+            // Prominent error banner — small inline text was easy to
+            // miss when the underlying Supabase error needs to be read
+            // and pasted into a debug session.
+            <div
+              role="alert"
+              className="mt-3 border border-[#EF4444] bg-[#FEF2F2] rounded-sm px-3 py-2"
+            >
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#B91C1C] font-bold mb-1">
+                Save failed
+              </div>
+              <div className="text-sm text-[#B91C1C] break-words font-mono">
+                {error}
+              </div>
             </div>
           )}
         </div>
