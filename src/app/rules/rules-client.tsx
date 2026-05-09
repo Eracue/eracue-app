@@ -2324,6 +2324,11 @@ function DesktopRuleRow({
                 </button>
               </>
             ) : (
+              // Order is Edit · Delete · Deactivate. Delete now
+              // renders for every active rule regardless of trigger
+              // count — the audit history concern moved to the
+              // confirmation strip's "This cannot be undone." copy and
+              // the visitor's choice to confirm.
               <>
                 <button
                   type="button"
@@ -2336,26 +2341,22 @@ function DesktopRuleRow({
                 </button>
                 <button
                   type="button"
+                  onClick={() =>
+                    confirmingDelete ? onCancelDelete() : onStartDelete(rule.id)
+                  }
+                  disabled={pending}
+                  className="text-[#EF4444] text-xs hover:underline cursor-pointer disabled:opacity-50"
+                >
+                  {confirmingDelete ? "Cancel" : "Delete"}
+                </button>
+                <button
+                  type="button"
                   onClick={() => onStartDeactivate(rule.id)}
                   disabled={pending}
-                  className="text-[#0EA5E9] text-xs hover:underline cursor-pointer disabled:opacity-50"
+                  className="text-[#94A3B8] text-xs hover:underline cursor-pointer disabled:opacity-50"
                 >
                   Deactivate
                 </button>
-                {/* FIX 2 — Delete only renders for zero-trigger rules so
-                    we never erase fired-rule audit history. */}
-                {triggers === 0 && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      confirmingDelete ? onCancelDelete() : onStartDelete(rule.id)
-                    }
-                    disabled={pending}
-                    className="text-[#EF4444] text-xs hover:underline cursor-pointer disabled:opacity-50"
-                  >
-                    {confirmingDelete ? "Cancel" : "Delete"}
-                  </button>
-                )}
               </>
             )}
           </div>
@@ -2553,6 +2554,8 @@ function MobileRuleCard({
               </button>
             </>
           ) : (
+            // Order is Edit · Delete · Deactivate (mirrors desktop).
+            // Delete renders unconditionally on active rules now.
             <>
               <button
                 type="button"
@@ -2565,25 +2568,22 @@ function MobileRuleCard({
               </button>
               <button
                 type="button"
+                onClick={() =>
+                  confirmingDelete ? onCancelDelete() : onStartDelete(rule.id)
+                }
+                disabled={pending}
+                className="text-[#EF4444] text-xs hover:underline cursor-pointer disabled:opacity-50"
+              >
+                {confirmingDelete ? "Cancel" : "Delete"}
+              </button>
+              <button
+                type="button"
                 onClick={() => onStartDeactivate(rule.id)}
                 disabled={pending}
-                className="text-[#0EA5E9] text-xs hover:underline cursor-pointer disabled:opacity-50"
+                className="text-[#94A3B8] text-xs hover:underline cursor-pointer disabled:opacity-50"
               >
                 Deactivate
               </button>
-              {/* FIX 2 — same zero-trigger gate as desktop. */}
-              {triggers === 0 && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    confirmingDelete ? onCancelDelete() : onStartDelete(rule.id)
-                  }
-                  disabled={pending}
-                  className="text-[#EF4444] text-xs hover:underline cursor-pointer disabled:opacity-50"
-                >
-                  {confirmingDelete ? "Cancel" : "Delete"}
-                </button>
-              )}
             </>
           )}
         </div>
