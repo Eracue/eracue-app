@@ -203,7 +203,7 @@ export default async function ReviewerDetailPage({ params }: PageProps) {
           {/* Page header — full width above columns */}
           <div className="mb-8">
             <Link
-              href="/dashboard"
+              href="/review"
               className="font-mono text-xs text-[#64748B] hover:text-[#0F172A]"
             >
               ← Dashboard

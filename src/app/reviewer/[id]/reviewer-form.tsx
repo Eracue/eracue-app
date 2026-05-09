@@ -81,7 +81,7 @@ export function ReviewerDecisionForm({ draftId, currentStatus, verdict }: Props)
  return;
  }
  setDecided(true);
- setTimeout(() => router.push("/dashboard"), 1500);
+ setTimeout(() => router.push("/review"), 1500);
  } catch (err) {
  const message = err instanceof Error ? err.message : "Unknown error";
  setError(message);

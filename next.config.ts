@@ -21,6 +21,35 @@ const nextConfig: NextConfig = {
       static: 0,
     },
   },
+  // Legacy URL → renamed-route redirects. Keeps any bookmarked or
+  // shared link from the prior path scheme working after the rename:
+  //   /submit            → /check
+  //   /dashboard         → /review
+  //   /campaigns/<name>  → /programs/<name>
+  // `permanent: false` because the rename is a UX choice — leaves
+  // room to revert without search engines having indexed 308s.
+  async redirects() {
+    return [
+      { source: "/submit", destination: "/check", permanent: false },
+      {
+        source: "/submit/:path*",
+        destination: "/check/:path*",
+        permanent: false,
+      },
+      { source: "/dashboard", destination: "/review", permanent: false },
+      {
+        source: "/dashboard/:path*",
+        destination: "/review/:path*",
+        permanent: false,
+      },
+      {
+        source: "/campaigns/:name*",
+        destination: "/programs/:name*",
+        permanent: false,
+      },
+    ];
+  },
+
   // Belt-and-braces cache busting: tell Vercel's edge and the browser to
   // never cache *any* response. Without this, Vercel's ISR layer can serve
   // stale pre-rendered pages even when the page module declares

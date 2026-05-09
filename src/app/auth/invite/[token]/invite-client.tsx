@@ -90,7 +90,7 @@ export function InviteAcceptClient({
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/review");
     router.refresh();
   }
 

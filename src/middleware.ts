@@ -27,9 +27,6 @@ const PUBLIC_PATHS = [
   "/pricing",
   "/use-cases",
   "/security",
-  // Public reviewer link — token-gated, no login required.
-  // Reviewers receive a /review/<token> URL and decide directly.
-  "/review",
 ];
 
 const PRINCIPAL_ONLY_PATHS = [
@@ -39,6 +36,12 @@ const PRINCIPAL_ONLY_PATHS = [
 ];
 
 function isPublicPath(path: string): boolean {
+  // Token-based reviewer links (/review/<token>) are public — anyone
+  // with the link can decide. The bare /review path is the dashboard
+  // ("Review" tab in the nav) and requires auth, so it's NOT in
+  // PUBLIC_PATHS. We special-case the token sub-path here so both
+  // routes can coexist under the same /review prefix.
+  if (path.startsWith("/review/")) return true;
   return PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + "/"));
 }
 
@@ -109,7 +112,7 @@ export async function middleware(req: NextRequest) {
   if (member) {
     const isPrincipalOnly = PRINCIPAL_ONLY_PATHS.some((p) => path.startsWith(p));
     if (isPrincipalOnly && member.role !== "principal") {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(new URL("/review", req.url));
     }
   }
 

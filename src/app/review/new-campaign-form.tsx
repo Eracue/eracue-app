@@ -95,9 +95,9 @@ export function NewCampaignForm({
   // campaign; production deployments link to the derived slug (which
   // a future campaign-create server action will populate).
   const successHref = isDemoMode
-    ? "/campaigns/series-b-announce"
+    ? "/programs/series-b-announce"
     : submitted
-      ? `/campaigns/${submitted.slug}`
+      ? `/programs/${submitted.slug}`
       : "#";
 
   if (!open) {

@@ -124,7 +124,7 @@ export default async function SpeakerProfilePage({ params }: PageProps) {
           {/* Header */}
           <div className="mb-8">
             <Link
-              href="/dashboard"
+              href="/review"
               className="font-mono text-xs text-[#64748B] hover:text-[#0F172A]"
             >
               ← Review

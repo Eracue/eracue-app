@@ -97,7 +97,7 @@ export function TestRunForm({
         <button
           type="button"
           onClick={() => {
-            router.push("/dashboard");
+            router.push("/review");
             router.refresh();
           }}
           className="w-full bg-[#1A56DB] text-white font-mono text-sm font-medium py-2.5 rounded-sm hover:bg-[#1447C0] transition-colors"

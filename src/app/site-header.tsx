@@ -4,10 +4,10 @@ import Link from "next/link";
 //   • "marketing" — wordmark only. Used on the marketing homepage so
 //     visitors aren't pulled into app surfaces before they understand
 //     the product.
-//   • "app" (default) — wordmark + a single "Rules" link. Every
-//     in-product surface (submit, rules, dashboard, campaigns,
-//     examiner record) uses this variant so the nav is consistent
-//     across the workflow.
+//   • "app" (default) — wordmark + four labels:
+//        Rules · Check · Review · Programs
+//     in that exact order. Every in-product surface (check, rules,
+//     review, programs, examiner record) uses this variant.
 //
 // `print:hidden` removes the nav from any printed PDF (examiner
 // record, campaign export); the print stylesheet in globals.css also
@@ -28,18 +28,22 @@ export function SiteHeader({ variant = "app" }: { variant?: Variant } = {}) {
         </Link>
         {variant === "app" && (
           <div className="flex items-center gap-6">
-            <Link
-              href="/rules"
-              className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/[0.62] hover:text-white transition-colors"
-            >
-              Rules
-            </Link>
-            <Link
-              href="/dashboard"
-              className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/[0.62] hover:text-white transition-colors"
-            >
-              Dashboard
-            </Link>
+            {(
+              [
+                { href: "/rules", label: "Rules" },
+                { href: "/check", label: "Check" },
+                { href: "/review", label: "Review" },
+                { href: "/programs", label: "Programs" },
+              ] as const
+            ).map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/[0.62] hover:text-white transition-colors"
+              >
+                {item.label}
+              </Link>
+            ))}
           </div>
         )}
       </nav>

@@ -263,7 +263,7 @@ export function SubmitForm({
   const ghostButton =
     flow === "new_user"
       ? { href: "/onboarding/speakers", label: "Invite your team to submit drafts" }
-      : { href: "/dashboard", label: "Go to review queue" };
+      : { href: "/review", label: "Go to review queue" };
 
   // G2 — no rules configured, no point in rendering the form. Replace
   // the entire surface with an empty state that points the visitor at
@@ -357,7 +357,7 @@ export function SubmitForm({
           style={{ fontFamily: "var(--font-newsreader)" }}
           className="text-3xl font-light text-[#0F172A] mb-2"
         >
-          Does this draft clear your governance rules?
+          Check this draft before it goes out.
         </h1>
         <p className="text-sm text-[#64748B] leading-relaxed max-w-lg">
           {flow === "demo"
@@ -1058,7 +1058,7 @@ function VerdictView({
                   dashboard so the visitor lands somewhere they can act
                   rather than seeing the link disappear. */}
               <a
-                href={draftId ? `/drafts/${draftId}/examiner` : "/dashboard"}
+                href={draftId ? `/drafts/${draftId}/examiner` : "/review"}
                 className="font-mono text-xs text-[#0EA5E9] hover:text-[#0369A1] transition-colors mt-3 inline-block"
               >
                 View full record →

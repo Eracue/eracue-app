@@ -162,12 +162,18 @@ export default function Home() {
               >
                 Set up your rules →
               </Link>
+              <Link
+                href="/check"
+                className="bg-white/[0.07] text-white/[0.65] border border-white/[0.12] font-mono text-xs font-medium px-6 py-3 rounded-sm hover:bg-white/[0.12] transition-colors"
+              >
+                Check a draft →
+              </Link>
             </div>
           </div>
 
           {/* RIGHT — CLEAR verdict mockup. Hidden on mobile so the hero
               stays compact. Mirrors the production verdict card so a
-              prospect sees what they'll see at /submit. */}
+              prospect sees what they'll see at /check. */}
           <div className="md:col-span-2 hidden md:block">
             <div className="bg-white rounded-lg p-5 border-t-[3px] border-t-[#4F46E5] shadow-[0_0_0_0.5px_rgba(0,0,0,0.06)]">
               <div className="flex items-start justify-between mb-3 gap-3">
@@ -755,7 +761,7 @@ export default function Home() {
                     Every speaker. Every channel.
                   </span>
                   <Link
-                    href="/dashboard"
+                    href="/review"
                     className="font-mono text-[9px] text-[#0EA5E9] hover:text-[#0369A1] transition-colors"
                   >
                     View full record →

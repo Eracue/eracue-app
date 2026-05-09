@@ -461,7 +461,7 @@ export function DraftsClient({
       {/* Export + discoverability row.
           - With campaignFilter active, primary export is the campaign
             record. Also surfaces a 'View full campaign record →' link
-            into the dedicated /campaigns/<name> page.
+            into the dedicated /programs/<name> page.
           - With no filter active, expose 'View campaign records →' as a
             subtle discoverability hint (sets the campaign filter to
             the first available campaign so the user lands in a
@@ -469,7 +469,7 @@ export function DraftsClient({
       <div className="flex justify-end mb-4 gap-4 items-center flex-wrap">
         {campaignFilter !== "all" && (
           <Link
-            href={`/campaigns/${encodeURIComponent(campaignFilter)}`}
+            href={`/programs/${encodeURIComponent(campaignFilter)}`}
             className="font-mono text-xs text-[#1A56DB] hover:text-[#1447C0] transition-colors"
           >
             View full campaign record →

@@ -19,7 +19,7 @@ function LoginForm() {
 
   // The middleware sets `next=` on the login redirect so we bounce back
   // to the originally requested page. Default to /dashboard.
-  const next = searchParams.get("next") || "/dashboard";
+  const next = searchParams.get("next") || "/review";
 
   async function handleLogin() {
     if (!email || !password) {

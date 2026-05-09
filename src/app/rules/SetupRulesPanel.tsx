@@ -427,7 +427,7 @@ export function SetupRulesPanel({ isOpen, onClose, firmType = null }: Props) {
 
           <div className="flex gap-3 flex-wrap">
             <a
-              href="/submit"
+              href="/check"
               className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] transition-colors"
             >
               Check your first draft →

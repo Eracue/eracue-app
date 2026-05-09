@@ -180,7 +180,7 @@ async function getDashboardData() {
       .in("payload->>decision", ["override", "confirm_block", "approve", "reject"]),
     // G4 — campaigns + per-campaign draft counts. Drives the
     // "Campaigns" section on the dashboard. Each row links to
-    // /campaigns/[name] (the campaign-name URL segment is what the
+    // /programs/[name] (the campaign-name URL segment is what the
     // route uses today; the slugified form would require a
     // schema-side slug column).
     sb
@@ -602,7 +602,7 @@ export default async function DashboardPage() {
                   style={{ fontFamily: "var(--font-newsreader)" }}
                   className="font-light text-3xl text-[#0F172A] mt-2"
                 >
-                  The complete governance record.
+                  Drafts awaiting your decision.
                 </h1>
                 <p className="text-sm text-[#64748B] mt-1 max-w-xl">
                   Blocked drafts, governance decisions, and the complete supervision record.
@@ -876,7 +876,7 @@ export default async function DashboardPage() {
             </div>
           </section>
 
-          {/* G4 — Campaigns. Each row links to /campaigns/[name]
+          {/* G4 — Campaigns. Each row links to /programs/[name]
               (the existing campaign route uses the campaign name as
               the path segment). Empty state mirrors the rest of the
               dashboard's empty-state phrasing. */}
@@ -909,7 +909,7 @@ export default async function DashboardPage() {
                 return (
                   <Link
                     key={c.id}
-                    href={`/campaigns/${encodeURIComponent(c.name)}`}
+                    href={`/programs/${encodeURIComponent(c.name)}`}
                     className="bg-white border border-[#E2E8F0] rounded-sm mb-1 px-5 py-4 flex items-center justify-between gap-4 flex-wrap hover:bg-[#F8F9FB] transition-colors"
                   >
                     <div className="min-w-0">
