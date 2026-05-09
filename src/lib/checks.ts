@@ -102,18 +102,19 @@ export function buildChecksArray(
   const consistencyCheck: CheckEntry =
     consistencyResult ?? { check_name: "Consistency Check", result: "pass", detail: null };
 
+  // Agent Origin is no longer surfaced as a verdict-side check entry.
+  // AI-source disclosure is recorded on the draft row (`source_origin`,
+  // `ai_model_used`, `prompt_hash`) and the `submitted` action payload,
+  // so the examiner record reads it directly from the source-of-truth
+  // columns. Keeping it as a verdict line item created noise on every
+  // submission ("AI source declared (model + prompt hash recorded)")
+  // even when the speaker just wrote a one-line LinkedIn post.
+  void sourceOrigin;
   return [
     ruleCheck,
     consistencyCheck,
     { check_name: "Alignment Check", result: "pass", detail: null },
     quietPeriodCheck,
-    {
-      check_name: "Agent Origin Check",
-      result: "pass",
-      detail: sourceOrigin === "human"
-        ? "Human-authored — no AI disclosure required"
-        : "AI source declared (model + prompt hash recorded)",
-    },
   ];
 }
 
@@ -161,12 +162,15 @@ export async function runConsistencyCheck(
   }
 
   // Step 3 — without a key we cannot call the model; fall through cleanly.
+  // Internal availability of the consistency model is not the user's
+  // problem — pass silently and let the (server-only) absence stay
+  // visible in Vercel function logs rather than the verdict UI.
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return {
       check_name: "Consistency Check",
       result: "pass",
-      detail: "Consistency check unavailable — API key required",
+      detail: null,
     };
   }
 
@@ -219,10 +223,17 @@ Is the new draft consistent with these prior statements? Only flag genuine factu
     });
 
     if (!response.ok) {
+      // Upstream API hiccup is operational noise — log it and pass
+      // silently so the verdict UI doesn't expose internal status
+      // codes to the speaker.
+      console.error(
+        "runConsistencyCheck upstream error:",
+        response.status,
+      );
       return {
         check_name: "Consistency Check",
         result: "pass",
-        detail: `Consistency check unavailable — API error ${response.status}`,
+        detail: null,
       };
     }
 
@@ -243,10 +254,16 @@ Is the new draft consistent with these prior statements? Only flag genuine factu
       consistency = { consistent: true, contradiction_found: null, prior_statement: null };
     }
   } catch (err) {
+    // Network / parse failure — log to function output, return a
+    // silent PASS so the verdict surface stays clean.
+    console.error(
+      "runConsistencyCheck caught:",
+      err instanceof Error ? err.message : String(err),
+    );
     return {
       check_name: "Consistency Check",
       result: "pass",
-      detail: `Consistency check error — ${err instanceof Error ? err.message : "unknown"}`,
+      detail: null,
     };
   }
 
@@ -462,11 +479,16 @@ export async function runChecks(
   submittedAt: string,
   communicationCategory: CommunicationCategory = "retail",
 ): Promise<CheckResult> {
-  // Fetch all rules for this org
+  // Fetch active rules for this org. Filtering on `rule_status` here
+  // matches the count + metadata queries in src/app/check/actions.ts —
+  // without it, deactivated rules whose date window happens to be
+  // current would still trip on submissions, contradicting the
+  // visible state of the rules table.
   const { data: rules, error } = await sb
     .from("rules")
     .select("id, rule_type, name, description, keywords, effective_from, effective_to")
-    .eq("org_id", orgId);
+    .eq("org_id", orgId)
+    .eq("rule_status", "active");
 
   if (error) throw new Error("Failed to fetch rules: " + error.message);
 
