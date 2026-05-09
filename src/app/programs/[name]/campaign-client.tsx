@@ -1,7 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  addRuleToCampaignAction,
+  removeRuleFromCampaignAction,
+} from "./campaign-rule-actions";
 
 // Status-pill styling. Mirrors the server-rendered version on
 // page.tsx but inlined here so the client list stays self-contained.
@@ -456,6 +461,203 @@ export function CampaignHeaderAndExport({
         </div>
       </div>
     </>
+  );
+}
+
+// E6 — per-campaign governance allowlist. Renders a small
+// rules-page-style table directly under the campaign header so a VP
+// Comms can scope which active rules apply to this campaign.
+//
+// State convention (mirrors the server actions):
+//   • An empty `campaign_rules` table for this campaign means
+//     implicit-all — every active rule applies. The page resolves
+//     this to a fully-populated `initialSelectedIds`, so the section
+//     renders the same regardless of empty vs. all-checked.
+//   • Toggling a rule OFF when the table is still empty triggers the
+//     server-side materialise step (insert rows for every other rule).
+//   • Toggling a rule ON inserts a single row.
+//
+// Optimistic UI: the toggle flips visually before the action returns.
+// On failure we revert the local set and surface the error inline so
+// the visitor knows the state on disk didn't change.
+
+export type CampaignRule = {
+  id: string;
+  name: string;
+  // verdict mirrors `rules.rule_type` ("block" | "review" | "escalate"
+  // | "guide"); the badge component below collapses escalate→Review
+  // and anything unknown→Flag, matching the rules-page severity tone.
+  verdict: string;
+};
+
+function severityBadge(verdict: string) {
+  const v = (verdict || "").toLowerCase();
+  if (v === "block") {
+    return (
+      <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-[#FEF2F2] text-[#B91C1C] border border-[#FECACA] shrink-0">
+        Block
+      </span>
+    );
+  }
+  if (v === "review" || v === "escalate") {
+    return (
+      <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] shrink-0">
+        Review
+      </span>
+    );
+  }
+  return (
+    <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] shrink-0">
+      Flag
+    </span>
+  );
+}
+
+export function CampaignRulesSection({
+  campaignId,
+  rules,
+  initialSelectedIds,
+}: {
+  campaignId: string;
+  rules: ReadonlyArray<CampaignRule>;
+  initialSelectedIds: ReadonlyArray<string>;
+}) {
+  const router = useRouter();
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(initialSelectedIds),
+  );
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  async function toggle(ruleId: string) {
+    const wasOn = selected.has(ruleId);
+    const prev = selected;
+    const next = new Set(prev);
+    if (wasOn) next.delete(ruleId);
+    else next.add(ruleId);
+    // Optimistic flip — revert on failure.
+    setSelected(next);
+    setPendingId(ruleId);
+    setError(null);
+    try {
+      const result = wasOn
+        ? await removeRuleFromCampaignAction(campaignId, ruleId)
+        : await addRuleToCampaignAction(campaignId, ruleId);
+      if (!result.ok) {
+        setSelected(prev);
+        setError(result.error);
+        return;
+      }
+      // Refresh in a transition so the toggle row doesn't suspend on
+      // the surrounding server-data revalidation.
+      startTransition(() => router.refresh());
+    } catch (e) {
+      setSelected(prev);
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  const activeCount = selected.size;
+  const total = rules.length;
+
+  return (
+    <section className="mt-8 print:hidden">
+      <div className="flex items-baseline justify-between gap-3 flex-wrap mb-2">
+        <div>
+          <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
+            GOVERNANCE RULES FOR THIS CAMPAIGN
+          </div>
+          <p className="text-sm text-[#374151] mt-1">
+            Each checked rule will run against drafts submitted under
+            this campaign. Unchecked rules are skipped for this
+            campaign only.
+          </p>
+        </div>
+        <span className="font-mono text-xs text-[#64748B]">
+          <span className="text-[#0F172A] font-medium">{activeCount}</span>
+          {" of "}
+          <span className="text-[#0F172A] font-medium">{total}</span>
+          {" rules active for this campaign"}
+        </span>
+      </div>
+
+      {total === 0 ? (
+        <div className="bg-white border border-[#E2E8F0] rounded-sm p-6 text-center text-sm text-[#64748B]">
+          No active rules in this org yet. Add a rule on the Rules
+          page to scope it here.
+        </div>
+      ) : (
+        <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-[#F1F5F9] border-b border-[#E2E8F0]">
+              <tr>
+                <th className="text-left font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-2.5">
+                  Rule name
+                </th>
+                <th className="text-left font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-2.5">
+                  Severity
+                </th>
+                <th className="text-right font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-2.5">
+                  Active
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map((r) => {
+                const checked = selected.has(r.id);
+                const busy = pendingId === r.id;
+                return (
+                  <tr
+                    key={r.id}
+                    className="border-t border-[#F1F5F9] hover:bg-[#F8FAFC] transition-colors"
+                  >
+                    <td className="px-4 py-2.5 text-[#0F172A]">{r.name}</td>
+                    <td className="px-4 py-2.5">{severityBadge(r.verdict)}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={checked}
+                        aria-label={`${checked ? "Disable" : "Enable"} rule "${r.name}" for this campaign`}
+                        disabled={busy}
+                        onClick={() => toggle(r.id)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                          checked ? "bg-[#1A56DB]" : "bg-[#CBD5E1]"
+                        } ${busy ? "opacity-60 cursor-not-allowed animate-pulse" : "cursor-pointer"}`}
+                      >
+                        <span
+                          aria-hidden
+                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                            checked ? "translate-x-5" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {error && (
+        <div
+          role="alert"
+          className="mt-3 border border-[#FECACA] bg-[#FEF2F2] rounded-sm px-3 py-2"
+        >
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#B91C1C] font-bold mb-1">
+            Toggle failed
+          </div>
+          <div className="text-sm text-[#B91C1C] break-words font-mono">
+            {error}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 

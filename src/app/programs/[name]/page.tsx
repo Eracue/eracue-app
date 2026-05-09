@@ -7,7 +7,9 @@ import {
   CampaignCommunications,
   CampaignConsistencySignal,
   CampaignHeaderAndExport,
+  CampaignRulesSection,
   type CampaignDraft,
+  type CampaignRule,
 } from "./campaign-client";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +45,7 @@ type SpeakerStat = {
 };
 
 type CampaignMetaRow = {
+  id: string;
   name: string;
   starts_at: string | null;
   ends_at: string | null;
@@ -72,7 +75,7 @@ async function getCampaignData(campaignName: string) {
       .order("submitted_at", { ascending: false }),
     sb
       .from("campaigns")
-      .select("name, starts_at, ends_at, description")
+      .select("id, name, starts_at, ends_at, description")
       .eq("org_id", orgId)
       .eq("name", campaignName)
       .maybeSingle(),
@@ -84,7 +87,7 @@ async function getCampaignData(campaignName: string) {
       .maybeSingle(),
     sb
       .from("rules")
-      .select("name")
+      .select("id, name, rule_type")
       .eq("org_id", orgId)
       .eq("rule_status", "active")
       .order("name"),
@@ -127,6 +130,11 @@ async function getCampaignData(campaignName: string) {
 
   const campaignMeta =
     (campaignsRes.data as CampaignMetaRow | null) ?? {
+      // Orphan-drafts fallback (campaign was deleted, drafts kept the
+      // FK alive). The synthetic id is empty so downstream rendering
+      // can guard the rules section out — there's no canonical
+      // campaign row to write campaign_rules against.
+      id: "",
       name: campaignName,
       starts_at: null,
       ends_at: null,
@@ -138,9 +146,40 @@ async function getCampaignData(campaignName: string) {
   const principalTitle =
     (principalRes.data as { name?: string; title?: string | null } | null)?.title ?? null;
 
-  const ruleNames = ((rulesRes.data ?? []) as Array<{ name: string }>).map(
-    (r) => r.name,
-  );
+  // Active rules — widened from name-only so the new rules section can
+  // render id (toggle key) + verdict (severity badge) on each row.
+  // CampaignCommunications still consumes the legacy ruleNames list
+  // for its filter dropdown; deriving it here keeps that contract
+  // stable.
+  const activeRules: CampaignRule[] = (
+    (rulesRes.data ?? []) as Array<{
+      id: string;
+      name: string;
+      rule_type: string | null;
+    }>
+  ).map((r) => ({
+    id: r.id,
+    name: r.name,
+    verdict: r.rule_type ?? "review",
+  }));
+  const ruleNames = activeRules.map((r) => r.name);
+
+  // Stage 2 — campaign_rules selection. Empty = implicit-all (every
+  // active rule applies); any rows = explicit allowlist. We pass the
+  // resolved selected-id list to the client; the implicit-all
+  // materialise step lives inside the server action.
+  let selectedRuleIds: string[] = activeRules.map((r) => r.id);
+  if (campaignMeta.id) {
+    const { data: ruleSelectionRows, error: crErr } = await sb
+      .from("campaign_rules")
+      .select("rule_id")
+      .eq("campaign_id", campaignMeta.id);
+    if (crErr) throw new Error("campaign_rules: " + crErr.message);
+    const explicit = ((ruleSelectionRows ?? []) as Array<{ rule_id: string }>)
+      .map((r) => r.rule_id);
+    if (explicit.length > 0) selectedRuleIds = explicit;
+    // length === 0 → keep the implicit-all default already seeded above.
+  }
 
   return {
     drafts,
@@ -149,6 +188,8 @@ async function getCampaignData(campaignName: string) {
     principalName,
     principalTitle,
     ruleNames,
+    activeRules,
+    selectedRuleIds,
   };
 }
 
@@ -164,6 +205,8 @@ export default async function CampaignRecordPage({ params }: PageProps) {
     principalName,
     principalTitle,
     ruleNames,
+    activeRules,
+    selectedRuleIds,
   } = result;
 
   // ----- Per-draft enrichment ---------------------------------------------
@@ -271,6 +314,17 @@ export default async function CampaignRecordPage({ params }: PageProps) {
               { label: "Pending review", value: pendingReview },
             ]}
           />
+
+          {/* Per-campaign governance allowlist. Hidden in the
+              orphan-drafts fallback (campaign row missing) since
+              there's no canonical campaign id to write against. */}
+          {campaignMeta.id && (
+            <CampaignRulesSection
+              campaignId={campaignMeta.id}
+              rules={activeRules}
+              initialSelectedIds={selectedRuleIds}
+            />
+          )}
 
           {/* C1 — Four stat cards. Real submission data only; no
               engagement / reach / open metrics are surfaced anywhere
