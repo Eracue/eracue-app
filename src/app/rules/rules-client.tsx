@@ -577,6 +577,11 @@ export function RulesClient({
     "template" | "paste" | "upload" | "build" | null
   >(null);
 
+  // Returning-user "+ Add a rule" expand row. When `addRuleExpanded`
+  // is true the four entry-point buttons render inline as a compact
+  // choice row beneath the toggle.
+  const [addRuleExpanded, setAddRuleExpanded] = useState(false);
+
   // Edit-rule sheet (R7-R8). Holds the rule being edited; null = closed.
   const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
 
@@ -893,40 +898,76 @@ export function RulesClient({
     });
   }
 
-  // ---- empty state (R20) --------------------------------------------------
+  // ---- new-user state ----------------------------------------------------
+  // No active rules, no deactivated rules → fresh org. Drops the
+  // tabs / status bar / MOAT bar entirely and presents the three
+  // setup paths as the primary content. Demo mode is excluded
+  // because the seed always supplies rules.
   if (!IS_DEMO_MODE && totalActiveLike === 0 && counts.deactivated === 0) {
+    const setupCards: ReadonlyArray<{
+      key: "template" | "paste" | "build";
+      title: string;
+      description: string;
+    }> = [
+      {
+        key: "template",
+        title: "Start from a template",
+        description:
+          "Choose from regulated industry or campaign templates. Active in 30 seconds.",
+      },
+      {
+        key: "paste",
+        title: "Import from existing policy",
+        description:
+          "Paste your communications policy, WSP, or legal brief. ERA CUE extracts the rules.",
+      },
+      {
+        key: "build",
+        title: "Build from scratch",
+        description:
+          "Define rule name, keywords, severity, and activation date.",
+      },
+    ];
+
     return (
-      <main className="min-h-screen bg-[#F8F9FB] pb-24">
-        <div className="max-w-[720px] mx-auto px-6 py-20 text-center">
-          <h1
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-3xl font-light text-[#0D1B2A] mb-8"
-          >
-            No governance rules configured.
-          </h1>
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setOpenModal("template")}
-              className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer"
+      <main className="min-h-screen bg-[#F8F9FB]">
+        <div className="max-w-[960px] mx-auto px-6 py-20">
+          <div className="text-center mb-10">
+            <h1
+              style={{ fontFamily: "var(--font-newsreader)" }}
+              className="text-3xl md:text-4xl font-light text-[#0D1B2A] mb-3 leading-tight"
             >
-              Enable via Template
-            </button>
-            <button
-              type="button"
-              onClick={() => setOpenModal("paste")}
-              className="bg-white border border-[#E2E8F0] text-[#475569] font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer"
-            >
-              Paste Policy
-            </button>
-            <button
-              type="button"
-              onClick={() => setOpenModal("upload")}
-              className="bg-white border border-[#E2E8F0] text-[#475569] font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer"
-            >
-              Upload Document
-            </button>
+              Set up your governance rules.
+            </h1>
+            <p className="text-sm text-[#475569] leading-relaxed max-w-2xl mx-auto">
+              ERA CUE checks every draft against your active rules
+              before publication. Configure once — enforced on every
+              submission.
+            </p>
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {setupCards.map((card) => (
+              <button
+                key={card.key}
+                type="button"
+                onClick={() => setOpenModal(card.key)}
+                className="bg-[#1E293B] border border-[#334155] rounded p-6 cursor-pointer hover:border-[#0EA5E9] transition-colors text-left"
+              >
+                <div className="text-[#F8FAFC] font-medium">
+                  {card.title}
+                </div>
+                <p className="text-[#94A3B8] text-sm mt-1 leading-relaxed">
+                  {card.description}
+                </p>
+              </button>
+            ))}
+          </div>
+
+          <p className="text-[#64748B] text-sm text-center mt-6 leading-relaxed">
+            Rules you configure here are checked against every draft
+            submitted by your team.
+          </p>
         </div>
 
         {openModal === "template" && (
@@ -941,15 +982,12 @@ export function RulesClient({
             onActivate={handleActivateExtractedRule}
           />
         )}
-        {openModal === "upload" && (
-          <UploadDocumentModal
+        {openModal === "build" && (
+          <BuildRuleModal
             onClose={closeAndRefresh}
-            onActivate={handleActivateExtractedRule}
+            onCreate={handleCreateCustomRule}
           />
         )}
-        {/* Empty state has zero active rules — bar self-hides on count=0
-            but we pass it explicitly so the contract is uniform. */}
-        <BottomMoatBar count={0} />
       </main>
     );
   }
@@ -958,7 +996,7 @@ export function RulesClient({
   return (
     <main className="min-h-screen bg-[#F8F9FB] pb-24">
       <div className="max-w-[1100px] mx-auto px-6 pt-10 pb-6">
-        {/* Page header */}
+        {/* Page header — returning-user state. */}
         <div className="mb-8">
           <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#64748B] mb-2">
             Rules engine
@@ -967,20 +1005,14 @@ export function RulesClient({
             style={{ fontFamily: "var(--font-newsreader)" }}
             className="text-3xl font-light text-[#0D1B2A] mb-3 leading-tight"
           >
-            {IS_DEMO_MODE
-              ? "Your rules. Your authority. Enforced at submission."
-              : counts.active + counts.expiring + counts.silent > 0
-                ? `${counts.active + counts.expiring + counts.silent} rule${
-                    counts.active + counts.expiring + counts.silent !== 1
-                      ? "s"
-                      : ""
-                  } governing your team's communications.`
-                : "Configure your governance rules."}
+            Your governance rules.
           </h1>
           <p className="text-sm text-[#475569] leading-relaxed max-w-2xl">
-            {IS_DEMO_MODE
-              ? "ERA CUE checks every draft against these rules before publication."
-              : "Every draft your team submits is checked against these rules before publication."}
+            <span className="font-medium text-[#0D1B2A]">
+              {rulesActiveCount}
+            </span>{" "}
+            rule{rulesActiveCount !== 1 ? "s" : ""} active · Enforced
+            on every draft submission.
           </p>
         </div>
 
@@ -1018,36 +1050,42 @@ export function RulesClient({
           </span>
         </div>
 
-        {/* R3 + R6 — Four entry-point buttons */}
-        <div className="flex items-center gap-2 flex-wrap mb-6">
+        {/* "+ Add a rule" — single subdued toggle. The compact choice
+            row below appears only after the toggle is clicked, keeping
+            the page focused on the existing rules in the steady state. */}
+        <div className="mb-6">
           <button
             type="button"
-            onClick={() => setOpenModal("template")}
-            className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer"
+            onClick={() => setAddRuleExpanded((s) => !s)}
+            className="font-mono text-xs px-4 py-2 rounded-sm border border-[#334155] text-[#94A3B8] hover:border-[#0EA5E9] hover:text-[#F8FAFC] transition-colors cursor-pointer"
+            aria-expanded={addRuleExpanded}
           >
-            Enable via Template
+            {addRuleExpanded ? "× Cancel" : "+ Add a rule"}
           </button>
-          <button
-            type="button"
-            onClick={() => setOpenModal("paste")}
-            className="bg-white border border-[#E2E8F0] text-[#475569] font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer"
-          >
-            Paste Policy
-          </button>
-          <button
-            type="button"
-            onClick={() => setOpenModal("upload")}
-            className="bg-white border border-[#E2E8F0] text-[#475569] font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer"
-          >
-            Upload Document
-          </button>
-          <button
-            type="button"
-            onClick={() => setOpenModal("build")}
-            className="bg-white border border-[#E2E8F0] text-[#475569] font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer"
-          >
-            Build from scratch
-          </button>
+          {addRuleExpanded && (
+            <div className="flex items-center gap-2 flex-wrap mt-3">
+              {(
+                [
+                  { key: "template" as const, label: "From a template" },
+                  { key: "paste" as const, label: "From a policy" },
+                  { key: "upload" as const, label: "From a document" },
+                  { key: "build" as const, label: "From scratch" },
+                ]
+              ).map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => {
+                    setOpenModal(opt.key);
+                    setAddRuleExpanded(false);
+                  }}
+                  className="bg-white border border-[#E2E8F0] text-[#475569] font-mono text-xs font-medium px-3 py-1.5 rounded-sm hover:border-[#0EA5E9] hover:text-[#0D1B2A] transition-colors cursor-pointer"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Success banner */}
