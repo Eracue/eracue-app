@@ -821,8 +821,15 @@ export function RulesClient({
   }
 
   // V4 — record a freshly-created rule for the row-highlight pulse
-  // and (in demo mode) seed an optimistic row so the new rule shows
-  // up immediately, even when the live refresh wouldn't surface it.
+  // and seed an optimistic row so the new rule shows up immediately
+  // in the table.
+  //
+  // FIX 1 — `router.refresh()` fires here, not later on modal close,
+  // so the live data starts loading the moment the action returns.
+  // FIX 2 — the optimistic row fires for ANY successful save (real
+  // or simulated), not just `demo-` prefixed ids. When the refresh
+  // lands with the real row, the dedup logic in `mergedRules` drops
+  // the optimistic entry by id match, so we never render duplicates.
   function recordNewRule(input: {
     ruleId: string;
     name: string;
@@ -831,29 +838,29 @@ export function RulesClient({
     effective_from: string;
     effective_until: string | null;
   }): void {
+    if (!input.ruleId) return;
     setHighlightedRuleId(input.ruleId);
     window.setTimeout(() => setHighlightedRuleId(null), 3000);
-    if (IS_DEMO_MODE && input.ruleId.startsWith("demo-")) {
-      const optimistic: RuleRow = {
-        id: input.ruleId,
-        name: input.name,
-        description: null,
-        verdict: input.verdict,
-        keywords: input.keywords,
-        effective_from: input.effective_from,
-        effective_until: input.effective_until,
-        scope: "all_speakers",
-        rule_status: "active",
-        deactivated_at: null,
-        deactivated_reason: null,
-        wsp_reference: null,
-        trigger_count: 0,
-        last_triggered: null,
-        effectiveness_score: null,
-        authorized_by: null,
-      };
-      setOptimisticRules((prev) => [...prev, optimistic]);
-    }
+    const optimistic: RuleRow = {
+      id: input.ruleId,
+      name: input.name,
+      description: null,
+      verdict: input.verdict,
+      keywords: input.keywords,
+      effective_from: input.effective_from,
+      effective_until: input.effective_until,
+      scope: "all_speakers",
+      rule_status: "active",
+      deactivated_at: null,
+      deactivated_reason: null,
+      wsp_reference: null,
+      trigger_count: 0,
+      last_triggered: null,
+      effectiveness_score: null,
+      authorized_by: null,
+    };
+    setOptimisticRules((prev) => [...prev, optimistic]);
+    router.refresh();
   }
 
   async function handleEnableTemplate(
@@ -2680,10 +2687,19 @@ function PostActionConfirmation({
   activationDateIso,
   onBack,
 }: ConfirmationPanelProps) {
+  // FIX 3 — the "Check a draft against this rule →" CTA refreshes
+  // the rules list before routing away, so a visitor who clicks it
+  // (and later returns to /rules) sees the new rule already
+  // present in the table — not the pre-save snapshot.
+  const router = useRouter();
   const severityClass =
     severity === "BLOCK"
       ? "bg-[#EF4444] text-white"
       : "bg-[#F59E0B] text-white";
+  function goCheckDraft() {
+    router.refresh();
+    router.push("/check");
+  }
   return (
     <div className="text-center py-2">
       <div
@@ -2725,12 +2741,13 @@ function PostActionConfirmation({
       <div className="font-mono text-xs text-[#94A3B8] mb-6">
         {formatActivationDate(activationDateIso)}
       </div>
-      <a
-        href="/check"
-        className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] transition-colors inline-block"
+      <button
+        type="button"
+        onClick={goCheckDraft}
+        className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] transition-colors inline-block cursor-pointer"
       >
         Check a draft against this rule →
-      </a>
+      </button>
       <div className="mt-3">
         <button
           type="button"
