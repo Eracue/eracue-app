@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { submitDraftAction } from "./actions";
 import type { CheckEntry } from "@/lib/checks";
 
@@ -137,7 +138,18 @@ export function SubmitForm({
   const [draftText, setDraftText] = useState("");
   // Campaign is visible by default; demo flow pre-selects "Series B" so
   // the first-time visitor sees a fully-populated submission.
-  const [campaign, setCampaign] = useState(flow === "demo" ? "Series B" : "");
+  //
+  // `?campaign=<name>` (URL-decoded by Next.js) wins over the demo
+  // default — so a VP Comms can share
+  //   app.eracue.com/check?campaign=Series%20B%20Announce
+  // and speakers land with the campaign already filled in. Read on
+  // first render only; user edits to the field afterwards stand.
+  const searchParams = useSearchParams();
+  const initialCampaignFromUrl = searchParams.get("campaign");
+  const [campaign, setCampaign] = useState(
+    initialCampaignFromUrl?.trim() ||
+      (flow === "demo" ? "Series B" : ""),
+  );
   // Submission origin — submission_method is read-only "web app" in this
   // surface; aiInvolvement is the EU AI Act / FINRA disclosure checkbox.
   const submissionMethod = "web app";

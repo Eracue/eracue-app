@@ -5,9 +5,12 @@ import Link from "next/link";
 //     visitors aren't pulled into app surfaces before they understand
 //     the product.
 //   • "app" (default) — wordmark + five labels:
-//        Rules · Check · Review · Programs · Reports
-//     in that exact order. Every in-product surface (check, rules,
-//     review, programs, reports, examiner record) uses this variant.
+//        Rules · Submit · Inbox · Campaigns · Record
+//     in that exact order. Labels were renamed from
+//     "Check / Review / Programs / Reports" so the surface vocabulary
+//     reads as the workflow stages a speaker / VP Comms moves through.
+//     The href targets stay on the same routes — only visible text
+//     changed.
 //
 // `print:hidden` removes the nav from any printed PDF (examiner
 // record, campaign export); the print stylesheet in globals.css also
@@ -31,10 +34,10 @@ export function SiteHeader({ variant = "app" }: { variant?: Variant } = {}) {
             {(
               [
                 { href: "/rules", label: "Rules" },
-                { href: "/check", label: "Check" },
-                { href: "/review", label: "Review" },
-                { href: "/programs", label: "Programs" },
-                { href: "/reports", label: "Reports" },
+                { href: "/check", label: "Submit" },
+                { href: "/review", label: "Inbox" },
+                { href: "/programs", label: "Campaigns" },
+                { href: "/reports", label: "Record" },
               ] as const
             ).map((item) => (
               <Link

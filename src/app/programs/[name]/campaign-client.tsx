@@ -439,16 +439,62 @@ export function CampaignHeaderAndExport({
               </button>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => setMode("prompting")}
-              className="font-mono text-xs text-[#1A56DB] border border-[#BAE6FD] bg-[#EFF8FF] px-4 py-2 rounded-sm hover:bg-[#DBEAFE] transition-colors whitespace-nowrap cursor-pointer"
-            >
-              Export to PDF →
-            </button>
+            // Idle / exporting: show Share + Export side by side. The
+            // Share button copies the speaker-facing submit link so a
+            // VP Comms can DM/email speakers a one-click form.
+            <div className="flex items-center gap-2 flex-wrap">
+              <ShareSubmitLinkButton campaignName={campaignName} />
+              <button
+                type="button"
+                onClick={() => setMode("prompting")}
+                className="font-mono text-xs text-[#1A56DB] border border-[#BAE6FD] bg-[#EFF8FF] px-4 py-2 rounded-sm hover:bg-[#DBEAFE] transition-colors whitespace-nowrap cursor-pointer"
+              >
+                Export to PDF →
+              </button>
+            </div>
           )}
         </div>
       </div>
     </>
+  );
+}
+
+// E5 — share-the-submit-link affordance. Copies
+//   <origin>/check?campaign=<name>
+// to the clipboard so a VP Comms can hand speakers a one-click submit
+// link that lands on /check with the campaign field pre-filled
+// (submit-form.tsx reads the same param). The "Copied!" confirmation
+// holds for two seconds before reverting; clipboard-write failures
+// (older browsers / iframes / file://) fall through silently — copying
+// the URL by hand from the address bar remains a workable fallback.
+function ShareSubmitLinkButton({ campaignName }: { campaignName: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    if (typeof window === "undefined") return;
+    const url = `${window.location.origin}/check?campaign=${encodeURIComponent(
+      campaignName,
+    )}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // No clipboard access (insecure context / permissions denied).
+      // Surface the URL so the VP can copy it manually rather than
+      // leaving them guessing whether the click did anything.
+      window.prompt("Copy this submit link:", url);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      aria-label="Copy speaker submit link to clipboard"
+      className="font-mono text-xs text-[#1A56DB] border border-[#BAE6FD] bg-[#EFF8FF] px-4 py-2 rounded-sm hover:bg-[#DBEAFE] transition-colors whitespace-nowrap cursor-pointer"
+    >
+      {copied ? "Copied!" : "Share submit link →"}
+    </button>
   );
 }
