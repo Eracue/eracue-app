@@ -4,10 +4,10 @@ import Link from "next/link";
 //   • "marketing" — wordmark only. Used on the marketing homepage so
 //     visitors aren't pulled into app surfaces before they understand
 //     the product.
-//   • "app" (default) — wordmark + four labels:
-//        Rules · Check · Review · Programs
+//   • "app" (default) — wordmark + five labels:
+//        Rules · Check · Review · Programs · Reports
 //     in that exact order. Every in-product surface (check, rules,
-//     review, programs, examiner record) uses this variant.
+//     review, programs, reports, examiner record) uses this variant.
 //
 // `print:hidden` removes the nav from any printed PDF (examiner
 // record, campaign export); the print stylesheet in globals.css also
@@ -34,6 +34,7 @@ export function SiteHeader({ variant = "app" }: { variant?: Variant } = {}) {
                 { href: "/check", label: "Check" },
                 { href: "/review", label: "Review" },
                 { href: "/programs", label: "Programs" },
+                { href: "/reports", label: "Reports" },
               ] as const
             ).map((item) => (
               <Link
