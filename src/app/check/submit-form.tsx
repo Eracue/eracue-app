@@ -1252,7 +1252,10 @@ function VerdictView({
   isCampaignScoped: boolean;
 }) {
   const draftId = data?.draftId;
-  const checks = data?.checks ?? [];
+  // The full `checks` array is still stored on `data.checks` for the
+  // audit / examiner-record path; the verdict view no longer renders
+  // it (replaced by the per-rule `ruleResults` panel + the
+  // empty-state summary line below).
   const isClear = verdictKey === "clear";
   const ruleResults = data?.ruleResults ?? [];
   const triggeredRules = data?.triggeredRules ?? [];
@@ -1422,45 +1425,22 @@ function VerdictView({
           </div>
         )}
 
-        {/* Legacy "Checks performed" list — only renders when the
-            new ruleResults breakdown is unavailable (older check
-            shapes / future-action error paths). */}
-        {ruleResults.length === 0 && checks.length > 0 && (
+        {/* Empty-ruleResults fallback — happens when the action
+            ran the rules but every one passed and the server
+            collapsed the per-rule list. Render a single summary line
+            instead of the legacy "Rule Check / Consistency Check /
+            Alignment Check / Quiet Period Check" generic ladder
+            which leaked internal check taxonomy into the speaker UI.
+            Only renders when at least one rule actually ran; with
+            zero rules the verdict view is intentionally silent. */}
+        {ruleResults.length === 0 && ruleCountChecked > 0 && (
           <div className="px-5 py-4">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
-              Checks performed
-            </div>
-            <div className="space-y-1">
-              {checks.map((c, i) => {
-                const dot =
-                  c.result === "fail"
-                    ? "bg-[#B91C1C]"
-                    : c.result === "warn"
-                      ? "bg-[#C2410C]"
-                      : "bg-[#166534]";
-                return (
-                  <div
-                    key={`${c.check_name}-${i}`}
-                    className="flex items-center gap-2 py-1"
-                  >
-                    <span
-                      className={`w-2 h-2 rounded-full shrink-0 ${dot}`}
-                      aria-hidden
-                    />
-                    <span className="font-mono text-xs text-[#0F172A]">
-                      {c.check_name}
-                    </span>
-                    <span className="font-mono text-xs text-[#64748B]">
-                      {c.result.toUpperCase()}
-                    </span>
-                    {c.detail && (
-                      <span className="font-mono text-[10px] text-[#64748B]">
-                        · {c.detail}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="font-mono text-xs text-[#0F172A] flex items-center gap-2">
+              <span className="text-[#166534] text-sm" aria-hidden>
+                ✓
+              </span>
+              {ruleCountChecked} rule{ruleCountChecked === 1 ? "" : "s"}{" "}
+              checked · all passed
             </div>
           </div>
         )}
