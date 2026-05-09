@@ -69,7 +69,7 @@ const REGULATORY_PANELS = [
     who: "All organizations using AI to draft content",
     name: "EU AI Act Article 50",
     citation: "Regulation (EU) 2024/1689 · August 2, 2026",
-    consequence: "Up to €7.5M or 1.5% of global turnover",
+    consequence: "Subject to penalties under EU AI Act Article 99. Consult qualified counsel regarding applicability.",
     what: "AI generates content. Executives post it. No record of AI origin, no documented human review. Article 50 requires both.",
     era: "AI origin logged at submission. Human review documented. Disclosure trail created for every governed draft.",
   },
@@ -204,7 +204,7 @@ export default function Home() {
                   "Quiet period",
                   "Consistency",
                   "Alignment",
-                  "Agent origin",
+                  "AI origin declared",
                 ].map((name) => (
                   <div key={name} className="flex justify-between">
                     <span className="font-mono text-[9px] text-[#94A3B8]">
@@ -441,13 +441,13 @@ export default function Home() {
                 label: "01 — Configure",
                 title: "Set your governance rules",
                 body: "The CCO sets rules once — from templates, existing policies, or from scratch. Named principal authorizes before anything fires.",
-                tag: "WSP import · FINRA templates · AI-assisted",
+                tag: "From templates · From existing policy · From scratch",
               },
               {
                 label: "02 — Check",
                 title: "Check before you publish",
                 body: "Any executive — or AI agent acting on their behalf — submits a draft. ERA CUE checks it against active rules and prior approved statements. Verdict in seconds.",
-                tag: "Rule check · Consistency · Named review if needed",
+                tag: "Rule check · Named review if flagged · Record created",
               },
               {
                 label: "03 — Record",
@@ -827,7 +827,7 @@ export default function Home() {
                     "Rule check",
                     "Quiet period",
                     "Consistency",
-                    "Agent origin",
+                    "AI origin declared",
                   ].map((check) => (
                     <div
                       key={check}

@@ -293,6 +293,15 @@ function CorpusArtifact() {
             </div>
           ))}
         </div>
+
+        {/* A4 — corpus-growth note. Sets expectations for a brand-new
+            org: zero history at day one; the consistency check gains
+            signal as approved drafts accumulate. */}
+        <p className="text-[#94A3B8] text-sm mt-4 pt-4 border-t border-[#E2E8F0] leading-relaxed">
+          Signal builds from approved drafts. A new organization starts
+          with zero history — the corpus grows with every cleared
+          communication.
+        </p>
       </div>
     </ArtifactShell>
   );
