@@ -26,6 +26,10 @@ type Props = {
   corpusCount: number;
   currentUserName: string | null;
   isDemoMode: boolean;
+  // FIX 2 — solo founder path. When false (no principal in this
+  // org), the BLOCK verdict's "Request review" card is hidden and a
+  // configuration-prompt block takes its place.
+  hasPrincipal: boolean;
 };
 
 type VerdictData = {
@@ -106,6 +110,7 @@ export function SubmitForm({
   corpusCount,
   currentUserName,
   isDemoMode,
+  hasPrincipal,
 }: Props) {
   // corpusCount is preserved on the props contract for the page
   // component but no longer surfaces in the UI — the new
@@ -383,6 +388,7 @@ export function SubmitForm({
           onRevise={handleRevise}
           draftText={draftText}
           isDemoMode={isDemoMode}
+          hasPrincipal={hasPrincipal}
         />
       ) : (
         <FormBody
@@ -808,6 +814,7 @@ function VerdictView({
   onRevise,
   draftText,
   isDemoMode,
+  hasPrincipal,
 }: {
   verdictKey: string;
   meta: { label: string; headerBg: string; headerBorder: string; badgeBg: string };
@@ -819,6 +826,7 @@ function VerdictView({
   onRevise: () => void;
   draftText: string;
   isDemoMode: boolean;
+  hasPrincipal: boolean;
 }) {
   const draftId = data?.draftId;
   const checks = data?.checks ?? [];
@@ -973,30 +981,47 @@ function VerdictView({
       {/* D3 — BLOCK verdict shows two side-by-side action cards
           (stacked on mobile). ESCALATE keeps the same affordances —
           principal review or revise — since the visitor is the same
-          submitter and the choice space is the same. */}
+          submitter and the choice space is the same.
+          FIX 2 — when no principal is on record (solo founder path),
+          the "Route to principal review" card is replaced by a
+          single configuration-prompt block. The "Revise and
+          resubmit" card stays as the primary action. */}
       {isBlockOrEscalate && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-          <div className="bg-white border border-[#E2E8F0] rounded-sm p-5 flex flex-col">
-            <div className="text-sm font-semibold text-[#0F172A] mb-2">
-              Route to principal review
+          {hasPrincipal ? (
+            <div className="bg-white border border-[#E2E8F0] rounded-sm p-5 flex flex-col">
+              <div className="text-sm font-semibold text-[#0F172A] mb-2">
+                Route to principal review
+              </div>
+              <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+                Send this draft to your named principal for a governance
+                decision.
+              </p>
+              {draftId ? (
+                <a
+                  href={`/review/${draftId}`}
+                  className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#1447C0] transition-colors text-center"
+                >
+                  Request review →
+                </a>
+              ) : (
+                <span className="font-mono text-xs text-[#94A3B8]">
+                  Review link unavailable
+                </span>
+              )}
             </div>
-            <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
-              Send this draft to your named principal for a governance
-              decision.
-            </p>
-            {draftId ? (
-              <a
-                href={`/review/${draftId}`}
-                className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#1447C0] transition-colors text-center"
-              >
-                Request review →
-              </a>
-            ) : (
-              <span className="font-mono text-xs text-[#94A3B8]">
-                Review link unavailable
-              </span>
-            )}
-          </div>
+          ) : (
+            <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-5 flex flex-col">
+              <div className="text-sm font-semibold text-[#0F172A] mb-2">
+                No principal configured
+              </div>
+              <p className="text-sm text-[#374151] leading-relaxed flex-1">
+                ERA CUE has recorded this check. To enable full
+                supervisory records, add a principal in your
+                organization settings.
+              </p>
+            </div>
+          )}
           <div className="bg-white border border-[#E2E8F0] rounded-sm p-5 flex flex-col">
             <div className="text-sm font-semibold text-[#0F172A] mb-2">
               Revise and resubmit

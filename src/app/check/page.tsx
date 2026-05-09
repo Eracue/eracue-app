@@ -96,6 +96,18 @@ export default async function SubmitPage({
     .eq("status", "approved");
   const corpusCount = corpusCountRaw ?? 0;
 
+  // FIX 2 — solo founder path. When the org has no principal on
+  // record, a BLOCK verdict's "Request principal review" card is
+  // hidden. Demo always has a seeded principal so this only matters
+  // for production-fresh orgs. Counted via a HEAD query so we only
+  // need the boolean answer.
+  const { count: principalCountRaw } = await sb
+    .from("users")
+    .select("*", { count: "exact", head: true })
+    .eq("org_id", orgId)
+    .eq("role", "principal");
+  const hasPrincipal = (principalCountRaw ?? 0) > 0;
+
   // Firm type — URL param wins (post-setup hand-off), org default
   // second, empty string last. Drives the "Try an example →" payload.
   type OrgRow = { firm_type?: string | null };
@@ -127,6 +139,7 @@ export default async function SubmitPage({
           corpusCount={corpusCount}
           currentUserName={currentUserName}
           isDemoMode={isDemoMode}
+          hasPrincipal={hasPrincipal}
         />
       </main>
     </>

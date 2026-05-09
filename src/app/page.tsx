@@ -256,15 +256,27 @@ export default function Home() {
             { label: "RIAs", bg: "#E0F2FE", text: "#0369A1" },
             { label: "Public companies", bg: "#FFFBEB", text: "#B45309" },
             { label: "Investment banks", bg: "#F8FAFC", text: "#334155" },
-            { label: "PR agencies", bg: "#FFF1F2", text: "#BE123C" },
+            // FIX 3 — PR agencies pill carries a constraint note: ERA
+            // CUE today is one-client-per-account; the multi-client
+            // workspace is in development. Surfaced as a hover tooltip
+            // (title attr) plus an asterisk marker so the limitation is
+            // visible without removing the pill.
+            {
+              label: "PR agencies",
+              bg: "#FFF1F2",
+              text: "#BE123C",
+              note: "One client per account. Multi-client workspace in development.",
+            },
             { label: "Executive teams", bg: "#F5F3FF", text: "#6D28D9" },
           ].map((pill) => (
             <span
               key={pill.label}
               style={{ background: pill.bg, color: pill.text }}
+              title={pill.note}
               className="font-mono text-[10px] font-medium px-3 py-1 rounded-full whitespace-nowrap"
             >
               {pill.label}
+              {pill.note && <span aria-hidden> *</span>}
             </span>
           ))}
         </div>
