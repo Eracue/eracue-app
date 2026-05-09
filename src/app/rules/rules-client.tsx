@@ -689,7 +689,7 @@ export function RulesClient({ rules, firmType = null }: Props) {
           </h1>
           <p className="text-sm text-[#475569] leading-relaxed max-w-2xl">
             {IS_DEMO_MODE
-              ? "ERA CUE checks every draft against these rules before publication. These are examples — set up your own rules using the button above."
+              ? "ERA CUE checks every draft against these rules before publication."
               : counts.active > 0
                 ? "Every draft your team submits is checked against these rules before publication."
                 : "ERA CUE checks every draft against your active rules. Set up your governance policies before checking any draft."}
@@ -1091,8 +1091,7 @@ export function RulesClient({ rules, firmType = null }: Props) {
             (no labeled separator — the tab title is the label). */}
         {IS_DEMO_MODE && (
           <div className="font-mono text-[10px] text-[#94A3B8] mb-5 pb-4 border-b border-[#E2E8F0]">
-            Example rules showing how ERA CUE works. Import your own
-            policies above to replace these.
+            Demo rules — live data from a sample organization.
           </div>
         )}
 

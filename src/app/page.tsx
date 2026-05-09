@@ -162,12 +162,6 @@ export default function Home() {
               >
                 Set up your rules →
               </Link>
-              <Link
-                href="/submit"
-                className="bg-white/[0.07] text-white/[0.65] border border-white/[0.12] font-mono text-xs font-medium px-6 py-3 rounded-sm hover:bg-white/[0.12] transition-colors"
-              >
-                See it working →
-              </Link>
             </div>
           </div>
 
@@ -176,12 +170,17 @@ export default function Home() {
               prospect sees what they'll see at /submit. */}
           <div className="md:col-span-2 hidden md:block">
             <div className="bg-white rounded-lg p-5 border-t-[3px] border-t-[#4F46E5] shadow-[0_0_0_0.5px_rgba(0,0,0,0.06)]">
-              <div className="flex items-center justify-between mb-3">
-                <div className="font-mono text-[9px] uppercase tracking-[0.11em] text-[#94A3B8]">
-                  Communication check
+              <div className="flex items-start justify-between mb-3 gap-3">
+                <div>
+                  <div className="font-mono text-[9px] uppercase tracking-[0.11em] text-[#94A3B8]">
+                    Communication check
+                  </div>
+                  <div className="font-mono text-[9px] text-[#64748B] mt-0.5">
+                    CEO · LinkedIn draft
+                  </div>
                 </div>
-                <div className="font-mono text-[9px] text-[#94A3B8]">
-                  Verdict in seconds
+                <div className="font-mono text-[9px] text-[#94A3B8] shrink-0">
+                  Just now
                 </div>
               </div>
 
@@ -227,7 +226,7 @@ export default function Home() {
                   Principal approved
                 </span>
                 <span className="font-mono text-[9px] text-[#94A3B8]">
-                  SHA-256 locked
+                  🔒 SHA-256 locked
                 </span>
               </div>
             </div>
@@ -939,14 +938,6 @@ export default function Home() {
           <div className="font-mono text-[10px] text-white/[0.22]">
             or email hello@eracue.com
           </div>
-
-          <p className="font-mono text-[10px] text-white/[0.14] mt-8 max-w-2xl mx-auto leading-relaxed text-center">
-            SEC v. DraftKings Inc., Release No. 34-101198 (Sept. 26, 2024)
-            · FINRA v. M1 Finance LLC (March 18, 2024) · EU AI Act Art. 50,
-            effective August 2, 2026. ERA CUE produces supervisory records
-            and governance evidence. ERA CUE does not provide legal advice
-            or guarantee regulatory compliance.
-          </p>
         </div>
       </section>
 
