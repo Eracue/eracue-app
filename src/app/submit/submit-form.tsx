@@ -36,36 +36,24 @@ type VerdictData = {
   checks?: CheckEntry[];
 };
 
-// Channels offered in the pill row. Keeps the labels short and
-// matching the actions.ts auto-categorisation buckets (linkedin /
-// twitter / blog / press_release → retail; email → correspondence;
-// other → falls back to retail).
+// Channels offered in the pill row. AI agent post covers drafts
+// produced by an autonomous agent acting on behalf of an executive —
+// the FINRA agentic-AI submission path the engine treats as a
+// distinct origin from a human composing in a web tool.
 const CHANNELS: ReadonlyArray<{ key: string; label: string }> = [
   { key: "linkedin", label: "LinkedIn" },
   { key: "twitter", label: "Twitter / X" },
   { key: "press_release", label: "Press release" },
-  { key: "blog", label: "Blog" },
-  { key: "email", label: "Email" },
-  { key: "other", label: "Other" },
+  { key: "internal_memo", label: "Internal memo" },
+  { key: "ai_agent_post", label: "AI agent post" },
 ];
 
-// Example drafts surfaced behind the "Try an example →" link in demo
-// mode. Each is a representative violation of the firm's most likely
-// starter rule, so a demo visitor sees the engine fire on copy that
-// reads as their actual firm's communications.
-const EXAMPLE_DRAFTS: Record<string, string> = {
-  broker_dealer:
-    "Our portfolio has delivered guaranteed returns of 12% annually over the past 3 years with no risk to principal. Investors can expect similar performance going forward.",
-  ria: "A client recently told me how thrilled she is with her portfolio — up over 18% this year. We love hearing success stories like this from our clients.",
-  public_company:
-    "Exciting times ahead — we're seeing really strong revenue growth and expect a significant beat on our Q3 numbers next week.",
-  pr_agency:
-    "Our client is the industry leader with the most competitive offering available — no one else comes close to what they offer at this point.",
-  executive_team:
-    "We're aggressively hiring across engineering and sales — exciting times ahead as we scale toward our $10M ARR target this quarter.",
-  default:
-    "We're aggressively hiring across engineering and sales — exciting times ahead for the team as we continue to grow.",
-};
+// Example draft surfaced behind the "Try an example →" link in demo
+// mode. Trips the Series B Quiet Period rule on the keywords
+// "expanding" and "fundraising" so a visitor sees a BLOCK verdict
+// the moment they click through.
+const DEMO_EXAMPLE_DRAFT =
+  "We're aggressively expanding our team and excited to share updates on our fundraising progress soon.";
 
 // Plain-English verdict labels and palette. Rendered on the verdict
 // header so a non-compliance reader doesn't have to map BLOCK /
@@ -119,12 +107,22 @@ export function SubmitForm({
   currentUserName,
   isDemoMode,
 }: Props) {
+  // corpusCount is preserved on the props contract for the page
+  // component but no longer surfaces in the UI — the new
+  // three-line CheckingState narrative is static.
+  void corpusCount;
   // Initial speaker — preference order:
   //   1. The current user (if they exist as a speaker)
-  //   2. The first speaker in the list
-  //   3. null (new-user flow with no speakers)
+  //   2. Marcus Rivera (CEO) in demo mode — the canonical demo submitter
+  //   3. The first speaker in the list
+  //   4. null (new-user flow with no speakers)
   const initialSpeaker: SpeakerInfo | null =
-    speakers.find((s) => s.is_current_user) ?? speakers[0] ?? null;
+    speakers.find((s) => s.is_current_user) ??
+    (flow === "demo"
+      ? (speakers.find((s) => s.display_name === "Marcus Rivera") ?? null)
+      : null) ??
+    speakers[0] ??
+    null;
 
   const [selectedSpeakerId, setSelectedSpeakerId] = useState<string | null>(
     initialSpeaker?.id ?? null,
@@ -132,15 +130,24 @@ export function SubmitForm({
   const [showAllSpeakers, setShowAllSpeakers] = useState(false);
   const [channel, setChannel] = useState<string>("linkedin");
   const [draftText, setDraftText] = useState("");
-  const [campaign, setCampaign] = useState("");
-  const [showCampaign, setShowCampaign] = useState(false);
+  // Campaign is visible by default; demo flow pre-selects "Series B" so
+  // the first-time visitor sees a fully-populated submission.
+  const [campaign, setCampaign] = useState(flow === "demo" ? "Series B" : "");
+  // Submission origin — submission_method is read-only "web app" in this
+  // surface; aiInvolvement is the EU AI Act / FINRA disclosure checkbox.
+  const submissionMethod = "web app";
+  const [aiInvolvement, setAiInvolvement] = useState(false);
   const [checking, setChecking] = useState(false);
   const [checkingStage, setCheckingStage] = useState<0 | 1 | 2>(0);
   const [error, setError] = useState<string | null>(null);
   const [verdict, setVerdict] = useState<string | null>(null);
   const [verdictData, setVerdictData] = useState<VerdictData | null>(null);
+  // firmType is no longer used to route the example — the demo flow
+  // shows a single canonical draft. Reference the variable so an
+  // unused-prop lint never flags the page→form contract.
+  void firmType;
 
-  const exampleDraft = EXAMPLE_DRAFTS[firmType] ?? EXAMPLE_DRAFTS.default;
+  const exampleDraft = DEMO_EXAMPLE_DRAFT;
 
   // For new-user with zero speakers — we still render a "Yourself"
   // card in the speaker section, but submission against the action
@@ -177,18 +184,19 @@ export function SubmitForm({
     setVerdictData(null);
 
     // Stage advance — purely visual, runs on its own clock so the
-    // three rows light up sequentially even when the underlying
-    // submitDraftAction returns sub-second.
-    const stage1 = setTimeout(() => setCheckingStage(1), 900);
-    const stage2 = setTimeout(() => setCheckingStage(2), 2200);
+    // three narrative lines light up sequentially (800ms apart) even
+    // when the underlying submitDraftAction returns sub-second.
+    const stage1 = setTimeout(() => setCheckingStage(1), 800);
+    const stage2 = setTimeout(() => setCheckingStage(2), 1600);
 
     try {
       const result = await submitDraftAction({
         draftText,
         speakerName: speakerNameForSubmit,
         channel,
-        sourceOrigin: "human",
-        submissionType: "human",
+        // EU AI Act Article 50 — what the user declared on this submission.
+        sourceOrigin: aiInvolvement ? "ai_assisted" : "human",
+        submissionType: channel === "ai_agent_post" ? "agent" : "human",
         campaignName: campaign.trim() || null,
       });
 
@@ -222,8 +230,8 @@ export function SubmitForm({
     setVerdict(null);
     setVerdictData(null);
     setDraftText("");
-    setCampaign("");
-    setShowCampaign(false);
+    setCampaign(flow === "demo" ? "Series B" : "");
+    setAiInvolvement(false);
     setError(null);
   }
 
@@ -260,23 +268,6 @@ export function SubmitForm({
               below to see a rule fire.
             </div>
           </div>
-        </div>
-      )}
-
-      {flow === "demo" && !fromRules && (
-        <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-3 mb-6 flex items-center gap-3 flex-wrap">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8]">
-            Demo
-          </span>
-          <span className="text-sm text-[#64748B]">
-            Checking against ERA CUE&apos;s example governance rules.
-            <a
-              href="/rules"
-              className="text-[#1A56DB] hover:text-[#1447C0] ml-1 transition-colors"
-            >
-              Configure your own →
-            </a>
-          </span>
         </div>
       )}
 
@@ -319,7 +310,7 @@ export function SubmitForm({
           style={{ fontFamily: "var(--font-newsreader)" }}
           className="text-3xl font-light text-[#0F172A] mb-2"
         >
-          Check a draft before it goes live.
+          Does this draft clear your governance rules?
         </h1>
         <p className="text-sm text-[#64748B] leading-relaxed max-w-lg">
           {flow === "demo"
@@ -332,11 +323,7 @@ export function SubmitForm({
 
       {/* ─── Body — three modes (form / checking / verdict) ─────────── */}
       {checking ? (
-        <CheckingState
-          stage={checkingStage}
-          ruleCount={ruleCount}
-          corpusCount={corpusCount}
-        />
+        <CheckingState stage={checkingStage} />
       ) : verdictLower && verdictMeta ? (
         <VerdictView
           verdictKey={verdictLower}
@@ -363,8 +350,9 @@ export function SubmitForm({
           setDraftText={setDraftText}
           campaign={campaign}
           setCampaign={setCampaign}
-          showCampaign={showCampaign}
-          setShowCampaign={setShowCampaign}
+          submissionMethod={submissionMethod}
+          aiInvolvement={aiInvolvement}
+          setAiInvolvement={setAiInvolvement}
           isDemoMode={isDemoMode}
           exampleDraft={exampleDraft}
           ruleCount={ruleCount}
@@ -394,8 +382,9 @@ function FormBody({
   setDraftText,
   campaign,
   setCampaign,
-  showCampaign,
-  setShowCampaign,
+  submissionMethod,
+  aiInvolvement,
+  setAiInvolvement,
   isDemoMode,
   exampleDraft,
   ruleCount,
@@ -417,8 +406,9 @@ function FormBody({
   setDraftText: (v: string) => void;
   campaign: string;
   setCampaign: (v: string) => void;
-  showCampaign: boolean;
-  setShowCampaign: (v: boolean) => void;
+  submissionMethod: string;
+  aiInvolvement: boolean;
+  setAiInvolvement: (v: boolean) => void;
   isDemoMode: boolean;
   exampleDraft: string;
   ruleCount: number;
@@ -548,6 +538,51 @@ function FormBody({
         </div>
       </div>
 
+      {/* Submission origin — submission_method is auto-populated and
+          read-only in this surface (web app). ai_involvement_declared is
+          a self-attestation; ERA CUE records what is declared, not what
+          can be inferred from the draft. */}
+      <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden mb-4">
+        <div className="px-4 py-3 border-b border-[#E2E8F0]">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+            Submission origin
+          </div>
+        </div>
+        <div className="p-4 space-y-4">
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1.5">
+              Submission method
+            </div>
+            <div className="inline-flex items-center gap-2 border border-[#E2E8F0] bg-[#F8F9FB] rounded-sm px-3 py-1.5">
+              <span className="font-mono text-xs text-[#0F172A]">
+                {submissionMethod}
+              </span>
+              <span className="font-mono text-[9px] uppercase tracking-widest text-[#94A3B8]">
+                auto
+              </span>
+            </div>
+          </div>
+
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={aiInvolvement}
+              onChange={(e) => setAiInvolvement(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-[#1A56DB] cursor-pointer"
+            />
+            <span>
+              <span className="block text-sm text-[#0F172A]">
+                This draft included AI assistance.
+              </span>
+              <span className="block text-xs text-[#64748B] mt-1 leading-relaxed">
+                ERA CUE records what is declared. Disclosure obligations
+                should be confirmed with qualified legal counsel.
+              </span>
+            </span>
+          </label>
+        </div>
+      </div>
+
       {/* Draft card — textarea + collapsed campaign field + submit row */}
       <div className="bg-white border border-[#E2E8F0] rounded-sm overflow-hidden mb-4">
         <div className="px-4 py-3 border-b border-[#E2E8F0] flex items-center justify-between">
@@ -578,47 +613,32 @@ function FormBody({
           />
         </div>
 
-        {/* Campaign — collapsed by default. The link sits flush in the
-            card so it doesn't read as a primary action. */}
+        {/* Campaign — visible by default. Demo flow pre-selects "Series B"
+            so the visitor sees a fully-populated submission. */}
         <div className="px-4 pb-3">
-          {!showCampaign ? (
-            <button
-              type="button"
-              onClick={() => setShowCampaign(true)}
-              className="font-mono text-[10px] text-[#94A3B8] hover:text-[#64748B] transition-colors cursor-pointer"
-            >
-              + Add to a campaign (optional)
-            </button>
-          ) : (
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                type="text"
-                value={campaign}
-                onChange={(e) => setCampaign(e.target.value)}
-                placeholder="Campaign name..."
-                className="flex-1 border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-sm text-[#0F172A] bg-[#F8F9FB] focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCampaign(false);
-                  setCampaign("");
-                }}
-                aria-label="Remove campaign"
-                className="font-mono text-[10px] text-[#94A3B8] hover:text-[#64748B] transition-colors cursor-pointer"
-              >
-                ×
-              </button>
-            </div>
-          )}
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1.5">
+            Campaign{" "}
+            <span className="normal-case ml-1 text-[#94A3B8]">(optional)</span>
+          </div>
+          <input
+            type="text"
+            value={campaign}
+            onChange={(e) => setCampaign(e.target.value)}
+            placeholder="Campaign name..."
+            className="w-full border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-sm text-[#0F172A] bg-[#F8F9FB] focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+          />
         </div>
 
-        {/* Submit row — count tag on the left, primary CTA on the right */}
+        {/* Submit row — rule count tag on the left, primary CTA on the
+            right. Mirrors the rules page wording so the count framing
+            stays consistent across the two surfaces. */}
         <div className="px-4 py-3 border-t border-[#E2E8F0] bg-[#F8F9FB] flex items-center justify-between gap-3 flex-wrap">
           <div className="font-mono text-[10px] text-[#94A3B8]">
-            {ruleCount > 0
-              ? `${ruleCount} active rule${ruleCount !== 1 ? "s" : ""} will be checked`
-              : "Standard governance checks will run"}
+            {isDemoMode
+              ? "4 governance rules active"
+              : ruleCount > 0
+                ? `${ruleCount} governance rule${ruleCount !== 1 ? "s" : ""} active`
+                : "Standard governance checks will run"}
           </div>
           <button
             type="button"
@@ -647,62 +667,54 @@ function FormBody({
 
 function CheckingState({
   stage,
-  ruleCount,
-  corpusCount,
 }: {
   stage: 0 | 1 | 2;
-  ruleCount: number;
-  corpusCount: number;
 }) {
-  const stages: ReadonlyArray<{ text: string; stage: 0 | 1 | 2 }> = [
+  // Three-line progressive narrative. Each line lights up in sequence
+  // (800ms apart, driven by setCheckingStage) so the visitor reads the
+  // governance pipeline running in real time rather than staring at a
+  // spinner.
+  const lines: ReadonlyArray<{ text: string; stage: 0 | 1 | 2 }> = [
     {
-      text:
-        ruleCount > 0
-          ? `Checking against ${ruleCount} active rule${ruleCount !== 1 ? "s" : ""}`
-          : "Running governance checks",
+      text: "Checking against 4 active governance rules...",
       stage: 0,
     },
-    { text: "Evaluating context", stage: 1 },
     {
-      text:
-        corpusCount > 0
-          ? `Checking against ${corpusCount} prior approved statement${corpusCount !== 1 ? "s" : ""}`
-          : "Running consistency check",
+      text: "Reviewing for consistency with prior approved statements...",
+      stage: 1,
+    },
+    {
+      text: "Preparing your governance record...",
       stage: 2,
     },
   ];
 
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-sm p-8 text-center mb-4">
-      <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-8">
+    <div
+      className="bg-white border border-[#E2E8F0] rounded-sm p-8 mb-4"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-6">
         Checking your draft...
       </div>
-      <div className="flex flex-col gap-4 max-w-[280px] mx-auto text-left">
-        {stages.map((s) => {
-          const done = stage > s.stage;
-          const active = stage === s.stage;
+      <div className="flex flex-col gap-3 max-w-[460px]">
+        {lines.map((l) => {
+          const visible = stage >= l.stage;
+          const active = stage === l.stage;
           return (
-            <div key={s.stage} className="flex items-center gap-3">
-              <div
-                className={`w-2 h-2 rounded-full shrink-0 transition-all ${
-                  done
-                    ? "bg-[#166534]"
-                    : active
-                      ? "bg-[#1A56DB] animate-pulse"
-                      : "bg-[#E2E8F0]"
-                }`}
-                aria-hidden
-              />
+            <div
+              key={l.stage}
+              className={`transition-opacity duration-300 ${
+                visible ? "opacity-100" : "opacity-0"
+              }`}
+            >
               <span
-                className={`font-mono text-[11px] transition-colors ${
-                  done
-                    ? "text-[#94A3B8] line-through"
-                    : active
-                      ? "text-[#0F172A] font-medium"
-                      : "text-[#D1D5DB]"
+                className={`font-mono text-xs leading-relaxed ${
+                  active ? "text-[#0F172A] font-medium" : "text-[#94A3B8]"
                 }`}
               >
-                {s.text}
+                {l.text}
               </span>
             </div>
           );

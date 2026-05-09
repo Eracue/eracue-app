@@ -50,8 +50,8 @@ export default async function SubmitPage({
   }
 
   // Speakers — schema column is `users.name`, surfaced as `display_name`
-  // for the form. Limit to speaker / principal roles so reviewers don't
-  // appear in the speaker grid (they're not who we're submitting for).
+  // for the form. Principals (reviewers) are excluded from the submitter
+  // grid: a reviewer authorizes drafts, they don't submit them.
   type UserRow = {
     id: string;
     name: string;
@@ -65,7 +65,7 @@ export default async function SubmitPage({
     .order("name");
 
   const speakers: SpeakerInfo[] = ((usersRaw as UserRow[] | null) ?? [])
-    .filter((u) => u.role === "speaker" || u.role === "principal")
+    .filter((u) => u.role === "speaker")
     .map((u) => ({
       id: u.id,
       display_name: u.name,
