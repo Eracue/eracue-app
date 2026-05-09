@@ -12,6 +12,24 @@ import { useState } from "react";
 // pillars are captured client-side and passed through to the success
 // state's link target as URL params (lossless even though there's no
 // persistent write yet).
+//
+// F3 — Two pillar variants (regulated industry vs coordinated
+// campaign). Selecting a variant pre-fills the three pillar inputs
+// with the variant's text; the user can edit afterward.
+type HouseVariant = "regulated" | "campaign";
+
+const HOUSE_VARIANTS: Record<HouseVariant, [string, string, string]> = {
+  regulated: [
+    "We do not comment on material non-public information in public communications.",
+    "All forward-looking statements are clearly labeled and subject to applicable safe harbor language.",
+    "Human review is documented before any AI-assisted communication is published.",
+  ],
+  campaign: [
+    "Every speaker stays on the approved narrative. No individual improvisation.",
+    "Competitor names are never used in public communications without legal review.",
+    "Pricing claims require pre-approval before any public channel.",
+  ],
+};
 
 export function NewCampaignForm({
   isDemoMode,
@@ -25,6 +43,7 @@ export function NewCampaignForm({
   const [principal, setPrincipal] = useState("");
   const [speakers, setSpeakers] = useState("");
   const [showHouse, setShowHouse] = useState(false);
+  const [houseVariant, setHouseVariant] = useState<HouseVariant>("regulated");
   const [pillar1, setPillar1] = useState("");
   const [pillar2, setPillar2] = useState("");
   const [pillar3, setPillar3] = useState("");
@@ -32,6 +51,17 @@ export function NewCampaignForm({
     slug: string;
     name: string;
   } | null>(null);
+
+  // F3 — apply a variant's preset pillars to the three inputs. Wipes
+  // prior input on switch so the visitor sees the new variant cleanly;
+  // they remain free to edit each line afterward.
+  function applyVariant(v: HouseVariant) {
+    const [p1, p2, p3] = HOUSE_VARIANTS[v];
+    setHouseVariant(v);
+    setPillar1(p1);
+    setPillar2(p2);
+    setPillar3(p3);
+  }
 
   const valid = name.trim() && startDate && endDate;
 
@@ -45,6 +75,7 @@ export function NewCampaignForm({
     setPillar2("");
     setPillar3("");
     setShowHouse(false);
+    setHouseVariant("regulated");
     setSubmitted(null);
   }
 
@@ -243,7 +274,35 @@ export function NewCampaignForm({
           </button>
           {showHouse && (
             <div className="px-3 pb-3 space-y-3 border-t border-[#E2E8F0]">
-              <div className="pt-3">
+              {/* F3 — audience-specific variant toggle. Selecting a
+                  variant pre-fills the three pillar inputs with that
+                  variant's text. The user can edit each input
+                  afterward; the toggle is just a starting point. */}
+              <div className="pt-3 flex items-center gap-4 font-mono text-[10px] uppercase tracking-widest">
+                {(
+                  [
+                    { key: "regulated" as const, label: "Regulated industry" },
+                    { key: "campaign" as const, label: "Coordinated campaign" },
+                  ]
+                ).map((opt) => {
+                  const active = houseVariant === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => applyVariant(opt.key)}
+                      className={`cursor-pointer transition-colors ${
+                        active
+                          ? "text-[#0F172A] underline underline-offset-4"
+                          : "text-[#64748B] hover:text-[#0F172A]"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div>
                 <label
                   htmlFor="pillar-1"
                   className="block font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1.5"

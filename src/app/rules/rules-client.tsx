@@ -1431,55 +1431,10 @@ export function RulesClient({
             lifecyclePillFor) directly below the status badge, so the
             page no longer repeats the state vocabulary in two places. */}
 
-        {/* R12-R14 — Message House */}
-        <section className="mt-12">
-          <h2
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-2xl font-light text-[#0D1B2A] mb-4"
-          >
-            Message House
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            {[
-              "We build for long-term trust, not short-term growth metrics.",
-              "Our products are designed for regulatory environments where record-keeping is mandatory.",
-              "Human oversight is not optional — it is the product.",
-              null,
-              null,
-            ].map((pillar, i) => {
-              const num = String(i + 1).padStart(2, "0");
-              return (
-                <div
-                  key={i}
-                  className="bg-white border border-[#E2E8F0] rounded-lg p-4 min-h-[140px] flex flex-col"
-                >
-                  <div className="font-mono text-[10px] text-[#94A3B8] mb-2">
-                    {num}
-                  </div>
-                  {pillar ? (
-                    <div className="text-sm text-[#0D1B2A] leading-relaxed">
-                      {pillar}
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="text-left text-sm text-[#64748B] hover:text-[#475569] transition-colors cursor-pointer"
-                    >
-                      + Add pillar
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <div className="text-[#94A3B8] text-sm mt-4 leading-relaxed">
-            Every draft is compared to your active pillars. Contradictions are
-            flagged. Drift is surfaced.
-          </div>
-          <div className="text-[#64748B] text-xs italic mt-1">
-            Automatic enforcement coming soon.
-          </div>
-        </section>
+        {/* F1 — the standalone Message House section was removed
+            from this page. It's now part of the campaign-creation
+            form (E2) and surfaces a per-campaign signal on the submit
+            verdict view (F2). The rules page focuses on rules. */}
 
         {/* R15-R16 — AI Content Detection */}
         <section className="mt-12">

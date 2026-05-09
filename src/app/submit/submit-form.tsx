@@ -354,6 +354,7 @@ export function SubmitForm({
           onReset={handleReset}
           onRevise={handleRevise}
           draftText={draftText}
+          isDemoMode={isDemoMode}
         />
       ) : (
         <FormBody
@@ -778,6 +779,7 @@ function VerdictView({
   onReset,
   onRevise,
   draftText,
+  isDemoMode,
 }: {
   verdictKey: string;
   meta: { label: string; headerBg: string; headerBorder: string; badgeBg: string };
@@ -788,6 +790,7 @@ function VerdictView({
   onReset: () => void;
   onRevise: () => void;
   draftText: string;
+  isDemoMode: boolean;
 }) {
   const draftId = data?.draftId;
   const checks = data?.checks ?? [];
@@ -904,6 +907,40 @@ function VerdictView({
           </div>
         )}
       </div>
+
+      {/* F2 — Message House contradiction signal. Demo-only,
+          BLOCK-only: the surface illustrates how a campaign-level
+          pillar contradiction would surface alongside the rule
+          verdict. Production deployments will derive this from the
+          campaign's stored pillars + the consistency check. CLEARED
+          verdicts intentionally never show this row. */}
+      {isDemoMode && verdictKey === "block" && (
+        <div className="bg-white border border-[#E2E8F0] rounded-sm p-4 mb-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className="font-mono text-[9px] uppercase tracking-widest text-[#94A3B8]"
+              aria-label="Demo signal"
+            >
+              Demo signal
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-[#F59E0B]" aria-hidden>
+              ⚠
+            </span>
+            <span className="font-mono text-xs text-[#0F172A]">
+              Message House · Pillar 02
+            </span>
+            <span className="font-mono text-xs text-[#C2410C]">
+              possible contradiction detected
+            </span>
+          </div>
+          <p className="text-[#64748B] text-xs mt-2 leading-relaxed">
+            ERA CUE surfaces a possible pillar contradiction. Whether
+            this affects your communication is a judgment for your team.
+          </p>
+        </div>
+      )}
 
       {/* D3 — BLOCK verdict shows two side-by-side action cards
           (stacked on mobile). ESCALATE keeps the same affordances —
