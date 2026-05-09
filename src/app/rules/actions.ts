@@ -175,6 +175,13 @@ export async function createRuleAction(
       .select("id")
       .single();
     if (error) {
+      // Surface the underlying Supabase error before the demo-mode
+      // fallback swallows it. Without this log, every column-mismatch
+      // / schema-drift / RLS rejection is invisible because the demo
+      // path returns a simulated success regardless. Logged as a
+      // single JSON.stringify so Vercel function logs preserve every
+      // field of the PostgrestError shape (code / details / hint).
+      console.error("createRuleAction DB error:", JSON.stringify(error));
       // FIX 2 — demo mode never lets a save error block the flow.
       // The visitor sees a successful confirmation panel even when
       // the underlying DB is unreachable; production deploys
@@ -193,6 +200,12 @@ export async function createRuleAction(
     return { ok: true, ruleId: data.id, ruleName, keywordCount };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
+    // Same rationale — log thrown exceptions before the demo
+    // fallback masks them.
+    console.error(
+      "createRuleAction caught:",
+      e instanceof Error ? e.message : String(e),
+    );
     if (IS_DEMO_MODE) {
       await delay(800);
       return {
