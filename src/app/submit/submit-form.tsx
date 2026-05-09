@@ -329,7 +329,7 @@ export function SubmitForm({
 
       {/* ─── Body — three modes (form / checking / verdict) ─────────── */}
       {checking ? (
-        <CheckingState stage={checkingStage} />
+        <CheckingState stage={checkingStage} ruleCount={ruleCount} />
       ) : verdictLower && verdictMeta ? (
         <VerdictView
           verdictKey={verdictLower}
@@ -640,11 +640,14 @@ function FormBody({
             stays consistent across the two surfaces. */}
         <div className="px-4 py-3 border-t border-[#E2E8F0] bg-[#F8F9FB] flex items-center justify-between gap-3 flex-wrap">
           <div className="font-mono text-[10px] text-[#94A3B8]">
-            {isDemoMode
-              ? "4 governance rules active"
-              : ruleCount > 0
-                ? `${ruleCount} governance rule${ruleCount !== 1 ? "s" : ""} active`
-                : "Standard governance checks will run"}
+            {/* C5 — rule count is sourced from the same `rules` query
+                as the rules page (see src/app/submit/page.tsx). The
+                previous hardcoded "4 governance rules active" string
+                drifted from the live count when the seed changed; the
+                live count is the only source of truth now. */}
+            {ruleCount > 0
+              ? `${ruleCount} governance rule${ruleCount !== 1 ? "s" : ""} active`
+              : "Standard governance checks will run"}
           </div>
           <button
             type="button"
@@ -673,16 +676,23 @@ function FormBody({
 
 function CheckingState({
   stage,
+  ruleCount,
 }: {
   stage: 0 | 1 | 2;
+  ruleCount: number;
 }) {
   // Three-line progressive narrative. Each line lights up in sequence
   // (800ms apart, driven by setCheckingStage) so the visitor reads the
   // governance pipeline running in real time rather than staring at a
-  // spinner.
+  // spinner. C5 — rule count comes from the live database query, not
+  // a hardcoded value.
+  const ruleCountLabel =
+    ruleCount > 0
+      ? `${ruleCount} active governance rule${ruleCount !== 1 ? "s" : ""}`
+      : "active governance rules";
   const lines: ReadonlyArray<{ text: string; stage: 0 | 1 | 2 }> = [
     {
-      text: "Checking against 4 active governance rules...",
+      text: `Checking against ${ruleCountLabel}...`,
       stage: 0,
     },
     {

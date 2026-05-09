@@ -151,6 +151,48 @@ function statusBadgeClass(status: LifecycleStatus): string {
   }
 }
 
+// C3 — derived lifecycle pill state. Maps the existing 5-state badge
+// classification onto the spec's narrative lifecycle:
+//   draft → (pill omitted; the DRAFT status badge already says it)
+//   active + 0 triggers           → "Authorized"
+//   active + ≥1 trigger           → "Firing"
+//   silent (≥30d, 0 triggers)     → "Silent"
+//   expiring (≤60d to expiry)     → "Expiring"
+//   deactivated                   → "Deactivated"
+type LifecyclePill =
+  | "Authorized"
+  | "Firing"
+  | "Silent"
+  | "Expiring"
+  | "Deactivated";
+
+function lifecyclePillFor(
+  rule: RuleRow,
+  status: LifecycleStatus,
+): LifecyclePill | null {
+  if (status === "DRAFT") return null;
+  if (status === "DEACTIVATED") return "Deactivated";
+  if (status === "EXPIRING") return "Expiring";
+  if (status === "SILENT") return "Silent";
+  // ACTIVE
+  return (rule.trigger_count ?? 0) > 0 ? "Firing" : "Authorized";
+}
+
+function lifecyclePillClass(state: LifecyclePill): string {
+  switch (state) {
+    case "Authorized":
+      return "bg-[#0EA5E9]/10 text-[#0EA5E9]";
+    case "Firing":
+      return "bg-green-100 text-green-700";
+    case "Silent":
+      return "bg-yellow-100 text-yellow-700";
+    case "Expiring":
+      return "bg-orange-100 text-orange-700";
+    case "Deactivated":
+      return "bg-[#334155] text-[#94A3B8]";
+  }
+}
+
 type Props = {
   rules: RuleRow[];
   corpusCount?: number;
@@ -163,58 +205,309 @@ type Props = {
 // const evaluates to a literal in the client bundle.
 const IS_DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
-// ---------- R3 Templates -----------------------------------------------------
-// Six built-in templates surfaced in the "Enable via Template" modal.
+// ---------- C1 Templates -----------------------------------------------------
+// Sixteen built-in templates split across two tabs in the
+// TemplateModal — eight regulated-industries templates (FINRA / SEC /
+// EU AI Act) and eight coordinated-campaigns templates (governance
+// patterns that don't map to a single regulator). Each carries the
+// severity it should land at on creation; the Modal surfaces this as
+// the BLOCK / REVIEW badge on the template card and also feeds the
+// post-action confirmation panel.
+type TemplateTab = "regulated" | "campaigns";
+type TemplateSeverity = "BLOCK" | "REVIEW";
 type BuiltInTemplate = {
   id: string;
+  tab: TemplateTab;
   name: string;
-  basis: string;
+  basis: string; // regulatory citation for "regulated" / use case for "campaigns"
+  severity: TemplateSeverity;
   keywords: string[];
   catches: string;
+  // C2 — examiner-facing one-liner. Renders italic muted below the
+  // catches description on regulated templates only. Optional so
+  // coordinated-campaigns templates can omit it.
+  regulatorAsks?: string;
 };
 
 const BUILT_IN_TEMPLATES: ReadonlyArray<BuiltInTemplate> = [
+  // ─── Regulated Industries ─────────────────────────────────────────
   {
-    id: "quiet_period",
-    name: "Quiet Period",
-    basis: "FINRA/SEC",
-    keywords: ["quiet", "raising", "fundraising", "investors", "material"],
-    catches: "fundraising language during restricted windows",
+    id: "finra_3110",
+    tab: "regulated",
+    name: "FINRA Rule 3110 — Principal Pre-Approval",
+    basis: "FINRA Rule 3110",
+    severity: "BLOCK",
+    keywords: [
+      "review required",
+      "principal approval",
+      "pre-approval needed",
+      "compliance review",
+      "supervisory review",
+    ],
+    catches:
+      "communications requiring named principal sign-off before publication",
+    regulatorAsks:
+      "Examiner asks: who reviewed this, when, and where's the record? ERA CUE answers all three.",
   },
   {
-    id: "testimonial_disclosure",
-    name: "Testimonial Disclosure",
+    id: "finra_2210",
+    tab: "regulated",
+    name: "FINRA Rule 2210 — Retail Communication",
+    basis: "FINRA Rule 2210",
+    severity: "REVIEW",
+    keywords: [
+      "guaranteed",
+      "promise",
+      "assure",
+      "certainty",
+      "risk-free",
+      "no risk",
+    ],
+    catches:
+      "performance guarantees and prohibited claims in retail communications",
+    regulatorAsks:
+      "Examiner asks: was this retail communication reviewed against Rule 2210 content standards before publication? ERA CUE records the review chain.",
+  },
+  {
+    id: "sec_marketing",
+    tab: "regulated",
+    name: "SEC Marketing Rule 206(4)-1 — Testimonial",
     basis: "SEC Marketing Rule 206(4)-1",
-    keywords: ["testimonial", "endorsement", "client said", "results"],
-    catches: "endorsement language without disclosures",
-  },
-  {
-    id: "off_channel",
-    name: "Off-Channel Prevention",
-    basis: "SEC Rule 17a-4",
-    keywords: ["WhatsApp", "Signal", "text me", "personal email"],
-    catches: "requests to move to unapproved channels",
-  },
-  {
-    id: "influencer_third_party",
-    name: "Influencer / Third Party",
-    basis: "FINRA 2210",
-    keywords: ["share this", "post for us", "promote"],
-    catches: "unreviewed third-party promotional content",
+    severity: "BLOCK",
+    keywords: [
+      "client said",
+      "testimonial",
+      "endorsement",
+      "customer results",
+      "client review",
+      "as my client",
+    ],
+    catches: "testimonial and endorsement language requiring disclosure",
+    regulatorAsks:
+      "Examiner asks: was this testimonial disclosed and pre-approved? ERA CUE records both.",
   },
   {
     id: "reg_fd",
-    name: "Reg FD",
+    tab: "regulated",
+    name: "Reg FD — Material Information",
     basis: "Reg FD",
-    keywords: ["material", "non-public", "inside", "confidential deal"],
-    catches: "material non-public information language",
+    severity: "BLOCK",
+    keywords: [
+      "material",
+      "non-public",
+      "inside",
+      "confidential deal",
+      "not yet announced",
+      "embargoed",
+    ],
+    catches: "material non-public information in public communications",
+    regulatorAsks:
+      "Examiner asks: was this material information public before it was communicated? ERA CUE records the submission timestamp.",
   },
   {
-    id: "ai_origin",
-    name: "AI Origin Declaration",
-    basis: "EU AI Act Art. 50",
-    keywords: ["AI wrote", "generated by", "drafted by AI"],
-    catches: "AI-generated content without declared origin",
+    id: "off_channel",
+    tab: "regulated",
+    name: "Off-Channel Prevention — SEC Rule 17a-4",
+    basis: "SEC Rule 17a-4",
+    severity: "BLOCK",
+    keywords: [
+      "WhatsApp",
+      "Signal",
+      "text me",
+      "personal email",
+      "DM me",
+      "off the record",
+    ],
+    catches: "requests to move communications to unarchived channels",
+    regulatorAsks:
+      "Examiner asks: are all governed communications captured and retrievable? ERA CUE records every submission against a managed channel.",
+  },
+  {
+    id: "ia_quiet_period",
+    tab: "regulated",
+    name: "Investment Adviser Quiet Period",
+    basis: "Investment Advisers Act of 1940",
+    severity: "BLOCK",
+    keywords: [
+      "raising",
+      "fundraising",
+      "investors",
+      "capital raise",
+      "new fund",
+      "closing our round",
+    ],
+    catches: "fundraising language during restricted windows",
+    regulatorAsks:
+      "Examiner asks: did this fundraising-period communication clear pre-publication review? ERA CUE records the rule check and the timestamp.",
+  },
+  {
+    id: "earnings_quiet",
+    tab: "regulated",
+    name: "Public Company Earnings Quiet Period",
+    basis: "SEC Reg FD · disclosure controls",
+    severity: "BLOCK",
+    keywords: [
+      "revenue",
+      "guidance",
+      "outlook",
+      "expects",
+      "projects",
+      "anticipates",
+      "beat",
+      "miss",
+    ],
+    catches:
+      "forward guidance and earnings language during quiet periods",
+    regulatorAsks:
+      "Examiner asks: was forward guidance issued during the earnings quiet period? ERA CUE records each submission against the active window.",
+  },
+  {
+    id: "eu_ai_act_50",
+    tab: "regulated",
+    name: "EU AI Act Article 50 — AI Origin",
+    basis: "EU AI Act Article 50",
+    severity: "REVIEW",
+    keywords: [
+      "AI wrote",
+      "generated by",
+      "drafted by AI",
+      "created by AI",
+      "ChatGPT wrote",
+      "Claude wrote",
+    ],
+    catches: "AI-generated content requiring declared origin",
+    regulatorAsks:
+      "Regulator asks: was AI involvement declared and reviewed by a human? ERA CUE records both.",
+  },
+
+  // ─── Coordinated Campaigns ─────────────────────────────────────────
+  {
+    id: "fundraising_quiet",
+    tab: "campaigns",
+    name: "Fundraising Quiet Period",
+    basis: "Coordinated campaign — fundraising window",
+    severity: "BLOCK",
+    keywords: [
+      "hiring",
+      "expanding",
+      "growth",
+      "raising",
+      "investors",
+      "fundraising",
+      "series",
+      "round",
+    ],
+    catches: "hiring and growth language during fundraising quiet periods",
+  },
+  {
+    id: "product_launch_embargo",
+    tab: "campaigns",
+    name: "Product Launch Embargo",
+    basis: "Coordinated campaign — product embargo",
+    severity: "BLOCK",
+    keywords: [
+      "launching",
+      "new product",
+      "announcing",
+      "release date",
+      "shipping",
+      "going live",
+    ],
+    catches:
+      "premature product announcement language before embargo lift",
+  },
+  {
+    id: "competitor_review",
+    tab: "campaigns",
+    name: "Competitor Mention Review",
+    basis: "Coordinated campaign — competitive language",
+    severity: "REVIEW",
+    keywords: [
+      "our competitor",
+      "unlike competitors",
+      "better than",
+      "no competitor can",
+      "outperforms",
+      "competitor",
+    ],
+    catches: "direct competitor references requiring review",
+  },
+  {
+    id: "pricing_review",
+    tab: "campaigns",
+    name: "Pricing Claim Review",
+    basis: "Coordinated campaign — pricing consistency",
+    severity: "REVIEW",
+    keywords: [
+      "lowest price",
+      "best price",
+      "most affordable",
+      "cheapest",
+      "industry-leading price",
+      "unbeatable",
+    ],
+    catches: "pricing claims requiring consistency review",
+  },
+  {
+    id: "exec_alignment",
+    tab: "campaigns",
+    name: "Executive Spokesperson Alignment",
+    basis: "Coordinated campaign — message ownership",
+    severity: "REVIEW",
+    keywords: [
+      "I decided",
+      "my decision",
+      "I announced",
+      "I signed",
+      "I approved",
+      "my team",
+    ],
+    catches:
+      "individual ownership language that may conflict with org-level messaging",
+  },
+  {
+    id: "press_social_consistency",
+    tab: "campaigns",
+    name: "Press Release vs Social Consistency",
+    basis: "Coordinated campaign — cross-channel consistency",
+    severity: "REVIEW",
+    keywords: [
+      "as stated in our release",
+      "per our announcement",
+      "our press release says",
+    ],
+    catches:
+      "cross-channel references that may create inconsistencies",
+  },
+  {
+    id: "multi_speaker_alignment",
+    tab: "campaigns",
+    name: "Multi-Speaker Message Alignment",
+    basis: "Coordinated campaign — collective claims",
+    severity: "REVIEW",
+    keywords: [
+      "we all agree",
+      "the team believes",
+      "everyone on our team",
+      "across our organization",
+    ],
+    catches:
+      "collective claims requiring cross-speaker consistency check",
+  },
+  {
+    id: "agency_brand_voice",
+    tab: "campaigns",
+    name: "Client Brand Voice — Agency Use",
+    basis: "Coordinated campaign — agency-managed accounts",
+    severity: "REVIEW",
+    keywords: [
+      "our brand",
+      "brand voice",
+      "brand guidelines",
+      "on-brand",
+      "off-brand",
+    ],
+    catches: "brand voice deviations in agency-managed accounts",
   },
 ];
 
@@ -447,7 +740,10 @@ export function RulesClient({
     const result = await createRuleAction({
       name: t.name,
       description: `Catches ${t.catches}.`,
-      verdict: "block",
+      // C1 — verdict reflects the template's declared severity.
+      // BLOCK templates fire a hard stop; REVIEW templates route to
+      // principal review.
+      verdict: t.severity === "BLOCK" ? "block" : "review",
       keywords: t.keywords,
       scope: "all_speakers",
       effective_from: today,
@@ -1010,6 +1306,23 @@ export function RulesClient({
                         </div>
                       </div>
 
+                      {/* C3 — narrative lifecycle pill, sits below the
+                          status badge row. Drafts skip the pill (the
+                          DRAFT status badge already says it). */}
+                      {(() => {
+                        const pill = lifecyclePillFor(r, status);
+                        if (!pill) return null;
+                        return (
+                          <div className="mb-2">
+                            <span
+                              className={`inline-block text-xs font-medium px-2 py-0.5 rounded-sm ${lifecyclePillClass(pill)}`}
+                            >
+                              {pill}
+                            </span>
+                          </div>
+                        );
+                      })()}
+
                       {/* R1 — keyword count, last triggered, trigger count */}
                       <div className="font-mono text-[10px] text-[#64748B] flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
                         <span>
@@ -1034,10 +1347,36 @@ export function RulesClient({
                         </div>
                       )}
 
-                      {/* R9 — Authorized [date] */}
-                      <div className="text-[#64748B] text-xs">
-                        {r.effective_from ? `Authorized ${fmtDate(r.effective_from)}` : "Not yet authorized"}
-                      </div>
+                      {/* C6 — Authorized by [principal] on [date].
+                          Falls back to demo principal in IS_DEMO_MODE
+                          when the rule row carries no authorized_by;
+                          falls back to the legacy "Authorized [date]"
+                          line in production when nobody is on record. */}
+                      {(() => {
+                        const persisted = (r.authorized_by ?? "").trim();
+                        const principal =
+                          persisted ||
+                          (IS_DEMO_MODE ? "Sarah Chen · GC" : "");
+                        if (!r.effective_from) {
+                          return (
+                            <div className="text-[#64748B] text-xs">
+                              Not yet authorized
+                            </div>
+                          );
+                        }
+                        if (principal) {
+                          return (
+                            <div className="text-[#64748B] text-xs">
+                              Authorized by: {principal} on {fmtDate(r.effective_from)}
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="text-[#64748B] text-xs">
+                            Authorized {fmtDate(r.effective_from)}
+                          </div>
+                        );
+                      })()}
 
                       {/* R18 — trigger history toggle */}
                       <div className="mt-3 pt-3 border-t border-[#F1F5F9]">
@@ -1087,43 +1426,10 @@ export function RulesClient({
           </div>
         )}
 
-        {/* R10-R11 — Rule Lifecycle */}
-        <section className="mt-12">
-          <h2
-            style={{ fontFamily: "var(--font-newsreader)" }}
-            className="text-2xl font-light text-[#0D1B2A] mb-4"
-          >
-            Rule Lifecycle
-          </h2>
-          <div className="overflow-x-auto">
-            <div className="flex items-stretch gap-3 min-w-max pb-2">
-              {[
-                { name: "Draft", desc: "Created, not yet authorized" },
-                { name: "Authorized", desc: "Named principal confirmed" },
-                { name: "Firing", desc: "First keyword match recorded" },
-                { name: "Silent", desc: "30 days with zero matches" },
-                { name: "Expiring", desc: "End date within 60 days" },
-                { name: "Deactivated", desc: "End date passed or manually deactivated" },
-              ].map((s, i, arr) => (
-                <div key={s.name} className="flex items-center gap-3">
-                  <div className="bg-white border border-[#E2E8F0] rounded-lg px-4 py-3 min-w-[160px]">
-                    <div className="text-sm font-semibold text-[#0D1B2A] mb-1">
-                      {s.name}
-                    </div>
-                    <div className="text-xs text-[#64748B] leading-snug">
-                      {s.desc}
-                    </div>
-                  </div>
-                  {i < arr.length - 1 && (
-                    <span className="text-[#94A3B8] font-mono text-sm" aria-hidden>
-                      →
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        {/* C3 — the standalone Rule Lifecycle section was removed.
+            Each rule card now carries its own lifecycle pill (see
+            lifecyclePillFor) directly below the status badge, so the
+            page no longer repeats the state vocabulary in two places. */}
 
         {/* R12-R14 — Message House */}
         <section className="mt-12">
@@ -1460,6 +1766,7 @@ function TemplateModal({
   const [confirmation, setConfirmation] = useState<ConfirmationPanelProps | null>(
     null,
   );
+  const [tab, setTab] = useState<TemplateTab>("regulated");
 
   if (confirmation) {
     return (
@@ -1469,61 +1776,112 @@ function TemplateModal({
     );
   }
 
+  const visible = BUILT_IN_TEMPLATES.filter((t) => t.tab === tab);
+
   return (
     <ModalShell title="Enable via Template" onClose={onClose} maxWidth="max-w-3xl">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {BUILT_IN_TEMPLATES.map((t) => (
-          <div
-            key={t.id}
-            className="border border-[#E2E8F0] rounded-lg p-4 flex flex-col"
-          >
-            <div className="text-sm font-semibold text-[#0D1B2A] mb-1">
-              {t.name}
-            </div>
-            <div className="font-mono text-[10px] text-[#94A3B8] mb-2">
-              {t.basis}
-            </div>
-            <div className="text-xs text-[#475569] mb-3 leading-relaxed">
-              Catches {t.catches}.
-            </div>
-            <div className="flex flex-wrap gap-1 mb-3">
-              {t.keywords.map((kw) => (
-                <span
-                  key={kw}
-                  className="font-mono text-[10px] bg-[#F1F5F9] text-[#475569] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
-                >
-                  {kw}
-                </span>
-              ))}
-            </div>
+      {/* C1 — two-tab template library. Regulated industries on the
+          left, coordinated campaigns on the right. The visible list
+          re-renders against `tab` state. */}
+      <div className="flex gap-0 border-b border-[#E2E8F0] mb-4">
+        {(
+          [
+            { key: "regulated" as const, label: "Regulated Industries" },
+            { key: "campaigns" as const, label: "Coordinated Campaigns" },
+          ]
+        ).map((opt) => {
+          const selected = tab === opt.key;
+          return (
             <button
+              key={opt.key}
               type="button"
-              disabled={busy !== null}
-              onClick={async () => {
-                setBusy(t.id);
-                const result = await onEnable(t);
-                setBusy(null);
-                if (result.ok) {
-                  setConfirmation({
-                    ruleName: t.name,
-                    severity: "BLOCK",
-                    keywordCount: t.keywords.length,
-                    authorizedBy: "Sarah Chen · GC",
-                    activationDateIso: new Date()
-                      .toISOString()
-                      .slice(0, 10),
-                    onBack: onClose,
-                  });
-                } else {
-                  alert("Could not create rule: " + result.error);
-                }
-              }}
-              className="mt-auto bg-[#4F46E5] text-white font-mono text-xs font-medium px-3 py-2 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer disabled:opacity-50"
+              onClick={() => setTab(opt.key)}
+              className={`font-mono text-xs px-4 py-2.5 border-b-2 -mb-px transition-colors cursor-pointer ${
+                selected
+                  ? "border-[#4F46E5] text-[#4F46E5]"
+                  : "border-transparent text-[#64748B] hover:text-[#0D1B2A]"
+              }`}
             >
-              {busy === t.id ? "Enabling…" : "Enable this template"}
+              {opt.label}
             </button>
-          </div>
-        ))}
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {visible.map((t) => {
+          const sevClass =
+            t.severity === "BLOCK"
+              ? "bg-[#EF4444] text-white"
+              : "bg-[#F59E0B] text-white";
+          // Keywords on the card are capped to five samples — keeps
+          // the card height predictable across the full 16-template set.
+          const keywordSamples = t.keywords.slice(0, 5);
+          return (
+            <div
+              key={t.id}
+              className="border border-[#E2E8F0] rounded-lg p-4 flex flex-col"
+            >
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="text-sm font-semibold text-[#0D1B2A] leading-snug min-w-0">
+                  {t.name}
+                </div>
+                <span
+                  className={`font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm shrink-0 ${sevClass}`}
+                >
+                  {t.severity}
+                </span>
+              </div>
+              <div className="font-mono text-[10px] text-[#94A3B8] mb-2">
+                {t.basis}
+              </div>
+              <div className="flex flex-wrap gap-1 mb-3">
+                {keywordSamples.map((kw) => (
+                  <span
+                    key={kw}
+                    className="font-mono text-[10px] bg-[#F1F5F9] text-[#475569] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
+                  >
+                    {kw}
+                  </span>
+                ))}
+              </div>
+              <div className="text-xs text-[#475569] mb-1 leading-relaxed">
+                Catches {t.catches}.
+              </div>
+              {t.regulatorAsks && (
+                <div className="text-[#64748B] text-xs italic mb-3 leading-relaxed">
+                  {t.regulatorAsks}
+                </div>
+              )}
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={async () => {
+                  setBusy(t.id);
+                  const result = await onEnable(t);
+                  setBusy(null);
+                  if (result.ok) {
+                    setConfirmation({
+                      ruleName: t.name,
+                      severity: t.severity,
+                      keywordCount: t.keywords.length,
+                      authorizedBy: "Sarah Chen · GC",
+                      activationDateIso: new Date()
+                        .toISOString()
+                        .slice(0, 10),
+                      onBack: onClose,
+                    });
+                  } else {
+                    alert("Could not create rule: " + result.error);
+                  }
+                }}
+                className="mt-auto bg-[#4F46E5] text-white font-mono text-xs font-medium px-3 py-2 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {busy === t.id ? "Enabling…" : "Enable this template"}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </ModalShell>
   );

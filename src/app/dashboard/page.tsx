@@ -858,21 +858,38 @@ export default async function DashboardPage() {
                         {/* Effectiveness score — (matches − overrides) / matches.
                             Green ≥80, slate 50-79, amber <50 with at least
                             3 matches (avoids noisy 0% signals on 1-trigger
-                            rules). Hidden when the rule has never matched. */}
+                            rules). Hidden when the rule has never matched.
+                            C4 — muted sub-label clarifies the metric is
+                            derived from real trigger and override history,
+                            not a static value. */}
                         {r.effectivenessScore !== null && (
-                          r.effectivenessScore >= 80 ? (
-                            <div className="font-mono text-[10px] text-[#166534] mt-0.5">
-                              {r.effectivenessScore}% effective
+                          <>
+                            {r.effectivenessScore >= 80 ? (
+                              <div
+                                className="font-mono text-[10px] text-[#166534] mt-0.5"
+                                title="Based on trigger and override history."
+                              >
+                                {r.effectivenessScore}% effective
+                              </div>
+                            ) : r.effectivenessScore < 50 && r.timesTriggered >= 3 ? (
+                              <div
+                                className="font-mono text-[10px] text-[#C2410C] mt-0.5"
+                                title="Based on trigger and override history."
+                              >
+                                {r.effectivenessScore}% effective · Consider refining this rule
+                              </div>
+                            ) : (
+                              <div
+                                className="font-mono text-[10px] text-[#64748B] mt-0.5"
+                                title="Based on trigger and override history."
+                              >
+                                {r.effectivenessScore}% effective
+                              </div>
+                            )}
+                            <div className="font-mono text-[9px] text-[#94A3B8] mt-0.5">
+                              Based on trigger and override history.
                             </div>
-                          ) : r.effectivenessScore < 50 && r.timesTriggered >= 3 ? (
-                            <div className="font-mono text-[10px] text-[#C2410C] mt-0.5">
-                              {r.effectivenessScore}% effective · Consider refining this rule
-                            </div>
-                          ) : (
-                            <div className="font-mono text-[10px] text-[#64748B] mt-0.5">
-                              {r.effectivenessScore}% effective
-                            </div>
-                          )
+                          </>
                         )}
                       </div>
                       <div className="font-mono text-xs text-[#94A3B8] w-20 text-right">
