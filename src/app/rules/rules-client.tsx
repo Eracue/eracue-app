@@ -756,7 +756,12 @@ export function RulesClient({
   // inline confirmation panel on success. `closeAndRefresh`, called
   // from the panel's "Back to rules" / close button, dismisses the
   // modal and refreshes the rule list.
-  type CreateResult = { ok: true } | { ok: false; error: string };
+  //
+  // FIX 1 — success returns now carry `ruleName` and `keywordCount`
+  // echoed from the input, mirroring the server-action shape.
+  type CreateResult =
+    | { ok: true; ruleName: string; keywordCount: number }
+    | { ok: false; error: string };
 
   function closeAndRefresh() {
     setOpenModal(null);
@@ -782,7 +787,9 @@ export function RulesClient({
       authorized_by: "",
       rule_status: "active",
     });
-    return result.ok ? { ok: true } : { ok: false, error: result.error };
+    return result.ok
+      ? { ok: true, ruleName: result.ruleName, keywordCount: result.keywordCount }
+      : { ok: false, error: result.error };
   }
 
   async function handleCreateCustomRule(input: {
@@ -804,7 +811,9 @@ export function RulesClient({
       authorized_by: "",
       rule_status: "active",
     });
-    return result.ok ? { ok: true } : { ok: false, error: result.error };
+    return result.ok
+      ? { ok: true, ruleName: result.ruleName, keywordCount: result.keywordCount }
+      : { ok: false, error: result.error };
   }
 
   async function handleActivateExtractedRule(
@@ -824,7 +833,9 @@ export function RulesClient({
       authorized_by: "",
       rule_status: "active",
     });
-    return result.ok ? { ok: true } : { ok: false, error: result.error };
+    return result.ok
+      ? { ok: true, ruleName: result.ruleName, keywordCount: result.keywordCount }
+      : { ok: false, error: result.error };
   }
 
   async function handleAuthorizeDraft(id: string) {
@@ -858,12 +869,31 @@ export function RulesClient({
     );
     if (!ok) return;
     startTransition(async () => {
-      const result = await deactivateRuleAction({
-        ruleId: id,
-        reason: "Deactivated by principal",
-      });
-      if (!result.ok) {
-        alert("Could not deactivate: " + result.error);
+      try {
+        const result = await deactivateRuleAction({
+          ruleId: id,
+          reason: "Deactivated by principal",
+        });
+        if (!result.ok) {
+          // FIX 3 — surface the failure inline rather than via a
+          // native alert dialog. Production deploys will rarely hit
+          // this path (demo mode falls through with a simulated
+          // success); when it does, the visitor sees the error in
+          // the notice slot the success message normally uses.
+          setDeactivateNotice({
+            ruleName: `Could not deactivate "${ruleName}": ${result.error}`,
+            timestamp: new Date().toLocaleString("en-US"),
+          });
+          window.setTimeout(() => setDeactivateNotice(null), 5000);
+          return;
+        }
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Unknown error";
+        setDeactivateNotice({
+          ruleName: `Could not deactivate "${ruleName}": ${message}`,
+          timestamp: new Date().toLocaleString("en-US"),
+        });
+        window.setTimeout(() => setDeactivateNotice(null), 5000);
         return;
       }
       // B5 — set the inline notice + auto-dismiss after 5 seconds.
@@ -1896,10 +1926,20 @@ function TemplateModal({
   onEnable,
 }: {
   onClose: () => void;
-  onEnable: (t: BuiltInTemplate) => Promise<{ ok: true } | { ok: false; error: string }>;
+  onEnable: (
+    t: BuiltInTemplate,
+  ) => Promise<
+    | { ok: true; ruleName: string; keywordCount: number }
+    | { ok: false; error: string }
+  >;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationPanelProps | null>(
+    null,
+  );
+  // FIX 3 — inline error keyed by template id so the failed card
+  // shows its own retry message rather than blocking the whole grid.
+  const [error, setError] = useState<{ id: string; message: string } | null>(
     null,
   );
   const [tab, setTab] = useState<TemplateTab>("regulated");
@@ -1994,27 +2034,44 @@ function TemplateModal({
                 disabled={busy !== null}
                 onClick={async () => {
                   setBusy(t.id);
-                  const result = await onEnable(t);
-                  setBusy(null);
-                  if (result.ok) {
-                    setConfirmation({
-                      ruleName: t.name,
-                      severity: t.severity,
-                      keywordCount: t.keywords.length,
-                      authorizedBy: "Sarah Chen · GC",
-                      activationDateIso: new Date()
-                        .toISOString()
-                        .slice(0, 10),
-                      onBack: onClose,
-                    });
-                  } else {
-                    alert("Could not create rule: " + result.error);
+                  setError(null);
+                  try {
+                    const result = await onEnable(t);
+                    if (result.ok) {
+                      setConfirmation({
+                        ruleName: result.ruleName,
+                        severity: t.severity,
+                        keywordCount: result.keywordCount,
+                        authorizedBy: "Sarah Chen · GC",
+                        activationDateIso: new Date()
+                          .toISOString()
+                          .slice(0, 10),
+                        onBack: onClose,
+                      });
+                    } else {
+                      setError({ id: t.id, message: result.error });
+                    }
+                  } catch (e) {
+                    const message =
+                      e instanceof Error ? e.message : "Unknown error";
+                    setError({ id: t.id, message });
+                  } finally {
+                    setBusy(null);
                   }
                 }}
-                className="mt-auto bg-[#4F46E5] text-white font-mono text-xs font-medium px-3 py-2 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer disabled:opacity-50"
+                className={`mt-auto bg-[#4F46E5] text-white font-mono text-xs font-medium px-3 py-2 rounded-sm hover:bg-[#4338CA] transition-colors ${
+                  busy === t.id
+                    ? "opacity-50 cursor-not-allowed animate-pulse"
+                    : "cursor-pointer"
+                } disabled:opacity-50`}
               >
-                {busy === t.id ? "Enabling…" : "Enable this template"}
+                {busy === t.id ? "Saving..." : "Enable this template"}
               </button>
+              {error && error.id === t.id && (
+                <div className="text-[#EF4444] text-sm mt-2">
+                  Save failed — {error.message}. Try again.
+                </div>
+              )}
             </div>
           );
         })}
@@ -2033,12 +2090,16 @@ function PastePolicyModal({
   onActivate: (
     name: string,
     keywords: string[],
-  ) => Promise<{ ok: true } | { ok: false; error: string }>;
+  ) => Promise<
+    | { ok: true; ruleName: string; keywordCount: number }
+    | { ok: false; error: string }
+  >;
 }) {
   const [text, setText] = useState("");
   const [chips, setChips] = useState<string[] | null>(null);
   const [name, setName] = useState("Custom Policy Rule");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationPanelProps | null>(
     null,
   );
@@ -2070,20 +2131,26 @@ function PastePolicyModal({
   async function handleActivate() {
     if (!chips || chips.length === 0) return;
     setBusy(true);
+    setError(null);
     const finalName = name.trim() || "Custom Policy Rule";
-    const result = await onActivate(finalName, chips);
-    setBusy(false);
-    if (result.ok) {
-      setConfirmation({
-        ruleName: finalName,
-        severity: "BLOCK",
-        keywordCount: chips.length,
-        authorizedBy: "Sarah Chen · GC",
-        activationDateIso: new Date().toISOString().slice(0, 10),
-        onBack: onClose,
-      });
-    } else {
-      alert("Could not create rule: " + result.error);
+    try {
+      const result = await onActivate(finalName, chips);
+      if (result.ok) {
+        setConfirmation({
+          ruleName: result.ruleName,
+          severity: "BLOCK",
+          keywordCount: result.keywordCount,
+          authorizedBy: "Sarah Chen · GC",
+          activationDateIso: new Date().toISOString().slice(0, 10),
+          onBack: onClose,
+        });
+      } else {
+        setError(result.error);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -2156,10 +2223,19 @@ function PastePolicyModal({
             type="button"
             onClick={handleActivate}
             disabled={busy || chips.length === 0 || !name.trim()}
-            className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors cursor-pointer"
+            className={`bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors ${
+              busy
+                ? "opacity-50 cursor-not-allowed animate-pulse"
+                : "cursor-pointer"
+            }`}
           >
-            {busy ? "Activating…" : "Activate rule"}
+            {busy ? "Saving..." : "Activate rule"}
           </button>
+          {error && (
+            <div className="text-[#EF4444] text-sm mt-2">
+              Save failed — {error}. Try again.
+            </div>
+          )}
         </div>
       )}
     </ModalShell>
@@ -2176,12 +2252,16 @@ function UploadDocumentModal({
   onActivate: (
     name: string,
     keywords: string[],
-  ) => Promise<{ ok: true } | { ok: false; error: string }>;
+  ) => Promise<
+    | { ok: true; ruleName: string; keywordCount: number }
+    | { ok: false; error: string }
+  >;
 }) {
   const [filename, setFilename] = useState<string | null>(null);
   const [chips, setChips] = useState<string[] | null>(null);
   const [name, setName] = useState("Custom Policy Rule");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationPanelProps | null>(
     null,
   );
@@ -2215,20 +2295,26 @@ function UploadDocumentModal({
   async function handleActivate() {
     if (!chips || chips.length === 0) return;
     setBusy(true);
+    setError(null);
     const finalName = name.trim() || "Custom Policy Rule";
-    const result = await onActivate(finalName, chips);
-    setBusy(false);
-    if (result.ok) {
-      setConfirmation({
-        ruleName: finalName,
-        severity: "BLOCK",
-        keywordCount: chips.length,
-        authorizedBy: "Sarah Chen · GC",
-        activationDateIso: new Date().toISOString().slice(0, 10),
-        onBack: onClose,
-      });
-    } else {
-      alert("Could not create rule: " + result.error);
+    try {
+      const result = await onActivate(finalName, chips);
+      if (result.ok) {
+        setConfirmation({
+          ruleName: result.ruleName,
+          severity: "BLOCK",
+          keywordCount: result.keywordCount,
+          authorizedBy: "Sarah Chen · GC",
+          activationDateIso: new Date().toISOString().slice(0, 10),
+          onBack: onClose,
+        });
+      } else {
+        setError(result.error);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -2307,10 +2393,19 @@ function UploadDocumentModal({
             type="button"
             onClick={handleActivate}
             disabled={busy || chips.length === 0 || !name.trim()}
-            className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors cursor-pointer"
+            className={`bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors ${
+              busy
+                ? "opacity-50 cursor-not-allowed animate-pulse"
+                : "cursor-pointer"
+            }`}
           >
-            {busy ? "Activating…" : "Activate rule"}
+            {busy ? "Saving..." : "Activate rule"}
           </button>
+          {error && (
+            <div className="text-[#EF4444] text-sm mt-2">
+              Save failed — {error}. Try again.
+            </div>
+          )}
         </div>
       )}
     </ModalShell>
@@ -2385,7 +2480,10 @@ function BuildRuleModal({
     verdict: "block" | "review";
     effectiveFrom: string;
     effectiveUntil: string | null;
-  }) => Promise<{ ok: true } | { ok: false; error: string }>;
+  }) => Promise<
+    | { ok: true; ruleName: string; keywordCount: number }
+    | { ok: false; error: string }
+  >;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const [name, setName] = useState("");
@@ -2394,6 +2492,7 @@ function BuildRuleModal({
   const [activation, setActivation] = useState(today);
   const [expiry, setExpiry] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationPanelProps | null>(
     null,
   );
@@ -2401,25 +2500,31 @@ function BuildRuleModal({
   async function handleCreate() {
     if (!name.trim() || chips.length === 0) return;
     setBusy(true);
-    const result = await onCreate({
-      name: name.trim(),
-      keywords: chips,
-      verdict: severity === "BLOCK" ? "block" : "review",
-      effectiveFrom: activation,
-      effectiveUntil: expiry ? expiry : null,
-    });
-    setBusy(false);
-    if (result.ok) {
-      setConfirmation({
-        ruleName: name.trim(),
-        severity,
-        keywordCount: chips.length,
-        authorizedBy: "Sarah Chen · GC",
-        activationDateIso: activation,
-        onBack: onClose,
+    setError(null);
+    try {
+      const result = await onCreate({
+        name: name.trim(),
+        keywords: chips,
+        verdict: severity === "BLOCK" ? "block" : "review",
+        effectiveFrom: activation,
+        effectiveUntil: expiry ? expiry : null,
       });
-    } else {
-      alert("Could not create rule: " + result.error);
+      if (result.ok) {
+        setConfirmation({
+          ruleName: result.ruleName,
+          severity,
+          keywordCount: result.keywordCount,
+          authorizedBy: "Sarah Chen · GC",
+          activationDateIso: activation,
+          onBack: onClose,
+        });
+      } else {
+        setError(result.error);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -2499,22 +2604,33 @@ function BuildRuleModal({
             />
           </div>
         </div>
-        <div className="pt-2 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleCreate}
-            disabled={busy || !name.trim() || chips.length === 0}
-            className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors cursor-pointer"
-          >
-            {busy ? "Creating…" : "Create rule"}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
+        <div className="pt-2">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={busy || !name.trim() || chips.length === 0}
+              className={`bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors ${
+                busy
+                  ? "opacity-50 cursor-not-allowed animate-pulse"
+                  : "cursor-pointer"
+              }`}
+            >
+              {busy ? "Saving..." : "Create rule"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+          {error && (
+            <div className="text-[#EF4444] text-sm mt-2">
+              Save failed — {error}. Try again.
+            </div>
+          )}
         </div>
       </div>
     </ModalShell>
@@ -2557,15 +2673,27 @@ function EditRuleSheet({
   const [from, setFrom] = useState(initialFrom);
   const [until, setUntil] = useState(initialUntil);
   const [busy, setBusy] = useState(false);
+  // FIX 4 — inline error state for the re-authorize footer. Replaces
+  // the prior alert() so the sheet stays open and surfaces the
+  // failure where the visitor expected the success.
+  const [saveError, setSaveError] = useState<string | null>(null);
   // B6 — once a re-authorize succeeds the footer flips to a static
   // confirmation row showing the version, the prior keyword count and
   // the new keyword count. The "Done" button calls onClose, which the
-  // parent wires to closeEditAndRefresh.
+  // parent wires to closeEditAndRefresh. FIX 4 also auto-closes after
+  // 2 seconds via a useEffect below.
   const [completed, setCompleted] = useState<{
     version: number;
     oldCount: number;
     newCount: number;
   } | null>(null);
+
+  // FIX 4 — auto-close after 2s once `completed` lands.
+  useEffect(() => {
+    if (!completed) return;
+    const id = window.setTimeout(() => onClose(), 2000);
+    return () => window.clearTimeout(id);
+  }, [completed, onClose]);
 
   function discard() {
     setName(initialName);
@@ -2578,27 +2706,33 @@ function EditRuleSheet({
 
   async function reauthorize() {
     setBusy(true);
-    const result = await onSave({
-      name,
-      description,
-      verdict,
-      keywords: chips,
-      effective_from: new Date(from).toISOString(),
-      effective_until: until ? new Date(until).toISOString() : null,
-    });
-    setBusy(false);
-    if (result.ok) {
-      // Version 2 is the static post-edit value — the persisted rule
-      // schema doesn't track an explicit version number, so re-
-      // authorizations always read as "Version 2" relative to the
-      // session's starting state.
-      setCompleted({
-        version: 2,
-        oldCount: initialKeywords.length,
-        newCount: chips.length,
+    setSaveError(null);
+    try {
+      const result = await onSave({
+        name,
+        description,
+        verdict,
+        keywords: chips,
+        effective_from: new Date(from).toISOString(),
+        effective_until: until ? new Date(until).toISOString() : null,
       });
-    } else {
-      alert("Could not save: " + result.error);
+      if (result.ok) {
+        // Version 2 is the static post-edit value — the persisted
+        // rule schema doesn't track an explicit version number, so
+        // re-authorizations always read as "Version 2" relative to
+        // the session's starting state.
+        setCompleted({
+          version: 2,
+          oldCount: initialKeywords.length,
+          newCount: chips.length,
+        });
+      } else {
+        setSaveError(result.error);
+      }
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -2831,22 +2965,33 @@ function EditRuleSheet({
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-3 mt-6 pt-4 border-t border-[#E2E8F0]">
-          <button
-            type="button"
-            onClick={reauthorize}
-            disabled={busy || !name.trim()}
-            className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors cursor-pointer"
-          >
-            {busy ? "Saving…" : "Re-authorize →"}
-          </button>
-          <button
-            type="button"
-            onClick={discard}
-            className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
-          >
-            Discard changes
-          </button>
+        <div className="mt-6 pt-4 border-t border-[#E2E8F0]">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={reauthorize}
+              disabled={busy || !name.trim()}
+              className={`bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors ${
+                busy
+                  ? "opacity-50 cursor-not-allowed animate-pulse"
+                  : "cursor-pointer"
+              }`}
+            >
+              {busy ? "Saving..." : "Re-authorize →"}
+            </button>
+            <button
+              type="button"
+              onClick={discard}
+              className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
+            >
+              Discard changes
+            </button>
+          </div>
+          {saveError && (
+            <div className="text-[#EF4444] text-sm mt-2">
+              Save failed — {saveError}. Try again.
+            </div>
+          )}
         </div>
       )}
     </ModalShell>
