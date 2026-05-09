@@ -5,7 +5,8 @@ import { getSupabaseAdmin } from "@/lib/checks";
 import { SiteHeader } from "@/app/site-header";
 import {
   CampaignCommunications,
-  ExportPdfButton,
+  CampaignConsistencySignal,
+  CampaignHeaderAndExport,
   type CampaignDraft,
 } from "./campaign-client";
 
@@ -256,85 +257,20 @@ export default async function CampaignRecordPage({ params }: PageProps) {
       <SiteHeader />
       <main className="min-h-screen bg-[#F8F9FB] print:bg-white">
         <div className="max-w-[1100px] mx-auto px-6 py-10 print:py-0 print:px-0">
-          {/* ─── Print-only summary (C4) ─────────────────────────────
-              Hidden on screen, shown in print. Page 1 of the PDF
-              contains: campaign name, date range, governing principal,
-              the four stat cards, and the legal disclaimer. The
-              page-break-after rule pushes any subsequent screen content
-              onto page 2 of the printed PDF, but in practice the rest
-              of the page is print:hidden so the export stops here. */}
-          <div className="hidden print:block p-8" style={{ pageBreakAfter: "always" }}>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
-              ERA CUE · Campaign summary
-            </div>
-            <h1 className="text-2xl font-light text-[#0F172A] leading-tight">
-              {campaignName}
-            </h1>
-            <dl className="mt-4 grid grid-cols-[8rem_1fr] gap-y-1 text-sm">
-              <dt className="text-[#64748B]">Date range</dt>
-              <dd className="text-[#0F172A]">{dateRangeLabel}</dd>
-              <dt className="text-[#64748B]">Governing principal</dt>
-              <dd className="text-[#0F172A]">{principalLabel}</dd>
-            </dl>
-
-            <div className="mt-6 grid grid-cols-4 gap-3">
-              {[
-                { label: "Drafts submitted", value: draftsSubmitted },
-                { label: "Cleared", value: cleared },
-                { label: "Blocked", value: blocked },
-                { label: "Pending review", value: pendingReview },
-              ].map((card) => (
-                <div
-                  key={card.label}
-                  className="border border-[#E2E8F0] rounded-sm p-4"
-                >
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
-                    {card.label}
-                  </div>
-                  <div className="font-mono text-3xl font-light text-[#0F172A]">
-                    {card.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <p className="mt-8 text-xs text-[#64748B] leading-relaxed">
-              ERA CUE records that governance processes ran for the
-              communications included in this report. Whether these
-              communications satisfy applicable regulatory requirements
-              is a determination for qualified legal counsel.
-            </p>
-          </div>
-
-          {/* Header — screen view */}
-          <div className="mb-8 print:hidden">
-            <Link
-              href="/drafts"
-              className="font-mono text-xs text-[#64748B] hover:text-[#0F172A]"
-            >
-              ← Archive
-            </Link>
-            <div className="flex justify-between items-end gap-4 flex-wrap mt-3">
-              <div className="min-w-0">
-                <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
-                  CAMPAIGN RECORD
-                </div>
-                <h1
-                  style={{ fontFamily: "var(--font-newsreader)" }}
-                  className="font-light text-3xl text-[#0F172A] mt-2"
-                >
-                  {campaignName}
-                </h1>
-                <p className="text-sm text-[#374151] mt-2 max-w-2xl leading-relaxed">
-                  Governance record for all communications under this campaign.
-                </p>
-                <div className="font-mono text-xs text-[#64748B] mt-2">
-                  {dateRangeLabel} · Governed by: {principalLabel}
-                </div>
-              </div>
-              <ExportPdfButton />
-            </div>
-          </div>
+          {/* Header — screen view + print summary panel. The combined
+              client component owns the clientName state shared between
+              the export prompt and the print-panel header (E4). */}
+          <CampaignHeaderAndExport
+            campaignName={campaignName}
+            dateRangeLabel={dateRangeLabel}
+            principalLabel={principalLabel}
+            stats={[
+              { label: "Drafts submitted", value: draftsSubmitted },
+              { label: "Cleared", value: cleared },
+              { label: "Blocked", value: blocked },
+              { label: "Pending review", value: pendingReview },
+            ]}
+          />
 
           {/* C1 — Four stat cards. Real submission data only; no
               engagement / reach / open metrics are surfaced anywhere
@@ -385,6 +321,14 @@ export default async function CampaignRecordPage({ params }: PageProps) {
               </div>
             </div>
           </section>
+
+          {/* E3 — cross-speaker consistency signal. Demo proxy: surface
+              when the campaign has both a blocked and a cleared draft
+              — that combination implies the team's messaging is
+              landing on different sides of the rule line, which is the
+              variance the signal is meant to catch. Real keyword
+              variance detection lands in a future iteration. */}
+          <CampaignConsistencySignal show={blocked > 0 && cleared > 0} />
 
           {/* Speaker breakdown */}
           <section className="mt-10 print:hidden">

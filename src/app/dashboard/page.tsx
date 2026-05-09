@@ -8,6 +8,7 @@ import {
   type ExaminerRecord,
 } from "./examiner-records-section";
 import { SupervisionExport } from "./supervision-export";
+import { NewCampaignForm } from "./new-campaign-form";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -545,7 +546,7 @@ export default async function DashboardPage() {
         <div className="max-w-[1100px] mx-auto px-6">
           {/* HEADER */}
           <div className="pt-10 pb-8 border-b border-[#E2E8F0]">
-            <div className="flex items-start justify-between gap-6">
+            <div className="flex items-start justify-between gap-6 flex-wrap">
               <div>
                 <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
                   REVIEW · SARAH CHEN, GC
@@ -560,6 +561,11 @@ export default async function DashboardPage() {
                   Blocked drafts, governance decisions, and the complete supervision record.
                 </p>
               </div>
+              {/* E1 — "New campaign" entry. Renders as a single button by
+                  default; expands into an inline form panel on click. */}
+              <NewCampaignForm
+                isDemoMode={process.env.NEXT_PUBLIC_DEMO_MODE === "true"}
+              />
             </div>
           </div>
 

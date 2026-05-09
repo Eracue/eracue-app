@@ -246,18 +246,209 @@ export function CampaignCommunications({ drafts, ruleNames }: Props) {
   );
 }
 
-// Top-right "Export to PDF" button (C4). Print is initiated via
-// window.print(); the page's @media print rules hide everything except
-// the dedicated print summary block, so the printed PDF reads as a
-// campaign summary page rather than a screen capture.
-export function ExportPdfButton() {
+// E3 — cross-speaker consistency signal. Renders a yellow indicator
+// bar when the campaign shows messaging variance across speakers. Demo
+// mode uses the conservative `blockedCount > 0 && approvedCount > 0`
+// proxy spec'd by the user; real keyword-variance detection lives in
+// a future iteration. Returns null when no signal is present so the
+// page reads clean for healthy campaigns.
+export function CampaignConsistencySignal({
+  show,
+}: {
+  show: boolean;
+}) {
+  if (!show) return null;
   return (
-    <button
-      type="button"
-      onClick={() => window.print()}
-      className="font-mono text-xs text-[#1A56DB] border border-[#BAE6FD] bg-[#EFF8FF] px-4 py-2 rounded-sm hover:bg-[#DBEAFE] transition-colors whitespace-nowrap cursor-pointer print:hidden"
-    >
-      Export to PDF →
-    </button>
+    <div className="mt-6 print:hidden">
+      <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-sm px-4 py-3">
+        <div className="text-sm text-[#92400E] leading-relaxed">
+          Consistency signal: review recommended — messaging variance
+          detected across speakers.
+        </div>
+        <div className="text-[#64748B] text-xs mt-1 leading-relaxed">
+          ERA CUE surfaces a possible consistency gap. Whether this
+          affects your campaign is a judgment for your communications
+          team.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// E4 — combined export surface: holds the print summary panel plus
+// the "Export to PDF →" button and the optional client-name prompt.
+// Wraps the breadcrumb + screen header so the screen-side button can
+// sit top-right of the header while the print panel is a sibling
+// outside any `print:hidden` ancestor — both reading the same
+// clientName state. Lifted out of page.tsx so the panel header can
+// read dynamic state (the client name flows into the printed page-1
+// header verbatim).
+type StatCard = { label: string; value: number };
+
+export function CampaignHeaderAndExport({
+  campaignName,
+  dateRangeLabel,
+  principalLabel,
+  stats,
+}: {
+  campaignName: string;
+  dateRangeLabel: string;
+  principalLabel: string;
+  stats: ReadonlyArray<StatCard>;
+}) {
+  // Three modes:
+  //   "idle"      → just the button.
+  //   "prompting" → input row asking for an optional client name.
+  //   "exporting" → window.print() has been called; panel header
+  //                 carries the client name; we flip back to idle on
+  //                 the next paint after the print dialog closes.
+  const [mode, setMode] = useState<"idle" | "prompting" | "exporting">("idle");
+  const [clientName, setClientName] = useState("");
+
+  function startExport() {
+    setMode("exporting");
+    // Wait one paint so the print panel re-renders with the client
+    // name baked into its header before the print dialog opens.
+    requestAnimationFrame(() => {
+      window.print();
+      // After print() returns synchronously the dialog is closed; reset
+      // the prompt state so the next click starts fresh.
+      setMode("idle");
+    });
+  }
+
+  // Print-panel header — defaults to the campaign-summary eyebrow,
+  // swaps to the client-prepared variant when a name is set.
+  const headerEyebrow = clientName.trim()
+    ? `ERA CUE · Campaign Compliance Record — prepared for ${clientName.trim()}`
+    : "ERA CUE · Campaign summary";
+
+  return (
+    <>
+      {/* Print-only summary block. Page 1 of the printed PDF carries
+          campaign name, date range, governing principal, the four
+          stat cards, and the legal disclaimer. The page-break-after
+          rule pushes any subsequent screen content onto page 2 of the
+          printed PDF; in practice the rest of the page is print:hidden
+          so the export stops here. */}
+      <div
+        className="hidden print:block p-8"
+        style={{ pageBreakAfter: "always" }}
+      >
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+          {headerEyebrow}
+        </div>
+        <h1 className="text-2xl font-light text-[#0F172A] leading-tight">
+          {campaignName}
+        </h1>
+        <dl className="mt-4 grid grid-cols-[8rem_1fr] gap-y-1 text-sm">
+          <dt className="text-[#64748B]">Date range</dt>
+          <dd className="text-[#0F172A]">{dateRangeLabel}</dd>
+          <dt className="text-[#64748B]">Governing principal</dt>
+          <dd className="text-[#0F172A]">{principalLabel}</dd>
+          {clientName.trim() && (
+            <>
+              <dt className="text-[#64748B]">Prepared for</dt>
+              <dd className="text-[#0F172A]">{clientName.trim()}</dd>
+            </>
+          )}
+        </dl>
+        <div className="mt-6 grid grid-cols-4 gap-3">
+          {stats.map((card) => (
+            <div
+              key={card.label}
+              className="border border-[#E2E8F0] rounded-sm p-4"
+            >
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1">
+                {card.label}
+              </div>
+              <div className="font-mono text-3xl font-light text-[#0F172A]">
+                {card.value}
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-8 text-xs text-[#64748B] leading-relaxed">
+          ERA CUE records that governance processes ran for the
+          communications included in this report. Whether these
+          communications satisfy applicable regulatory requirements
+          is a determination for qualified legal counsel.
+        </p>
+      </div>
+
+      {/* Screen surface — breadcrumb + header + button/prompt. The
+          print panel above is a sibling outside this `print:hidden`
+          wrapper so it actually renders to the printed page. */}
+      <div className="mb-8 print:hidden">
+        <Link
+          href="/drafts"
+          className="font-mono text-xs text-[#64748B] hover:text-[#0F172A]"
+        >
+          ← Archive
+        </Link>
+        <div className="flex justify-between items-end gap-4 flex-wrap mt-3">
+          <div className="min-w-0">
+            <div className="font-mono text-xs uppercase tracking-widest text-[#64748B]">
+              CAMPAIGN RECORD
+            </div>
+            <h1
+              style={{ fontFamily: "var(--font-newsreader)" }}
+              className="font-light text-3xl text-[#0F172A] mt-2"
+            >
+              {campaignName}
+            </h1>
+            <p className="text-sm text-[#374151] mt-2 max-w-2xl leading-relaxed">
+              Governance record for all communications under this campaign.
+            </p>
+            <div className="font-mono text-xs text-[#64748B] mt-2">
+              {dateRangeLabel} · Governed by: {principalLabel}
+            </div>
+          </div>
+          {mode === "prompting" ? (
+            <div className="bg-white border border-[#BAE6FD] rounded-sm p-3 flex items-center gap-2 flex-wrap">
+              <label
+                htmlFor="export-client-name"
+                className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]"
+              >
+                Export for client? (optional)
+              </label>
+              <input
+                id="export-client-name"
+                type="text"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="Client name"
+                className="border border-[#E2E8F0] rounded-sm px-3 py-1.5 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#1A56DB] placeholder:text-[#94A3B8]"
+              />
+              <button
+                type="button"
+                onClick={startExport}
+                className="bg-[#1A56DB] text-white font-mono text-xs font-medium px-4 py-1.5 rounded-sm hover:bg-[#1447C0] transition-colors cursor-pointer"
+              >
+                Export
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("idle");
+                  setClientName("");
+                }}
+                className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMode("prompting")}
+              className="font-mono text-xs text-[#1A56DB] border border-[#BAE6FD] bg-[#EFF8FF] px-4 py-2 rounded-sm hover:bg-[#DBEAFE] transition-colors whitespace-nowrap cursor-pointer"
+            >
+              Export to PDF →
+            </button>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
