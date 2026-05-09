@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { submitDraftAction } from "./actions";
 import type { CheckEntry } from "@/lib/checks";
 
@@ -238,6 +238,19 @@ export function SubmitForm({
     setError(null);
   }
 
+  // D3 — the BLOCK "Revise and resubmit" card calls this. Clears the
+  // draft body and dismisses the verdict so the form re-mounts, but
+  // keeps speaker / campaign / channel / AI declaration intact.
+  function handleRevise() {
+    setVerdict(null);
+    setVerdictData(null);
+    setDraftText("");
+    setError(null);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
   const verdictLower = verdict?.toLowerCase() ?? null;
   const verdictMeta = verdictLower
     ? (VERDICT_META[verdictLower] ?? VERDICT_META.review)
@@ -339,6 +352,8 @@ export function SubmitForm({
           flow={flow}
           ghostButton={ghostButton}
           onReset={handleReset}
+          onRevise={handleRevise}
+          draftText={draftText}
         />
       ) : (
         <FormBody
@@ -598,7 +613,18 @@ function FormBody({
           {isDemoMode && (
             <button
               type="button"
-              onClick={() => setDraftText(exampleDraft)}
+              onClick={() => {
+                // D5 — restore the canonical demo state in one click
+                // even if the visitor edited the speaker / channel /
+                // campaign earlier on the page.
+                setDraftText(exampleDraft);
+                setChannel("linkedin");
+                setCampaign("Series B");
+                const marcus = speakers.find(
+                  (s) => s.display_name === "Marcus Rivera",
+                );
+                if (marcus) setSelectedSpeakerId(marcus.id);
+              }}
               className="font-mono text-[10px] text-[#1A56DB] hover:text-[#1447C0] transition-colors cursor-pointer"
             >
               Try an example →
@@ -750,6 +776,8 @@ function VerdictView({
   flow,
   ghostButton,
   onReset,
+  onRevise,
+  draftText,
 }: {
   verdictKey: string;
   meta: { label: string; headerBg: string; headerBorder: string; badgeBg: string };
@@ -758,10 +786,40 @@ function VerdictView({
   flow: SubmitFlow;
   ghostButton: { href: string; label: string };
   onReset: () => void;
+  onRevise: () => void;
+  draftText: string;
 }) {
   const draftId = data?.draftId;
   const checks = data?.checks ?? [];
   const isClear = verdictKey === "clear";
+
+  // D4 — SHA-256 of the draft text for the "Record created" block.
+  // Computed client-side via SubtleCrypto when the cleared verdict
+  // arrives. Falls back to "—" when the API isn't available (older
+  // browsers; SSR pre-hydration).
+  const [draftHash, setDraftHash] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isClear) return;
+    if (typeof window === "undefined" || !window.crypto?.subtle) return;
+    const bytes = new TextEncoder().encode(draftText);
+    let cancelled = false;
+    window.crypto.subtle
+      .digest("SHA-256", bytes)
+      .then((buf) => {
+        if (cancelled) return;
+        const hex = Array.from(new Uint8Array(buf))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        setDraftHash(hex);
+      })
+      .catch(() => {
+        // Browser without SubtleCrypto support — leave the field
+        // showing "—" rather than crashing the verdict view.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isClear, draftText]);
 
   // D5 — verdict-colored 2px border applied to the result card with a
   // 300ms ease-in transition. CLEAR/CLEARED → teal; BLOCK → red;
@@ -847,82 +905,97 @@ function VerdictView({
         )}
       </div>
 
-      {/* What happens next — block/escalate gets a three-step flow,
-          clear gets a two-line "you can publish" framing. */}
+      {/* D3 — BLOCK verdict shows two side-by-side action cards
+          (stacked on mobile). ESCALATE keeps the same affordances —
+          principal review or revise — since the visitor is the same
+          submitter and the choice space is the same. */}
       {isBlockOrEscalate && (
-        <div className="bg-[#F8F9FB] border border-[#E2E8F0] rounded-sm p-5 mb-4">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-4">
-            What happens next
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div className="bg-white border border-[#E2E8F0] rounded-sm p-5 flex flex-col">
+            <div className="text-sm font-semibold text-[#0F172A] mb-2">
+              Route to principal review
+            </div>
+            <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+              Send this draft to your named principal for a governance
+              decision.
+            </p>
+            {draftId ? (
+              <a
+                href={`/review/${draftId}`}
+                className="bg-[#1A56DB] text-white font-mono text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#1447C0] transition-colors text-center"
+              >
+                Request review →
+              </a>
+            ) : (
+              <span className="font-mono text-xs text-[#94A3B8]">
+                Review link unavailable
+              </span>
+            )}
           </div>
-          <div className="space-y-4">
-            {[
-              {
-                n: "1",
-                title: "Routes to principal review.",
-                sub: "The principal sees the full check chain and makes a structured decision.",
-              },
-              {
-                n: "2",
-                title: "A communication record is created permanently.",
-                sub: "SHA-256 locked. Includes this verdict and the principal’s decision.",
-              },
-              {
-                n: "3",
-                title: "Do not publish until approved.",
-                sub: "Publishing before approval bypasses your governance and creates regulatory exposure.",
-              },
-            ].map((item) => (
-              <div key={item.n} className="flex items-start gap-3">
-                <span className="font-mono text-sm font-bold text-[#1A56DB] w-5 shrink-0 mt-0.5">
-                  {item.n}
-                </span>
-                <div>
-                  <div className="text-sm font-medium text-[#0F172A] mb-0.5">
-                    {item.title}
-                  </div>
-                  <div className="font-mono text-[10px] text-[#64748B]">
-                    {item.sub}
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="bg-white border border-[#E2E8F0] rounded-sm p-5 flex flex-col">
+            <div className="text-sm font-semibold text-[#0F172A] mb-2">
+              Revise and resubmit
+            </div>
+            <p className="text-sm text-[#374151] leading-relaxed mb-4 flex-1">
+              Edit your draft and recheck against active rules.
+            </p>
+            <button
+              type="button"
+              onClick={onRevise}
+              className="bg-white text-[#0F172A] font-mono text-sm font-medium px-4 py-2 rounded-sm border border-[#0F172A] hover:bg-[#F8F9FB] transition-colors cursor-pointer"
+            >
+              Revise draft →
+            </button>
           </div>
         </div>
       )}
 
+      {/* D4 — CLEARED gets a "Record created" confirmation block with
+          the draft id, the SHA-256 of the draft text, and a link to
+          the full examiner record. */}
       {isClear && (
-        <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-5 mb-4">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#166534] mb-4">
-            Cleared for publication
-          </div>
-          <div className="space-y-3">
-            {[
-              {
-                title: "All five checks passed. You can publish this draft.",
-                sub: "A communication record has been created with this verdict.",
-              },
-              {
-                title: "The record is SHA-256 locked and permanent.",
-                sub: "This proves ERA CUE checked this draft before it was published.",
-              },
-            ].map((item, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <span
-                  className="text-[#166534] font-bold mt-0.5"
-                  aria-hidden
-                >
-                  ✓
-                </span>
-                <div>
-                  <div className="text-sm font-medium text-[#0F172A] mb-0.5">
-                    {item.title}
-                  </div>
-                  <div className="font-mono text-[10px] text-[#64748B]">
-                    {item.sub}
-                  </div>
-                </div>
+        <div className="bg-[#0EA5E9]/5 border border-[#0EA5E9]/20 rounded p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <div
+              className="shrink-0 w-7 h-7 rounded-full bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-center"
+              aria-hidden
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#166534"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-[#0F172A] mb-2">
+                Governance record created
               </div>
-            ))}
+              <dl className="grid grid-cols-[6rem_1fr] gap-y-1 text-xs">
+                <dt className="font-mono text-[#64748B]">Record ID</dt>
+                <dd className="font-mono text-[#0F172A] break-all">
+                  {draftId ? `${draftId.slice(0, 8)}...` : "—"}
+                </dd>
+                <dt className="font-mono text-[#64748B]">SHA-256</dt>
+                <dd className="font-mono text-[#0F172A] break-all">
+                  {draftHash ? `${draftHash.slice(0, 8)}...` : "—"}
+                </dd>
+              </dl>
+              {draftId && (
+                <a
+                  href={`/drafts/${draftId}/examiner`}
+                  className="font-mono text-xs text-[#0EA5E9] hover:text-[#0369A1] transition-colors mt-3 inline-block"
+                >
+                  View full record →
+                </a>
+              )}
+            </div>
           </div>
         </div>
       )}
