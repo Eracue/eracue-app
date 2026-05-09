@@ -2,21 +2,26 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SetupRulesPanel } from "./SetupRulesPanel";
-import { deactivateRuleAction, deleteDraftRuleAction } from "./actions";
-import { saveRuleUpdates, type RuleUpdates } from "./update-rule-action";
 import {
-  TEMPLATES,
-  FIRM_TYPE_BUTTONS,
-  templatesFor,
-} from "./templates";
+  createRuleAction,
+  deactivateRuleAction,
+  deleteDraftRuleAction,
+  updateRuleAction,
+} from "./actions";
 
-// Two top-level rules experiences. Setup is a focused one-page picker
-// for first-time visitors (or anyone explicitly setting up from
-// scratch); managing is the existing full rules dashboard with stats,
-// filters, and the rules list. The view switch is local React state —
-// no route change — switching views never refetches the rules list.
-type RulesView = "setup" | "managing";
+// Six-way tab state for the managing view. Active is the default
+// landing tab; Expiring lights up amber when a rule sits inside
+// the 60-day window; Silent flags rules that have never fired
+// (drift signal); Drafts holds rules saved-but-not-authorized;
+// Deactivated bucket keeps the inactive rules out of the way;
+// History is the full immutable audit list of every rule.
+type RulesTab =
+  | "active"
+  | "expiring"
+  | "silent"
+  | "drafts"
+  | "deactivated"
+  | "history";
 
 export type RuleRow = {
   id: string;
@@ -42,32 +47,9 @@ export type RuleRow = {
   authorized_by?: string | null;
 };
 
-// Governance-drift freshness used to live here as a single
-// `classifyFreshness` helper. After the tab-system refactor the
-// expiring / silent / healthy distinctions are computed inline per
-// tab, so the helper is gone — see expiringRules / silentRules /
-// activeRules useMemos in the component body.
-
-// Six-way tab state for the managing view. Active is the default
-// landing tab; Expiring lights up amber when a rule sits inside
-// the 60-day window; Silent flags rules that have never fired
-// (drift signal); Drafts holds rules saved-but-not-authorized;
-// Deactivated bucket keeps the inactive rules out of the way;
-// History is the full immutable audit list of every rule.
-type RulesTab =
-  | "active"
-  | "expiring"
-  | "silent"
-  | "drafts"
-  | "deactivated"
-  | "history";
-
-// Policy-reference label vocabulary varies by firm type. Broker-
-// dealers and investment banks use WSPs; RIAs use a compliance
-// manual; public companies have a disclosure policy; PR agencies
-// and exec teams just call it a policy. The constants below are
-// surfaced in the rule-card status line + the EditRulePanel input
-// so the field reads in the visitor's own vocabulary.
+// Policy-reference vocabulary still consumed by the legacy
+// SetupRulesPanel (no longer rendered by this client, but kept in the
+// tree so its imports don't break). Re-exported here as a thin shim.
 const POLICY_LABEL: Record<string, string> = {
   broker_dealer: "WSP reference",
   ria: "Compliance policy reference",
@@ -76,18 +58,6 @@ const POLICY_LABEL: Record<string, string> = {
   executive_team: "Policy reference",
   investment_bank: "WSP reference",
   default: "Policy reference",
-};
-
-// Short label used inline on rule-card status lines (where space
-// is tight). The longer POLICY_LABEL above goes on form labels.
-const POLICY_LABEL_SHORT: Record<string, string> = {
-  broker_dealer: "WSP",
-  ria: "Compliance ref",
-  public_company: "Disclosure ref",
-  pr_agency: "Policy ref",
-  executive_team: "Policy ref",
-  investment_bank: "WSP",
-  default: "Policy ref",
 };
 
 const POLICY_PLACEHOLDER: Record<string, string> = {
@@ -100,18 +70,9 @@ const POLICY_PLACEHOLDER: Record<string, string> = {
   default: "e.g. Policy name and section (optional)",
 };
 
-// Resolve a firm-type slug to its policy-reference vocabulary.
-// Falls back to the generic "Policy reference" copy when the
-// firm type isn't one of the seeded buckets. Exported for the
-// SetupRulesPanel form labels and the EditRulePanel input.
 export function policyLabelFor(firmType: string | null | undefined): string {
   if (!firmType) return POLICY_LABEL.default;
   return POLICY_LABEL[firmType] ?? POLICY_LABEL.default;
-}
-
-function policyLabelShortFor(firmType: string | null | undefined): string {
-  if (!firmType) return POLICY_LABEL_SHORT.default;
-  return POLICY_LABEL_SHORT[firmType] ?? POLICY_LABEL_SHORT.default;
 }
 
 export function policyPlaceholderFor(
@@ -122,9 +83,7 @@ export function policyPlaceholderFor(
 }
 
 // Demo rules surfaced in the rules list. Curated to one rule per
-// verdict type so a visitor sees the full spread (Block / Route to
-// review / Flag / Guide) without scrolling. Names must match the
-// seed data — anything missing from the seed simply doesn't render.
+// verdict type so a visitor sees the full spread without scrolling.
 const DEMO_RULE_NAMES: ReadonlyArray<string> = [
   "Series B Quiet Period",
   "Earnings Quiet Period — Q2 2026",
@@ -132,169 +91,246 @@ const DEMO_RULE_NAMES: ReadonlyArray<string> = [
   "Pricing Claims",
 ];
 
-// Plain-English verdict labels rendered on the rule cards. Inline
-// styles (instead of bg-/text-/border- Tailwind tokens) so the badge
-// palette stays portable across every consumer — verdict colors
-// describe state, not chrome, and shouldn't be tangled in the
-// Tailwind safelist. Review uses the brand-purple pair so flagged
-// rules read as the page accent rather than a third blue.
-const VERDICT_BADGES: Record<
-  string,
-  { label: string; bg: string; text: string; border: string }
-> = {
-  block:    { label: "Block",            bg: "#FEE2E2", text: "#B91C1C", border: "#FECACA" },
-  escalate: { label: "Route to review",  bg: "#FFF7ED", text: "#C2410C", border: "#FED7AA" },
-  review:   { label: "Flag",             bg: "#EEF2FF", text: "#4338CA", border: "#C7D7FE" },
-  guide:    { label: "Guide",            bg: "#F0FDF4", text: "#166534", border: "#BBF7D0" },
-};
-
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
-function fmtRelative(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const now = Date.now();
-  const then = new Date(iso).getTime();
-  const diffMs = now - then;
-  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-  if (days < 1) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 7) return `${days} days ago`;
-  if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
-  return `${Math.floor(days / 30)} months ago`;
-}
+// Lifecycle status — the primary status badge per R2. Computed from
+// rule_status + dates + trigger count + age. DEACTIVATED renders with
+// the SILENT style per spec.
+type LifecycleStatus =
+  | "DRAFT"
+  | "ACTIVE"
+  | "SILENT"
+  | "EXPIRING"
+  | "DEACTIVATED";
 
-function scopeLabel(scope: string | null): string {
-  if (!scope || scope === "all_speakers") return "All speakers";
-  return scope;
-}
+function classifyLifecycle(r: RuleRow, now: number): LifecycleStatus {
+  if (r.rule_status === "draft") return "DRAFT";
+  if (r.rule_status === "deactivated") return "DEACTIVATED";
 
-// Derived classification — distinguishes "expired" (date past) from "deactivated"
-// (manually shut off) and "active" (effective and not deactivated).
-function classifyRule(r: RuleRow, now: number): "active" | "expired" | "deactivated" {
-  if (r.rule_status === "deactivated") return "deactivated";
-  const fromTime = r.effective_from ? new Date(r.effective_from).getTime() : 0;
+  // Expired effective_until → render as DEACTIVATED (the rule no longer
+  // fires; the End-date-passed branch of the lifecycle).
   const toTime = r.effective_until ? new Date(r.effective_until).getTime() : null;
-  if (toTime !== null && now > toTime) return "expired";
-  if (now < fromTime) return "active"; // future-dated rules show as active for the demo
-  return "active";
+  if (toTime !== null && now > toTime) return "DEACTIVATED";
+
+  // EXPIRING: active AND effective_until is within 60 days
+  if (toTime !== null) {
+    const daysUntil = Math.ceil((toTime - now) / (1000 * 60 * 60 * 24));
+    if (daysUntil <= 60 && daysUntil > 0) return "EXPIRING";
+  }
+
+  // SILENT: active AND zero triggers AND active for >= 30 days
+  const fromTime = r.effective_from ? new Date(r.effective_from).getTime() : null;
+  if (fromTime !== null) {
+    const daysSinceFrom = Math.floor((now - fromTime) / (1000 * 60 * 60 * 24));
+    if ((r.trigger_count ?? 0) === 0 && daysSinceFrom >= 30) return "SILENT";
+  }
+
+  return "ACTIVE";
 }
 
-function statusPrefix(r: RuleRow, classification: "active" | "expired" | "deactivated"): string {
-  if (classification === "deactivated") return `Deactivated ${fmtDate(r.deactivated_at)}`;
-  if (classification === "expired") return `Expired ${fmtDate(r.effective_until)}`;
-  if (r.effective_until) return `Active until ${fmtDate(r.effective_until)}`;
-  return "Active — no end date";
+function statusBadgeClass(status: LifecycleStatus): string {
+  switch (status) {
+    case "ACTIVE":
+      return "bg-[#0EA5E9] text-white";
+    case "SILENT":
+      return "bg-[#334155] text-[#94A3B8]";
+    case "DEACTIVATED":
+      // Per spec: "DEACTIVATED still needs to render somehow — match the SILENT style"
+      return "bg-[#334155] text-[#94A3B8]";
+    case "EXPIRING":
+      return "bg-[#F59E0B] text-white";
+    case "DRAFT":
+      return "bg-[#1E293B] text-[#64748B] border border-dashed border-[#334155]";
+  }
 }
 
 type Props = {
   rules: RuleRow[];
   corpusCount?: number;
-  // Drives which Templates the import panel surfaces. Defaults to the
-  // broker_dealer set when null/unknown.
   firmType?: string | null;
+  corpusEarliest?: string | null;
+  corpusLatest?: string | null;
 };
 
 // Demo mode. NEXT_PUBLIC_* env vars are inlined at build time so this
-// const evaluates to a literal in the client bundle. When on, the
-// page hides the principal-of-record attribution, the stats strip,
-// the filter tabs, and the success banner; the rules list is curated
-// to four representative templates; and the import panel stays
-// closed by default — every signal stays focused on "configure your
-// governance" rather than someone else's authorized policy list.
+// const evaluates to a literal in the client bundle.
 const IS_DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
-export function RulesClient({ rules, firmType = null }: Props) {
+// ---------- R3 Templates -----------------------------------------------------
+// Six built-in templates surfaced in the "Enable via Template" modal.
+type BuiltInTemplate = {
+  id: string;
+  name: string;
+  basis: string;
+  keywords: string[];
+  catches: string;
+};
+
+const BUILT_IN_TEMPLATES: ReadonlyArray<BuiltInTemplate> = [
+  {
+    id: "quiet_period",
+    name: "Quiet Period",
+    basis: "FINRA/SEC",
+    keywords: ["quiet", "raising", "fundraising", "investors", "material"],
+    catches: "fundraising language during restricted windows",
+  },
+  {
+    id: "testimonial_disclosure",
+    name: "Testimonial Disclosure",
+    basis: "SEC Marketing Rule 206(4)-1",
+    keywords: ["testimonial", "endorsement", "client said", "results"],
+    catches: "endorsement language without disclosures",
+  },
+  {
+    id: "off_channel",
+    name: "Off-Channel Prevention",
+    basis: "SEC Rule 17a-4",
+    keywords: ["WhatsApp", "Signal", "text me", "personal email"],
+    catches: "requests to move to unapproved channels",
+  },
+  {
+    id: "influencer_third_party",
+    name: "Influencer / Third Party",
+    basis: "FINRA 2210",
+    keywords: ["share this", "post for us", "promote"],
+    catches: "unreviewed third-party promotional content",
+  },
+  {
+    id: "reg_fd",
+    name: "Reg FD",
+    basis: "Reg FD",
+    keywords: ["material", "non-public", "inside", "confidential deal"],
+    catches: "material non-public information language",
+  },
+  {
+    id: "ai_origin",
+    name: "AI Origin Declaration",
+    basis: "EU AI Act Art. 50",
+    keywords: ["AI wrote", "generated by", "drafted by AI"],
+    catches: "AI-generated content without declared origin",
+  },
+];
+
+// Stopword list for the Paste Policy keyword extractor. Conservative —
+// covers the common English filler that drowns out signal words.
+const STOPWORDS: ReadonlySet<string> = new Set([
+  "this", "that", "these", "those", "with", "from", "into", "your", "their",
+  "there", "where", "which", "what", "when", "have", "will", "would", "could",
+  "should", "they", "them", "then", "than", "also", "must", "been", "such",
+  "shall", "while", "after", "before", "about", "above", "below", "under",
+  "between", "during", "every", "other", "some", "more", "most", "many",
+  "much", "very", "only", "even", "just", "still", "first", "last", "each",
+  "both", "either", "neither", "without", "within", "through", "against",
+  "among", "across", "upon", "because", "however", "therefore", "though",
+  "unless", "until", "since",
+]);
+
+function extractKeywords(text: string): string[] {
+  const tokens = text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 4 && !STOPWORDS.has(t));
+  const counts = new Map<string, number>();
+  for (const t of tokens) counts.set(t, (counts.get(t) ?? 0) + 1);
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12)
+    .map(([k]) => k);
+}
+
+// Stub PDF/DOCX parser — we can't reliably parse these in-browser, so
+// derive keywords from the filename plus a small canonical set.
+function extractKeywordsFromFilename(filename: string): string[] {
+  const base = filename.replace(/\.[^.]+$/, "");
+  const tokens = base
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3);
+  const canonical = ["policy", "compliance", "review"];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of [...tokens, ...canonical]) {
+    if (!seen.has(t)) {
+      seen.add(t);
+      out.push(t);
+    }
+  }
+  return out.slice(0, 12);
+}
+
+export function RulesClient({
+  rules,
+  corpusCount = 0,
+  corpusEarliest = null,
+  corpusLatest = null,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // `?activated=true` is set by the /rules/confirm redirect. Both the
-  // initial view and the success-banner toggle key off this param so a
-  // visitor lands directly on managing-with-banner instead of flashing
-  // the setup view first.
+  // `?activated=true` is set by the /rules/confirm redirect.
   const activatedFromConfirm = searchParams.get("activated") === "true";
 
   const [activeTab, setActiveTab] = useState<RulesTab>("active");
-  // Setup panel state — single toggle that opens SetupRulesPanel above
-  // the tab bar. Replaces the old "Add a rule" + "Import policies"
-  // pair with one entry point.
-  const [showSetupPanel, setShowSetupPanel] = useState(false);
-  const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Initial view — managing if the org already has live rules OR if the
-  // user just activated a batch from /rules/confirm; setup otherwise.
-  // Computed from the rules prop (not the useMemo counts below) because
-  // it runs once at mount and doesn't need to react to subsequent count
-  // changes.
-  const initialActiveCount = rules.filter(
-    (r) => r.rule_status !== "deactivated",
-  ).length;
-  const [view, setView] = useState<RulesView>(
-    activatedFromConfirm || initialActiveCount > 0 ? "managing" : "setup",
+  // R3 modal toggles — the four entry points sit above the rules list.
+  const [openModal, setOpenModal] = useState<
+    "template" | "paste" | "upload" | "build" | null
+  >(null);
+
+  // Edit-rule sheet (R7-R8). Holds the rule being edited; null = closed.
+  const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
+
+  // Per-rule expand state for the Trigger history row (R18).
+  const [expandedHistory, setExpandedHistory] = useState<Set<string>>(
+    new Set(),
   );
 
-  // Setup-view confirmed-set: pre-filled with every template index so
-  // the first-time-visitor's cards land already checked. Only used by
-  // the setup view path; the managing view delegates to SetupRulesPanel.
-  const [confirmed, setConfirmed] = useState<Set<number>>(() => {
-    const defaults = templatesFor(firmType);
-    return new Set(defaults.map((_, i) => i));
-  });
-  // Post-authorization success state. Triggered by the /rules/confirm
-  // redirect when the URL carries `?activated=true`. Powers the green
-  // success banner with the "Check your first draft →" CTA + "Add
-  // more rules" secondary.
+  // Post-authorization success state.
   const [justAuthorized, setJustAuthorized] = useState(activatedFromConfirm);
 
-  // Strip the `?activated=true` query off the URL so a refresh doesn't
-  // re-trigger the banner. Used by the dismiss button + the "Add more
-  // rules" secondary so neither leaves stale state in the bar.
   function clearActivated() {
     setJustAuthorized(false);
     if (activatedFromConfirm) {
       router.replace("/rules");
     }
   }
-  // Templates tab now lets the user switch firm-type buckets without
-  // leaving the page (defaults to whatever the org was created with).
-  const [firmTypeFilter, setFirmTypeFilter] = useState<string>(() => {
-    const raw = firmType ?? "broker_dealer";
-    return raw === "rIA" ? "ria" : raw;
-  });
-  // Inline rule editing — when set, the matching rule card expands to
-  // show the EditRulePanel instead of opening the SetupRulesPanel.
-  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
-
 
   const now = Date.now();
+
   const classified = useMemo(() => {
-    return rules.map((r) => ({ rule: r, classification: classifyRule(r, now) }));
+    return rules.map((r) => ({ rule: r, status: classifyLifecycle(r, now) }));
   }, [rules, now]);
 
   const counts = useMemo(() => {
-    let active = 0, expired = 0, deactivated = 0, firing = 0, silent = 0;
-    for (const { rule, classification } of classified) {
-      if (classification === "active") active++;
-      else if (classification === "expired") expired++;
-      else deactivated++;
-      const triggers = rule.trigger_count ?? 0;
-      if (triggers > 0) firing++;
-      else if (classification === "active") silent++;
+    let active = 0,
+      expiring = 0,
+      silent = 0,
+      draft = 0,
+      deactivated = 0;
+    for (const { status } of classified) {
+      if (status === "ACTIVE") active++;
+      else if (status === "EXPIRING") expiring++;
+      else if (status === "SILENT") silent++;
+      else if (status === "DRAFT") draft++;
+      else if (status === "DEACTIVATED") deactivated++;
     }
-    return { total: rules.length, active, expired, deactivated, firing, silent };
+    return { total: rules.length, active, expiring, silent, draft, deactivated };
   }, [classified, rules.length]);
 
-  // Demo curated list — sorted to spec order so the four cards
-  // always render Series B → Earnings → Competitor → Pricing.
+  // Demo curated list — sorted to spec order.
   const demoRules = useMemo(() => {
     return classified
-      .filter(
-        ({ rule, classification }) =>
-          classification === "active" &&
-          DEMO_RULE_NAMES.includes(rule.name),
-      )
+      .filter(({ rule, status }) => {
+        if (!DEMO_RULE_NAMES.includes(rule.name)) return false;
+        return status !== "DEACTIVATED" && status !== "DRAFT";
+      })
       .sort(
         (a, b) =>
           DEMO_RULE_NAMES.indexOf(a.rule.name) -
@@ -303,61 +339,40 @@ export function RulesClient({ rules, firmType = null }: Props) {
       .map(({ rule }) => rule);
   }, [classified]);
 
-  // Tab-driven rule slices. 30-day window for "Expiring" (was 14
-  // before — the longer window gives a CCO time to plan a renewal /
-  // expiry decision). Silent = active + zero triggers. Deactivated =
-  // self-explanatory.
-  const expiringRules = useMemo(() => {
-    return classified
-      .filter(({ rule, classification }) => {
-        if (classification !== "active") return false;
-        if (!rule.effective_until) return false;
-        const days = Math.ceil(
-          (new Date(rule.effective_until).getTime() - now) /
-            (1000 * 60 * 60 * 24),
-        );
-        return days <= 60 && days > 0;
-      })
-      .map(({ rule }) => rule);
-  }, [classified, now]);
+  const activeRules = useMemo(
+    () =>
+      classified.filter(({ status }) => status === "ACTIVE").map(({ rule }) => rule),
+    [classified],
+  );
+  const expiringRules = useMemo(
+    () =>
+      classified
+        .filter(({ status }) => status === "EXPIRING")
+        .map(({ rule }) => rule),
+    [classified],
+  );
+  const silentRules = useMemo(
+    () =>
+      classified
+        .filter(({ status }) => status === "SILENT")
+        .map(({ rule }) => rule),
+    [classified],
+  );
+  const draftRules = useMemo(
+    () =>
+      classified
+        .filter(({ status }) => status === "DRAFT")
+        .map(({ rule }) => rule),
+    [classified],
+  );
+  const deactivatedRules = useMemo(
+    () =>
+      classified
+        .filter(({ status }) => status === "DEACTIVATED")
+        .map(({ rule }) => rule),
+    [classified],
+  );
 
-  const silentRules = useMemo(() => {
-    return classified
-      .filter(
-        ({ rule, classification }) =>
-          classification === "active" && (rule.trigger_count ?? 0) === 0,
-      )
-      .map(({ rule }) => rule);
-  }, [classified]);
-
-  const deactivatedRules = useMemo(() => {
-    return classified
-      .filter(({ classification }) => classification === "deactivated")
-      .map(({ rule }) => rule);
-  }, [classified]);
-
-  // Active = active classification minus expiring (so the Expiring tab
-  // is the canonical home for soon-to-expire rules and they don't
-  // appear in two tabs at once).
-  const activeRules = useMemo(() => {
-    const expiringIds = new Set(expiringRules.map((r) => r.id));
-    return classified
-      .filter(({ rule, classification }) => {
-        if (classification !== "active") return false;
-        return !expiringIds.has(rule.id);
-      })
-      .map(({ rule }) => rule);
-  }, [classified, expiringRules]);
-
-  // Drafts = rules with rule_status === "draft" — saved but not yet
-  // authorized by a named principal. They never fire until promoted.
-  const draftRules = useMemo(() => {
-    return rules.filter((r) => r.rule_status === "draft");
-  }, [rules]);
-
-  // Pick the rules to render based on the active tab. Demo mode
-  // pins to the four curated rules regardless of tab so the visitor
-  // never lands on an empty Expiring / Silent / Deactivated view.
   const tabRules: RuleRow[] = useMemo(() => {
     if (IS_DEMO_MODE) return demoRules;
     if (activeTab === "active") return activeRules;
@@ -365,7 +380,7 @@ export function RulesClient({ rules, firmType = null }: Props) {
     if (activeTab === "silent") return silentRules;
     if (activeTab === "drafts") return draftRules;
     if (activeTab === "deactivated") return deactivatedRules;
-    return []; // history tab — content renders inline
+    return [];
   }, [
     activeTab,
     demoRules,
@@ -376,38 +391,91 @@ export function RulesClient({ rules, firmType = null }: Props) {
     deactivatedRules,
   ]);
 
-  // Lightweight hooks the action buttons in the Expiring tab call
-  // into. Extending nudges effective_until forward 90 days; cloning
-  // for now just opens the add-rule panel (the full clone-with-
-  // prefilled-data flow lives in a follow-up).
-  async function handleExtendRule(id: string) {
-    const target = rules.find((r) => r.id === id);
-    if (!target?.effective_until) return;
-    const next = new Date(target.effective_until);
-    next.setDate(next.getDate() + 90);
-    const result = await saveRuleUpdates(id, {
-      effective_to: next.toISOString(),
+  const totalActiveLike =
+    counts.active + counts.expiring + counts.silent + counts.draft;
+
+  // ---- mutations ----------------------------------------------------------
+
+  function refreshAndClose() {
+    setOpenModal(null);
+    router.refresh();
+  }
+
+  async function handleEnableTemplate(t: BuiltInTemplate) {
+    const today = new Date().toISOString().slice(0, 10);
+    const result = await createRuleAction({
+      name: t.name,
+      description: `Catches ${t.catches}.`,
+      verdict: "block",
+      keywords: t.keywords,
+      scope: "all_speakers",
+      effective_from: today,
+      effective_until: null,
+      regulatory_basis: t.basis,
+      authorized_by: "",
+      rule_status: "active",
     });
-    if (result.ok) router.refresh();
+    if (result.ok) refreshAndClose();
+    else alert("Could not create rule: " + result.error);
   }
 
-  function handleCloneRule() {
-    // For now opens the setup panel with a clean slate. The full
-    // clone-with-prefilled-data flow is a follow-up.
-    setShowSetupPanel(true);
+  async function handleCreateCustomRule(input: {
+    name: string;
+    keywords: string[];
+    verdict: "block" | "review";
+    effectiveFrom: string;
+    effectiveUntil: string | null;
+  }) {
+    const result = await createRuleAction({
+      name: input.name,
+      description: "",
+      verdict: input.verdict,
+      keywords: input.keywords,
+      scope: "all_speakers",
+      effective_from: input.effectiveFrom,
+      effective_until: input.effectiveUntil,
+      regulatory_basis: "",
+      authorized_by: "",
+      rule_status: "active",
+    });
+    if (result.ok) refreshAndClose();
+    else alert("Could not create rule: " + result.error);
   }
 
-  // Drafts tab: promote a draft rule to active. Reuses
-  // saveRuleUpdates so the edit happens in the same code path
-  // as inline-edit re-authorization.
+  async function handleActivateExtractedRule(name: string, keywords: string[]) {
+    const today = new Date().toISOString().slice(0, 10);
+    const result = await createRuleAction({
+      name,
+      description: "",
+      verdict: "block",
+      keywords,
+      scope: "all_speakers",
+      effective_from: today,
+      effective_until: null,
+      regulatory_basis: "",
+      authorized_by: "",
+      rule_status: "active",
+    });
+    if (result.ok) refreshAndClose();
+    else alert("Could not create rule: " + result.error);
+  }
+
   async function handleAuthorizeDraft(id: string) {
-    const result = await saveRuleUpdates(id, { rule_status: "active" });
-    if (result.ok) router.refresh();
+    const result = await updateRuleAction({
+      ruleId: id,
+      name: rules.find((r) => r.id === id)?.name ?? "",
+      description: rules.find((r) => r.id === id)?.description ?? "",
+      verdict: rules.find((r) => r.id === id)?.verdict ?? "review",
+      keywords: rules.find((r) => r.id === id)?.keywords ?? [],
+      scope: rules.find((r) => r.id === id)?.scope ?? "all_speakers",
+      effective_from:
+        rules.find((r) => r.id === id)?.effective_from ??
+        new Date().toISOString(),
+      effective_until: rules.find((r) => r.id === id)?.effective_until ?? null,
+    });
+    if ("success" in result) router.refresh();
   }
 
-  // Drafts tab: hard-delete an unauthorized rule. The action
-  // refuses to delete anything that isn't already in draft status,
-  // so authorized rules stay protected by the audit trail.
   async function handleDeleteDraft(id: string) {
     const ok = window.confirm(
       "Delete this draft rule? It has not been authorized and will be permanently removed.",
@@ -418,13 +486,8 @@ export function RulesClient({ rules, firmType = null }: Props) {
   }
 
   function handleDeactivate(id: string, ruleName: string) {
-    // Simple confirm — no modal. The deactivate action stores a
-    // canonical reason ("Deactivated by principal") since the demo
-    // visitor doesn't have an audit-trail-quality justification to
-    // type and we'd rather not block the action behind a free-text
-    // prompt.
     const ok = window.confirm(
-      `Deactivate "${ruleName}"? ERA CUE will stop enforcing this rule immediately. You can reactivate it from the Deactivated tab.`,
+      `Deactivate "${ruleName}"? ERA CUE will stop enforcing this rule immediately.`,
     );
     if (!ok) return;
     startTransition(async () => {
@@ -440,239 +503,106 @@ export function RulesClient({ rules, firmType = null }: Props) {
     });
   }
 
-  // Setup view — first-time picker. The user picks a firm type, the
-  // suggested templates auto-check, and clicking "Review and confirm"
-  // navigates to /rules/confirm with the firm + selected indices in
-  // the URL so the next page can rebuild the pending list. The
-  // "Import from an existing policy" link drops the user into the
-  // managing view with the import panel pre-opened on the Paste tab.
-  if (view === "setup") {
-    const setupTemplates =
-      TEMPLATES[firmTypeFilter] ?? TEMPLATES.broker_dealer;
-    const firmLabel =
-      FIRM_TYPE_BUTTONS.find((f) => f.key === firmTypeFilter)?.label ??
-      "your firm type";
+  async function handleSaveEdit(updates: {
+    name: string;
+    description: string;
+    verdict: string;
+    keywords: string[];
+    effective_from: string;
+    effective_until: string | null;
+  }) {
+    if (!editingRule) return;
+    const result = await updateRuleAction({
+      ruleId: editingRule.id,
+      name: updates.name,
+      description: updates.description,
+      verdict: updates.verdict,
+      keywords: updates.keywords,
+      scope: editingRule.scope ?? "all_speakers",
+      effective_from: updates.effective_from,
+      effective_until: updates.effective_until,
+    });
+    if ("success" in result) {
+      setEditingRule(null);
+      router.refresh();
+    } else {
+      alert("Could not save: " + result.error);
+    }
+  }
+
+  function toggleHistory(id: string) {
+    setExpandedHistory((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // ---- empty state (R20) --------------------------------------------------
+  if (!IS_DEMO_MODE && totalActiveLike === 0 && counts.deactivated === 0) {
     return (
-      <main className="min-h-screen bg-[#F8F9FB]">
-        <div className="max-w-[720px] mx-auto px-6 py-10">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
-              Step 1 of 2 — Set your rules
-            </div>
-            <h1
-              style={{ fontFamily: "var(--font-newsreader)" }}
-              className="text-3xl font-light text-[#0D1B2A] mb-3"
-            >
-              What should ERA CUE enforce?
-            </h1>
-            <p className="text-sm text-[#64748B] leading-relaxed max-w-lg">
-              ERA CUE checks every draft your team submits against these
-              rules before publication. Choose the rules that apply to
-              your organization — you can edit or add more any time.
-            </p>
-          </div>
-
-          {/* Firm type selector. Clicking a chip auto-checks every
-              template for that firm type so the user never has to
-              hunt for a "select all" affordance. */}
-          <div className="mb-8">
-            <div className="text-sm font-medium text-[#0D1B2A] mb-3">
-              My organization is a
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {FIRM_TYPE_BUTTONS.map((ft) => {
-                const selected = firmTypeFilter === ft.key;
-                return (
-                  <button
-                    key={ft.key}
-                    type="button"
-                    onClick={() => {
-                      setFirmTypeFilter(ft.key);
-                      const tpls =
-                        TEMPLATES[ft.key] ?? TEMPLATES.broker_dealer;
-                      setConfirmed(new Set(tpls.map((_, i) => i)));
-                    }}
-                    className={`px-4 py-2 rounded-sm border text-sm transition-colors cursor-pointer ${
-                      selected
-                        ? "bg-[#0F172A] border-[#0F172A] text-white"
-                        : "bg-white border-[#E2E8F0] text-[#475569] hover:border-[#94A3B8]"
-                    }`}
-                  >
-                    {ft.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Suggested rules — same data the import panel surfaces, but
-              rendered as a focused checklist with plain-English verdict
-              labels ("Will block" / "Routes to review" / "Will flag")
-              so a first-time visitor doesn't have to map BLOCK /
-              ESCALATE / REVIEW onto behaviour. */}
-          <div className="mb-6">
-            <div className="text-sm font-medium text-[#0D1B2A] mb-1">
-              Suggested rules for your organization
-            </div>
-            <div className="text-sm text-[#64748B] mb-4 leading-relaxed">
-              These are based on common regulatory requirements for{" "}
-              {firmLabel}. Review each one — you&apos;ll confirm and
-              edit them on the next screen.
-            </div>
-
-            <div className="space-y-2">
-              {setupTemplates.map((rule, i) => {
-                const isChecked = confirmed.has(i);
-                const verdictLabel =
-                  rule.rule_type === "block"
-                    ? "Will block"
-                    : rule.rule_type === "escalate"
-                      ? "Routes to review"
-                      : "Will flag";
-                const verdictClass =
-                  rule.rule_type === "block"
-                    ? "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]"
-                    : rule.rule_type === "escalate"
-                      ? "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]"
-                      : "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]";
-                return (
-                  <div
-                    key={`${rule.name}-${i}`}
-                    onClick={() => {
-                      const next = new Set(confirmed);
-                      if (next.has(i)) next.delete(i);
-                      else next.add(i);
-                      setConfirmed(next);
-                    }}
-                    className={`border rounded-sm p-4 cursor-pointer transition-colors ${
-                      isChecked
-                        ? "border-[#4F46E5] bg-[#EFF8FF]"
-                        : "border-[#E2E8F0] bg-white hover:border-[#94A3B8]"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`w-4 h-4 rounded border shrink-0 mt-0.5 flex items-center justify-center ${
-                          isChecked
-                            ? "bg-[#4F46E5] border-[#4F46E5]"
-                            : "border-[#D1D5DB] bg-white"
-                        }`}
-                      >
-                        {isChecked && (
-                          <svg
-                            className="w-3 h-3 text-white"
-                            viewBox="0 0 12 12"
-                            fill="none"
-                            aria-hidden
-                          >
-                            <path
-                              d="M2 6l3 3 5-5"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-sm font-medium text-[#0D1B2A]">
-                            {rule.name}
-                          </span>
-                          <span
-                            className={`font-mono text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-sm border ${verdictClass}`}
-                          >
-                            {verdictLabel}
-                          </span>
-                        </div>
-                        <p className="text-sm text-[#64748B] leading-relaxed mb-2">
-                          {rule.description}
-                        </p>
-                        <div className="font-mono text-[9px] text-[#94A3B8]">
-                          {rule.regulatory_basis}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Existing-policy escape hatch. Drops the user into the
-              managing view with the import panel open on the Paste tab
-              so they can pull rules out of their WSP instead of
-              hand-picking templates. */}
-          <div className="border border-[#E2E8F0] rounded-sm p-4 mb-8 bg-[#F8F9FB]">
-            <div className="text-sm font-medium text-[#0D1B2A] mb-1">
-              Already have a compliance policy?
-            </div>
-            <div className="text-sm text-[#64748B] mb-3 leading-relaxed">
-              Paste your existing Written Supervisory Procedures (WSP),
-              social media policy, or any compliance document. ERA CUE
-              will extract your rules automatically.
-            </div>
+      <main className="min-h-screen bg-[#F8F9FB] pb-24">
+        <div className="max-w-[720px] mx-auto px-6 py-20 text-center">
+          <h1
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-3xl font-light text-[#0D1B2A] mb-8"
+          >
+            No governance rules configured.
+          </h1>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
             <button
               type="button"
-              onClick={() => {
-                setView("managing");
-                setShowSetupPanel(true);
-              }}
-              className="font-mono text-xs text-[#4F46E5] hover:text-[#4338CA] transition-colors cursor-pointer"
+              onClick={() => setOpenModal("template")}
+              className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer"
             >
-              Import from an existing policy →
+              Enable via Template
             </button>
-          </div>
-
-          {/* Action footer — count message on the left, primary action
-              on the right. Disabled when nothing is selected so the
-              user can't navigate to a confirm page with an empty list. */}
-          <div className="flex items-center justify-between pt-4 border-t border-[#E2E8F0] flex-wrap gap-3">
-            <div className="text-sm text-[#94A3B8]">
-              {confirmed.size === 0
-                ? "Select at least one rule to continue"
-                : `${confirmed.size} rule${confirmed.size !== 1 ? "s" : ""} selected`}
-            </div>
             <button
               type="button"
-              onClick={() => {
-                const ids = Array.from(confirmed)
-                  .sort((a, b) => a - b)
-                  .join(",");
-                router.push(
-                  `/rules/confirm?firm=${encodeURIComponent(firmTypeFilter)}&ids=${ids}`,
-                );
-              }}
-              disabled={confirmed.size === 0}
-              className="bg-[#0F172A] text-white font-mono text-sm font-medium px-6 py-2.5 rounded-sm hover:bg-[#1E293B] disabled:opacity-40 transition-colors cursor-pointer"
+              onClick={() => setOpenModal("paste")}
+              className="bg-white border border-[#E2E8F0] text-[#475569] font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer"
             >
-              Review and confirm →
+              Paste Policy
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpenModal("upload")}
+              className="bg-white border border-[#E2E8F0] text-[#475569] font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+            >
+              Upload Document
             </button>
           </div>
         </div>
 
-        <SetupRulesPanel
-          isOpen={showSetupPanel || editingRule !== null}
-          firmType={firmType}
-          onClose={() => {
-            setShowSetupPanel(false);
-            setEditingRule(null);
-          }}
-        />
+        {openModal === "template" && (
+          <TemplateModal
+            onClose={() => setOpenModal(null)}
+            onEnable={handleEnableTemplate}
+          />
+        )}
+        {openModal === "paste" && (
+          <PastePolicyModal
+            onClose={() => setOpenModal(null)}
+            onActivate={handleActivateExtractedRule}
+          />
+        )}
+        {openModal === "upload" && (
+          <UploadDocumentModal
+            onClose={() => setOpenModal(null)}
+            onActivate={handleActivateExtractedRule}
+          />
+        )}
+        <BottomMoatBar />
       </main>
     );
   }
 
+  // ---- main view ----------------------------------------------------------
   return (
-    <main className="min-h-screen bg-[#F8F9FB] pb-16">
+    <main className="min-h-screen bg-[#F8F9FB] pb-24">
       <div className="max-w-[1100px] mx-auto px-6 pt-10 pb-6">
-        {/* PAGE HEADER — demo mode is product framing ("your rules,
-            your authority") so the visitor reads the page as
-            something to configure; a real deployment names the
-            count and frames it as live status. */}
+        {/* Page header */}
         <div className="mb-8">
           <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#64748B] mb-2">
             Rules engine
@@ -683,61 +613,54 @@ export function RulesClient({ rules, firmType = null }: Props) {
           >
             {IS_DEMO_MODE
               ? "Your rules. Your authority. Enforced at submission."
-              : counts.active > 0
-                ? `${counts.active} rule${counts.active !== 1 ? "s" : ""} governing your team's communications.`
+              : counts.active + counts.expiring + counts.silent > 0
+                ? `${counts.active + counts.expiring + counts.silent} rule${
+                    counts.active + counts.expiring + counts.silent !== 1
+                      ? "s"
+                      : ""
+                  } governing your team's communications.`
                 : "Configure your governance rules."}
           </h1>
           <p className="text-sm text-[#475569] leading-relaxed max-w-2xl">
             {IS_DEMO_MODE
               ? "ERA CUE checks every draft against these rules before publication."
-              : counts.active > 0
-                ? "Every draft your team submits is checked against these rules before publication."
-                : "ERA CUE checks every draft against your active rules. Set up your governance policies before checking any draft."}
+              : "Every draft your team submits is checked against these rules before publication."}
           </p>
         </div>
 
-        {/* ACTION BAR — single "Set up rules" toggle on the left
-            (opens SetupRulesPanel with three-path picker) and the
-            "Check a draft →" link on the right when at least one
-            rule is active. */}
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        {/* R3 + R6 — Four entry-point buttons */}
+        <div className="flex items-center gap-2 flex-wrap mb-6">
           <button
             type="button"
-            onClick={() => setShowSetupPanel((s) => !s)}
-            className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] transition-colors flex items-center gap-2 cursor-pointer"
+            onClick={() => setOpenModal("template")}
+            className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer"
           >
-            {showSetupPanel ? "× Close" : "+ Set up rules"}
+            Enable via Template
           </button>
-
-          {counts.active > 0 && (
-            <a
-              href="/submit"
-              className="font-mono text-xs text-[#4F46E5] hover:text-[#4338CA] transition-colors"
-            >
-              Check a draft →
-            </a>
-          )}
+          <button
+            type="button"
+            onClick={() => setOpenModal("paste")}
+            className="bg-white border border-[#E2E8F0] text-[#475569] font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+          >
+            Paste Policy
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpenModal("upload")}
+            className="bg-white border border-[#E2E8F0] text-[#475569] font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+          >
+            Upload Document
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpenModal("build")}
+            className="bg-white border border-[#E2E8F0] text-[#475569] font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+          >
+            Build from scratch
+          </button>
         </div>
 
-        {/* Rule Builder — renders inline directly below the action bar
-            so the form appears where the visitor's eye already is
-            after clicking Add a rule. The component returns null when
-            isOpen is false. */}
-        <SetupRulesPanel
-          isOpen={showSetupPanel || editingRule !== null}
-          firmType={firmType}
-          onClose={() => {
-            setShowSetupPanel(false);
-            setEditingRule(null);
-          }}
-        />
-
-
-        {/* Post-authorization success banner — only renders for real
-            users. In demo mode the action bar already has the
-            "Check a draft →" link, so the banner would just repeat
-            framing the page already carries. Dismiss strips the
-            `?activated=true` query so a refresh doesn't re-show it. */}
+        {/* Success banner */}
         {!IS_DEMO_MODE && justAuthorized && (
           <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm p-5 mb-6">
             <div className="flex items-start justify-between">
@@ -771,105 +694,21 @@ export function RulesClient({ rules, firmType = null }: Props) {
               >
                 Check your first draft →
               </a>
-              <button
-                type="button"
-                onClick={() => {
-                  clearActivated();
-                  setView("setup");
-                }}
-                className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
-              >
-                Add more rules
-              </button>
             </div>
           </div>
         )}
 
-        {/* Stats strip — real users only. The big counts describe seed
-            data in demo mode (someone else's "7 ACTIVE / 4 FIRING / 3
-            SILENT"), so we hide the entire strip in demo and let the
-            labeled separator below carry the framing. */}
-        {!IS_DEMO_MODE && (
-          <div className="flex items-center justify-between mt-6 mb-4 flex-wrap gap-3">
-            <div className="flex items-center gap-5">
-              <div className="text-center">
-                <div className="text-2xl font-light font-mono text-[#0D1B2A]">
-                  {counts.active}
-                </div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
-                  Active
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-light font-mono text-[#C2410C]">
-                  {counts.firing}
-                </div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
-                  Firing
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-light font-mono text-[#94A3B8]">
-                  {counts.silent}
-                </div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
-                  Silent
-                </div>
-              </div>
-            </div>
-            <div className="font-mono text-[10px] text-[#94A3B8]">
-              ERA CUE checks every draft against your active rules
-              and prior approved statements.
-            </div>
-          </div>
-        )}
-
-        {/* Tab bar — real users only. Demo mode pins to the four
-            curated rules so a tab system would only confuse the
-            visitor. Each tab carries a count chip; the Expiring
-            chip flips amber when there's at least one rule inside
-            the 30-day window. Templates lives at the end of the row
-            and shows a starter-set picker when selected. */}
+        {/* Tab bar */}
         {!IS_DEMO_MODE && (
           <div className="flex gap-0 border-b border-[#E2E8F0] mb-5 overflow-x-auto">
             {(
               [
-                {
-                  key: "active" as const,
-                  label: "Active",
-                  count: activeRules.length,
-                  alert: false,
-                },
-                {
-                  key: "expiring" as const,
-                  label: "Expiring",
-                  count: expiringRules.length,
-                  alert: expiringRules.length > 0,
-                },
-                {
-                  key: "silent" as const,
-                  label: "Silent",
-                  count: silentRules.length,
-                  alert: false,
-                },
-                {
-                  key: "drafts" as const,
-                  label: "Drafts",
-                  count: draftRules.length,
-                  alert: false,
-                },
-                {
-                  key: "deactivated" as const,
-                  label: "Deactivated",
-                  count: deactivatedRules.length,
-                  alert: false,
-                },
-                {
-                  key: "history" as const,
-                  label: "History",
-                  count: null,
-                  alert: false,
-                },
+                { key: "active" as const, label: "Active", count: activeRules.length, alert: false },
+                { key: "expiring" as const, label: "Expiring", count: expiringRules.length, alert: expiringRules.length > 0 },
+                { key: "silent" as const, label: "Silent", count: silentRules.length, alert: false },
+                { key: "drafts" as const, label: "Drafts", count: draftRules.length, alert: false },
+                { key: "deactivated" as const, label: "Deactivated", count: deactivatedRules.length, alert: false },
+                { key: "history" as const, label: "History", count: null, alert: false },
               ]
             ).map((t) => {
               const selected = activeTab === t.key;
@@ -902,97 +741,14 @@ export function RulesClient({ rules, firmType = null }: Props) {
           </div>
         )}
 
-        {/* Drift alert — silent tab only. Surfaces "these rules
-            never fired" so the principal sees the calibration signal
-            inline rather than burying it on each card. */}
-        {!IS_DEMO_MODE &&
-          activeTab === "silent" &&
-          silentRules.length > 0 && (
-            <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-sm px-4 py-3 mb-4 text-xs text-[#92400E] font-mono leading-relaxed">
-              <span className="font-bold">Drift alert</span>
-              {" · "}
-              {silentRules.length} rule
-              {silentRules.length !== 1 ? "s have" : " has"} never fired.
-              Review whether keywords match how your team actually writes.
-            </div>
-          )}
-
-        {/* Drafts tab — empty state, then a custom card layout with
-            Authorize / Edit / Delete buttons per row. Replaces the
-            generic rule-card layout so the lifecycle CTAs read as
-            the primary action on this surface. */}
-        {!IS_DEMO_MODE && activeTab === "drafts" && (
-          <>
-            {draftRules.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#94A3B8] mb-2">
-                  No draft rules
-                </div>
-                <p className="text-sm text-[#64748B]">
-                  Rules saved without authorization appear here. Use
-                  &ldquo;Set up rules&rdquo; above to create a draft.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {draftRules.map((rule) => (
-                  <div
-                    key={rule.id}
-                    className="border border-[#E2E8F0] border-l-[4px] border-l-[#94A3B8] rounded-lg p-5 bg-white"
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[9px] uppercase px-2 py-0.5 rounded-sm bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]">
-                          Draft
-                        </span>
-                        <span className="text-sm font-medium text-[#0D1B2A]">
-                          {rule.name}
-                        </span>
-                      </div>
-                      <div className="flex gap-2 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => handleAuthorizeDraft(rule.id)}
-                          className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-3 py-1.5 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer"
-                        >
-                          Authorize →
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingRuleId(rule.id)}
-                          className="font-mono text-xs px-3 py-1.5 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteDraft(rule.id)}
-                          className="font-mono text-xs px-3 py-1.5 rounded-sm border border-[#E2E8F0] text-[#94A3B8] hover:text-[#B91C1C] hover:border-[#FECACA] transition-colors cursor-pointer"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                    {rule.description && (
-                      <p className="text-sm text-[#475569] mb-2 leading-relaxed">
-                        {rule.description}
-                      </p>
-                    )}
-                    <div className="font-mono text-[9px] text-[#94A3B8]">
-                      Not active · Will not fire until authorized by a
-                      named principal
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
+        {/* Demo label */}
+        {IS_DEMO_MODE && (
+          <div className="font-mono text-[10px] text-[#94A3B8] mb-5 pb-4 border-b border-[#E2E8F0]">
+            Demo rules — live data from a sample organization.
+          </div>
         )}
 
-        {/* History tab — every rule the org has authored, in
-            authorization order, with status pill on the right. The
-            footer note frames the list as the immutable audit trail
-            backing every rule decision. */}
+        {/* History tab */}
         {!IS_DEMO_MODE && activeTab === "history" && (
           <>
             {rules.length === 0 ? (
@@ -1001,8 +757,7 @@ export function RulesClient({ rules, firmType = null }: Props) {
                   No history yet
                 </div>
                 <p className="text-sm text-[#64748B]">
-                  Authorized rules will appear here in chronological
-                  order.
+                  Authorized rules will appear here in chronological order.
                 </p>
               </div>
             ) : (
@@ -1010,25 +765,12 @@ export function RulesClient({ rules, firmType = null }: Props) {
                 <div className="space-y-0 divide-y divide-[#E2E8F0]">
                   {[...rules]
                     .sort((a, b) => {
-                      const ta = a.effective_from
-                        ? new Date(a.effective_from).getTime()
-                        : 0;
-                      const tb = b.effective_from
-                        ? new Date(b.effective_from).getTime()
-                        : 0;
+                      const ta = a.effective_from ? new Date(a.effective_from).getTime() : 0;
+                      const tb = b.effective_from ? new Date(b.effective_from).getTime() : 0;
                       return tb - ta;
                     })
                     .map((rule) => {
-                      const v = (rule.verdict || "review").toLowerCase();
-                      const badge =
-                        VERDICT_BADGES[v] ?? VERDICT_BADGES.review;
-                      const status = rule.rule_status ?? "active";
-                      const statusClass =
-                        status === "active"
-                          ? "text-[#0EA5E9] bg-[#E0F2FE]"
-                          : status === "draft"
-                            ? "text-[#64748B] bg-[#F1F5F9]"
-                            : "text-[#94A3B8] bg-[#F8FAFC]";
+                      const status = classifyLifecycle(rule, now);
                       return (
                         <div
                           key={rule.id}
@@ -1036,329 +778,193 @@ export function RulesClient({ rules, firmType = null }: Props) {
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <span
-                              style={{
-                                background: badge.bg,
-                                color: badge.text,
-                                border: `0.5px solid ${badge.border}`,
-                              }}
-                              className="font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm shrink-0"
+                              className={`font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm shrink-0 ${statusBadgeClass(status)}`}
                             >
-                              {badge.label}
+                              {status}
                             </span>
                             <div className="min-w-0">
                               <div className="text-sm font-medium text-[#0D1B2A] truncate">
                                 {rule.name}
                               </div>
                               <div className="font-mono text-[9px] text-[#94A3B8]">
-                                {rule.effective_from
-                                  ? new Date(
-                                      rule.effective_from,
-                                    ).toLocaleDateString("en-US", {
-                                      month: "short",
-                                      day: "numeric",
-                                      year: "numeric",
-                                    })
-                                  : "No authorization date"}
-                                {!IS_DEMO_MODE && rule.authorized_by && (
-                                  <span> · {rule.authorized_by}</span>
-                                )}
+                                {rule.effective_from ? `Authorized ${fmtDate(rule.effective_from)}` : "No authorization date"}
                               </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <span
-                              className={`font-mono text-[9px] uppercase px-2 py-0.5 rounded-sm ${statusClass}`}
-                            >
-                              {status}
-                            </span>
                           </div>
                         </div>
                       );
                     })}
                 </div>
                 <div className="font-mono text-[9px] text-[#94A3B8] text-center pt-6 mt-6 border-t border-[#E2E8F0]">
-                  Every rule authorization is recorded with principal
-                  identity, timestamp, and SHA-256 hash. This history
-                  cannot be altered.
+                  ERA CUE records that this governance process ran. Whether
+                  the communication satisfies applicable regulatory
+                  requirements is a determination for qualified legal counsel.
                 </div>
               </>
             )}
           </>
         )}
 
-        {/* Demo label — single muted sentence above the rules list,
-            demo mode only. Real users get a clean tab-only interface
-            (no labeled separator — the tab title is the label). */}
-        {IS_DEMO_MODE && (
-          <div className="font-mono text-[10px] text-[#94A3B8] mb-5 pb-4 border-b border-[#E2E8F0]">
-            Demo rules — live data from a sample organization.
-          </div>
-        )}
-
-        {/* Rules list — tab-aware. Active uses a 2-column grid;
-            Expiring / Silent / Deactivated use a single column so
-            the action buttons + amber callouts have full width. The
-            Templates tab renders its placeholder above and skips
-            this whole block. */}
-        {activeTab !== "history" && activeTab !== "drafts" && (
-          <div
-            className={
-              activeTab === "active" || IS_DEMO_MODE
-                ? "grid grid-cols-1 md:grid-cols-2 gap-3"
-                : "flex flex-col gap-3"
-            }
-          >
+        {/* Rules list — cards (R1, R2, R9, R17, R18) */}
+        {(IS_DEMO_MODE || activeTab !== "history") && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {tabRules.length === 0 ? (
               <div className="md:col-span-2 bg-white border border-[#E2E8F0] rounded-sm p-12 text-center text-[#64748B] text-sm">
                 No rules in this view.
               </div>
             ) : (
               tabRules.map((r) => {
-                const classification = classifyRule(r, now);
-                const v = (r.verdict || "review").toLowerCase();
-                const badge = VERDICT_BADGES[v] ?? VERDICT_BADGES.review;
+                const status = classifyLifecycle(r, now);
                 const triggers = r.trigger_count ?? 0;
-                const isEditing = editingRuleId === r.id;
-                const isExpiringTab = activeTab === "expiring";
-                const isSilentTab = activeTab === "silent";
-                const daysUntilExpiry = r.effective_until
-                  ? Math.ceil(
-                      (new Date(r.effective_until).getTime() - now) /
-                        (1000 * 60 * 60 * 24),
-                    )
-                  : null;
+                const keywordCount = (r.keywords ?? []).length;
+                const isHistoryExpanded = expandedHistory.has(r.id);
+                const driftFlag = status === "SILENT";
+                const isDraft = status === "DRAFT";
+                const isActiveTab = activeTab === "active";
+
                 return (
                   <div
                     key={r.id}
                     id={`rule-${r.id}`}
-                    className={`rounded-sm overflow-hidden scroll-mt-6 ${
-                      isExpiringTab
-                        ? "bg-[#FFFBEB] border border-[#FDE68A] border-l-[4px] border-l-[#F59E0B]"
-                        : "bg-white border border-[#E2E8F0]"
-                    }`}
+                    className="bg-white border border-[#E2E8F0] rounded-lg overflow-hidden"
                   >
                     <div className="px-5 py-4">
-                      {/* Row 1 — badge + name + actions */}
+                      {/* R1 — name + status badge + drift dot (R17) */}
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <span
-                            style={{
-                              background: badge.bg,
-                              color: badge.text,
-                              border: `0.5px solid ${badge.border}`,
-                            }}
-                            className="font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm shrink-0"
-                          >
-                            {badge.label}
-                          </span>
+                          {driftFlag && (
+                            <span
+                              title="Possible keyword gap — your team may be using different language than the keywords in this rule. Review recent cleared drafts for similar language."
+                              className="w-2 h-2 rounded-full bg-[#F59E0B] shrink-0"
+                              aria-label="Possible keyword gap"
+                            />
+                          )}
                           <span className="text-sm font-semibold text-[#0D1B2A] leading-snug">
                             {r.name}
                           </span>
-                        </div>
-                        {classification === "active" && !isExpiringTab && (
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setEditingRuleId(isEditing ? null : r.id)
-                              }
-                              className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeactivate(r.id, r.name)}
-                              disabled={pending}
-                              className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#94A3B8] hover:border-[#FCA5A5] hover:text-[#B91C1C] transition-colors cursor-pointer disabled:opacity-50"
-                            >
-                              Deactivate
-                            </button>
-                          </div>
-                        )}
-                        {classification === "expired" && (
-                          <button
-                            type="button"
-                            onClick={() => setEditingRuleId(isEditing ? null : r.id)}
-                            className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                          <span
+                            className={`font-mono text-[9px] font-bold uppercase px-2 py-0.5 rounded-sm shrink-0 ${statusBadgeClass(status)}`}
                           >
-                            Renew
-                          </button>
+                            {status}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isDraft ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleAuthorizeDraft(r.id)}
+                                className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-3 py-1 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer"
+                              >
+                                Authorize →
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingRule(r)}
+                                className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteDraft(r.id)}
+                                className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#94A3B8] hover:text-[#B91C1C] hover:border-[#FECACA] transition-colors cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          ) : status !== "DEACTIVATED" ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setEditingRule(r)}
+                                className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeactivate(r.id, r.name)}
+                                disabled={pending}
+                                className="font-mono text-xs px-3 py-1 rounded-sm border border-[#E2E8F0] text-[#94A3B8] hover:border-[#FCA5A5] hover:text-[#B91C1C] transition-colors cursor-pointer disabled:opacity-50"
+                              >
+                                Deactivate
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {/* R1 — keyword count, last triggered, trigger count */}
+                      <div className="font-mono text-[10px] text-[#64748B] flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
+                        <span>
+                          {keywordCount} keyword{keywordCount !== 1 ? "s" : ""}
+                        </span>
+                        <span className="text-[#E5E7EB]" aria-hidden>·</span>
+                        <span>
+                          Last triggered: {r.last_triggered ? fmtDate(r.last_triggered) : "—"}
+                        </span>
+                        <span className="text-[#E5E7EB]" aria-hidden>·</span>
+                        <span>
+                          {triggers} trigger{triggers !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+
+                      {/* R17 — drift advisory copy */}
+                      {driftFlag && (
+                        <div className="text-[#64748B] text-xs mb-2 leading-relaxed">
+                          ERA CUE surfaces a possible keyword gap for your
+                          review. Whether the rule is adequately calibrated
+                          is a governance judgment.
+                        </div>
+                      )}
+
+                      {/* R9 — Authorized [date] */}
+                      <div className="text-[#64748B] text-xs">
+                        {r.effective_from ? `Authorized ${fmtDate(r.effective_from)}` : "Not yet authorized"}
+                      </div>
+
+                      {/* R18 — trigger history toggle */}
+                      <div className="mt-3 pt-3 border-t border-[#F1F5F9]">
+                        <button
+                          type="button"
+                          onClick={() => toggleHistory(r.id)}
+                          className="font-mono text-[10px] text-[#64748B] hover:text-[#0D1B2A] cursor-pointer flex items-center gap-1"
+                        >
+                          <span aria-hidden>{isHistoryExpanded ? "▼" : "▶"}</span>
+                          Trigger history
+                        </button>
+                        {isHistoryExpanded && (
+                          <div className="mt-2 border border-[#E2E8F0] rounded-sm overflow-hidden">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-[#F8FAFC] text-[#64748B]">
+                                  <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wider">Draft ID</th>
+                                  <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wider">Verdict</th>
+                                  <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wider">Timestamp</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td colSpan={3} className="px-3 py-4 text-center text-[#94A3B8]">
+                                    No triggers recorded for this rule.
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
                         )}
                       </div>
 
-                      {/* Description */}
-                      {r.description && (
-                        <p className="text-sm text-[#475569] leading-relaxed mb-3">
-                          {r.description}
-                        </p>
-                      )}
-
-                      {/* Keywords */}
-                      {r.keywords && r.keywords.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {r.keywords.slice(0, 6).map((kw) => (
-                            <span
-                              key={kw}
-                              className="font-mono text-[10px] bg-[#F1F5F9] text-[#475569] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
-                            >
-                              {kw}
-                            </span>
-                          ))}
-                          {r.keywords.length > 6 && (
-                            <span className="font-mono text-[10px] text-[#94A3B8]">
-                              +{r.keywords.length - 6} more
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Status line */}
-                      <div className="font-mono text-[10px] text-[#94A3B8] flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span>{statusPrefix(r, classification)}</span>
-                        {r.scope && (
-                          <>
-                            <span className="text-[#E5E7EB]" aria-hidden>·</span>
-                            <span>{scopeLabel(r.scope)}</span>
-                          </>
-                        )}
-                        {r.wsp_reference && (
-                          <>
-                            <span className="text-[#E5E7EB]" aria-hidden>·</span>
-                            <span className="text-[#4F46E5]">
-                              {policyLabelShortFor(firmType)}: {r.wsp_reference}
-                            </span>
-                          </>
-                        )}
-                        {!IS_DEMO_MODE && r.authorized_by && (
-                          <>
-                            <span className="text-[#E5E7EB]" aria-hidden>·</span>
-                            <span>Authorized by {r.authorized_by}</span>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Expiring tab — amber timeline + advisory + actions */}
-                      {isExpiringTab && r.effective_until && (
-                        <>
-                          <div className="font-mono text-xs text-[#B45309] mt-3 mb-1">
-                            Expires{" "}
-                            {new Date(r.effective_until).toLocaleDateString(
-                              "en-US",
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              },
-                            )}
-                            {daysUntilExpiry !== null && (
-                              <>
-                                {" · "}
-                                {daysUntilExpiry} day
-                                {daysUntilExpiry !== 1 ? "s" : ""} remaining
-                              </>
-                            )}
+                      {/* Active-tab "Check a draft" link is rendered globally;
+                          we keep the per-card surface focused on R1 fields. */}
+                      {!isActiveTab && status === "DEACTIVATED" && r.deactivated_reason &&
+                        r.deactivated_reason.trim().toLowerCase() !== "test" && (
+                          <div className="font-mono text-[10px] text-[#64748B] mt-2">
+                            Reason: {r.deactivated_reason}
                           </div>
-                          {triggers > 0 && (
-                            <div className="font-mono text-[10px] text-[#B45309] mb-3">
-                              {triggers} trigger{triggers !== 1 ? "s" : ""} ·
-                              actively firing
-                            </div>
-                          )}
-                          <p className="text-xs italic text-[#92400E] mb-3 leading-relaxed">
-                            {triggers > 0
-                              ? "Most-fired rule. Extend if the window continues. Let expire if not — team posts will be unprotected after expiry."
-                              : "No triggers recorded. Consider whether this window is still needed."}
-                          </p>
-                          <div className="flex gap-2 flex-wrap">
-                            <button
-                              type="button"
-                              onClick={() => handleExtendRule(r.id)}
-                              className="bg-[#4F46E5] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer"
-                            >
-                              Extend window
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleCloneRule()}
-                              className="bg-white text-[#475569] font-mono text-xs font-medium px-4 py-2 rounded-sm border border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
-                            >
-                              Clone for next period
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeactivate(r.id, r.name)}
-                              disabled={pending}
-                              className="bg-white text-[#64748B] font-mono text-xs px-4 py-2 rounded-sm border border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors cursor-pointer disabled:opacity-50"
-                            >
-                              Let expire
-                            </button>
-                          </div>
-                        </>
-                      )}
-
-                      {/* Silent tab — drift footer line */}
-                      {isSilentTab && (
-                        <div className="font-mono text-[10px] text-[#B45309] mt-2">
-                          ⊘ Never fired · review keywords or deactivate
-                        </div>
-                      )}
-
-                      {/* Default trigger / freshness footer for non-
-                          expiring tabs (Active / Silent / Demo) */}
-                      {!isExpiringTab && (
-                        <div className="mt-2 flex items-center gap-3 flex-wrap">
-                          {triggers > 0 && (
-                            <div className="font-mono text-[10px] text-[#64748B]">
-                              {triggers} trigger
-                              {triggers !== 1 ? "s" : ""}
-                              {r.effectiveness_score !== null &&
-                                r.effectiveness_score !== undefined && (
-                                  <span
-                                    className={`ml-1 ${
-                                      r.effectiveness_score < 50
-                                        ? "text-[#C2410C]"
-                                        : "text-[#166534]"
-                                    }`}
-                                  >
-                                    · {r.effectiveness_score}% effective
-                                  </span>
-                                )}
-                              {r.last_triggered && (
-                                <span className="text-[#94A3B8]">
-                                  {" "}· last {fmtRelative(r.last_triggered)}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {classification === "deactivated" &&
-                            r.deactivated_reason &&
-                            r.deactivated_reason.trim().toLowerCase() !==
-                              "test" && (
-                              <div className="font-mono text-[10px] text-[#64748B]">
-                                Reason: {r.deactivated_reason}
-                              </div>
-                            )}
-                        </div>
-                      )}
+                        )}
                     </div>
-
-                    {/* Inline edit panel */}
-                    {isEditing && (
-                      <EditRulePanel
-                        rule={r}
-                        onSave={async (updates) => {
-                          const result = await saveRuleUpdates(r.id, updates);
-                          if (!result.ok) {
-                            alert("Could not save: " + result.error);
-                            return;
-                          }
-                          setEditingRuleId(null);
-                          router.refresh();
-                        }}
-                        onCancel={() => setEditingRuleId(null)}
-                      />
-                    )}
                   </div>
                 );
               })
@@ -1366,132 +972,639 @@ export function RulesClient({ rules, firmType = null }: Props) {
           </div>
         )}
 
+        {/* R10-R11 — Rule Lifecycle */}
+        <section className="mt-12">
+          <h2
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-2xl font-light text-[#0D1B2A] mb-4"
+          >
+            Rule Lifecycle
+          </h2>
+          <div className="overflow-x-auto">
+            <div className="flex items-stretch gap-3 min-w-max pb-2">
+              {[
+                { name: "Draft", desc: "Created, not yet authorized" },
+                { name: "Authorized", desc: "Named principal confirmed" },
+                { name: "Firing", desc: "First keyword match recorded" },
+                { name: "Silent", desc: "30 days with zero matches" },
+                { name: "Expiring", desc: "End date within 60 days" },
+                { name: "Deactivated", desc: "End date passed or manually deactivated" },
+              ].map((s, i, arr) => (
+                <div key={s.name} className="flex items-center gap-3">
+                  <div className="bg-white border border-[#E2E8F0] rounded-lg px-4 py-3 min-w-[160px]">
+                    <div className="text-sm font-semibold text-[#0D1B2A] mb-1">
+                      {s.name}
+                    </div>
+                    <div className="text-xs text-[#64748B] leading-snug">
+                      {s.desc}
+                    </div>
+                  </div>
+                  {i < arr.length - 1 && (
+                    <span className="text-[#94A3B8] font-mono text-sm" aria-hidden>
+                      →
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* R12-R14 — Message House */}
+        <section className="mt-12">
+          <h2
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-2xl font-light text-[#0D1B2A] mb-4"
+          >
+            Message House
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            {[
+              "We build for long-term trust, not short-term growth metrics.",
+              "Our products are designed for regulatory environments where record-keeping is mandatory.",
+              "Human oversight is not optional — it is the product.",
+              null,
+              null,
+            ].map((pillar, i) => {
+              const num = String(i + 1).padStart(2, "0");
+              return (
+                <div
+                  key={i}
+                  className="bg-white border border-[#E2E8F0] rounded-lg p-4 min-h-[140px] flex flex-col"
+                >
+                  <div className="font-mono text-[10px] text-[#94A3B8] mb-2">
+                    {num}
+                  </div>
+                  {pillar ? (
+                    <div className="text-sm text-[#0D1B2A] leading-relaxed">
+                      {pillar}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="text-left text-sm text-[#64748B] hover:text-[#475569] transition-colors cursor-pointer"
+                    >
+                      + Add pillar
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="text-[#94A3B8] text-sm mt-4 leading-relaxed">
+            Every draft is compared to your active pillars. Contradictions are
+            flagged. Drift is surfaced.
+          </div>
+          <div className="text-[#64748B] text-xs italic mt-1">
+            Automatic enforcement coming soon.
+          </div>
+        </section>
+
+        {/* R15-R16 — AI Content Detection */}
+        <section className="mt-12">
+          <h2
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-2xl font-light text-[#0D1B2A] mb-4"
+          >
+            AI Content Detection
+          </h2>
+          <div className="space-y-3">
+            {[
+              "LLM-generated content detection",
+              "Agent submission fingerprinting",
+              "EU AI Act Art. 50 automatic disclosure flagging",
+            ].map((label) => (
+              <div
+                key={label}
+                className="bg-white border border-[#E2E8F0] rounded-lg p-4"
+              >
+                <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                  <div className="text-sm font-medium text-[#0D1B2A]">
+                    {label}
+                  </div>
+                  <span className="font-mono text-[9px] uppercase px-2 py-0.5 rounded-sm bg-[#334155] text-[#94A3B8]">
+                    Coming soon
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                  <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-sm px-3 py-2">
+                    <div className="font-mono text-[10px] uppercase text-[#64748B] mb-1">Now</div>
+                    <div className="text-[#475569]">
+                      Manual declaration via checkbox at submission
+                    </div>
+                  </div>
+                  <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-sm px-3 py-2">
+                    <div className="font-mono text-[10px] uppercase text-[#64748B] mb-1">Coming</div>
+                    <div className="text-[#475569]">
+                      Automatic detection and routing
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* R19 — Governance Memory */}
+        <section className="mt-12 mb-6">
+          <h2
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-2xl font-light text-[#0D1B2A] mb-4"
+          >
+            Governance Memory
+          </h2>
+          <div className="bg-white border border-[#E2E8F0] rounded-lg p-5">
+            <div className="text-sm text-[#0D1B2A] mb-1">
+              Cleared drafts in corpus: {corpusCount}
+            </div>
+            <div className="text-sm text-[#0D1B2A]">
+              Date range:{" "}
+              {corpusCount > 0 && corpusEarliest && corpusLatest
+                ? `${fmtDate(corpusEarliest)} – ${fmtDate(corpusLatest)}`
+                : "—"}
+            </div>
+            <div className="text-[#64748B] text-xs mt-3 leading-relaxed">
+              What powers drift detection. Individual draft content is not
+              displayed here.
+            </div>
+          </div>
+        </section>
       </div>
 
-      {/* MOAT bar — fixed-bottom strip that frames the page as a
-          single node in the broader Governance Memory Graph. The
-          main wrapper carries pb-16 so the bar never overlaps the
-          last rule card or the History tab footer note. */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#0D1B2A] border-t border-white/[0.08] px-6 py-3 flex items-center gap-3 z-20">
-        <span className="font-mono text-[9px] font-bold text-[#0EA5E9] uppercase tracking-[0.14em] shrink-0">
-          MOAT
-        </span>
-        <span className="font-mono text-[9px] text-white/[0.42] leading-relaxed">
-          Governance Memory Graph · Every rule authorization is a
-          node. Every trigger is an edge. Calibration compounds
-          over time — competitors starting today have none.
-        </span>
-      </div>
+      <BottomMoatBar />
+
+      {/* Modals */}
+      {openModal === "template" && (
+        <TemplateModal
+          onClose={() => setOpenModal(null)}
+          onEnable={handleEnableTemplate}
+        />
+      )}
+      {openModal === "paste" && (
+        <PastePolicyModal
+          onClose={() => setOpenModal(null)}
+          onActivate={handleActivateExtractedRule}
+        />
+      )}
+      {openModal === "upload" && (
+        <UploadDocumentModal
+          onClose={() => setOpenModal(null)}
+          onActivate={handleActivateExtractedRule}
+        />
+      )}
+      {openModal === "build" && (
+        <BuildRuleModal
+          onClose={() => setOpenModal(null)}
+          onCreate={handleCreateCustomRule}
+        />
+      )}
+
+      {editingRule && (
+        <EditRuleSheet
+          rule={editingRule}
+          onClose={() => setEditingRule(null)}
+          onSave={handleSaveEdit}
+        />
+      )}
     </main>
   );
 }
 
-// ---------- EditRulePanel -------------------------------------------------
+// ---------- MOAT bar -------------------------------------------------------
 
-const VERDICT_BADGE_SELECTED: Record<string, string> = {
-  block: "bg-[#FEF2F2] text-[#B91C1C] border-[#FECACA]",
-  escalate: "bg-[#FFF7ED] text-[#C2410C] border-[#FED7AA]",
-  review: "bg-[#EFF6FF] text-[#1D4ED8] border-[#BFDBFE]",
-  guide: "bg-[#F5F3FF] text-[#6D28D9] border-[#DDD6FE]",
-};
+function BottomMoatBar() {
+  return (
+    <div className="fixed bottom-0 left-0 right-0 bg-[#0D1B2A] border-t border-white/[0.08] px-6 py-3 flex items-center gap-3 z-20">
+      <span className="font-mono text-[9px] font-bold text-[#0EA5E9] uppercase tracking-[0.14em] shrink-0">
+        MOAT
+      </span>
+      <span className="font-mono text-[9px] text-white/[0.42] leading-relaxed">
+        Governance Memory Graph · Every rule authorization is a node. Every
+        trigger is an edge. Calibration compounds over time — competitors
+        starting today have none.
+      </span>
+    </div>
+  );
+}
 
-/**
- * Inline edit panel that expands below a rule card when the user
- * clicks Edit. Fields: name, verdict, description, keywords (comma-
- * separated), expiry date. The "Test this rule" input runs the same
- * keyword match the engine uses (case-insensitive substring) so the
- * principal can verify their wording fires correctly before saving.
- */
-function EditRulePanel({
-  rule,
-  onSave,
-  onCancel,
+// ---------- Modal shell -----------------------------------------------------
+
+function ModalShell({
+  title,
+  onClose,
+  children,
+  maxWidth = "max-w-xl",
 }: {
-  rule: RuleRow;
-  onSave: (updates: RuleUpdates) => Promise<void>;
-  onCancel: () => void;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  maxWidth?: string;
 }) {
-  const [name, setName] = useState(rule.name);
-  const [description, setDescription] = useState(rule.description ?? "");
-  const initialVerdict =
-    rule.verdict === "block" ||
-    rule.verdict === "escalate" ||
-    rule.verdict === "review" ||
-    rule.verdict === "guide"
-      ? rule.verdict
-      : "review";
-  const [ruleType, setRuleType] = useState<
-    "block" | "escalate" | "review" | "guide"
-  >(initialVerdict);
-  const [keywordsStr, setKeywordsStr] = useState(
-    (rule.keywords ?? []).join(", "),
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className={`bg-white rounded-lg shadow-xl w-full ${maxWidth} max-h-[90vh] overflow-y-auto`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-[#E2E8F0] px-5 py-4">
+          <h3
+            style={{ fontFamily: "var(--font-newsreader)" }}
+            className="text-xl font-light text-[#0D1B2A]"
+          >
+            {title}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-[#94A3B8] hover:text-[#0D1B2A] text-xl cursor-pointer"
+          >
+            ×
+          </button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
   );
-  const [effectiveTo, setEffectiveTo] = useState(
-    rule.effective_until ? rule.effective_until.split("T")[0] : "",
-  );
-  const [saving, setSaving] = useState(false);
-  const [testDraft, setTestDraft] = useState("");
-  const [testResult, setTestResult] = useState<
-    | { matched: true; keyword: string }
-    | { matched: false }
-    | null
-  >(null);
+}
 
-  function handleTest() {
-    const keywords = keywordsStr
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
-    const lower = testDraft.toLowerCase();
-    for (const kw of keywords) {
-      if (lower.includes(kw.toLowerCase())) {
-        setTestResult({ matched: true, keyword: kw });
-        return;
-      }
-    }
-    setTestResult({ matched: false });
+// ---------- R3 Template modal ----------------------------------------------
+
+function TemplateModal({
+  onClose,
+  onEnable,
+}: {
+  onClose: () => void;
+  onEnable: (t: BuiltInTemplate) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  return (
+    <ModalShell title="Enable via Template" onClose={onClose} maxWidth="max-w-3xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {BUILT_IN_TEMPLATES.map((t) => (
+          <div
+            key={t.id}
+            className="border border-[#E2E8F0] rounded-lg p-4 flex flex-col"
+          >
+            <div className="text-sm font-semibold text-[#0D1B2A] mb-1">
+              {t.name}
+            </div>
+            <div className="font-mono text-[10px] text-[#94A3B8] mb-2">
+              {t.basis}
+            </div>
+            <div className="text-xs text-[#475569] mb-3 leading-relaxed">
+              Catches {t.catches}.
+            </div>
+            <div className="flex flex-wrap gap-1 mb-3">
+              {t.keywords.map((kw) => (
+                <span
+                  key={kw}
+                  className="font-mono text-[10px] bg-[#F1F5F9] text-[#475569] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
+                >
+                  {kw}
+                </span>
+              ))}
+            </div>
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={async () => {
+                setBusy(t.id);
+                await onEnable(t);
+                setBusy(null);
+              }}
+              className="mt-auto bg-[#4F46E5] text-white font-mono text-xs font-medium px-3 py-2 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {busy === t.id ? "Enabling…" : "Enable this template"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </ModalShell>
+  );
+}
+
+// ---------- R3 Paste Policy modal ------------------------------------------
+
+function PastePolicyModal({
+  onClose,
+  onActivate,
+}: {
+  onClose: () => void;
+  onActivate: (name: string, keywords: string[]) => Promise<void>;
+}) {
+  const [text, setText] = useState("");
+  const [chips, setChips] = useState<string[] | null>(null);
+  const [name, setName] = useState("Custom Policy Rule");
+  const [busy, setBusy] = useState(false);
+
+  function handleExtract() {
+    const kws = extractKeywords(text);
+    setChips(kws);
   }
 
-  async function handleSave() {
-    setSaving(true);
-    const keywords = keywordsStr
-      .split(",")
-      .map((k) => k.trim())
-      .filter(Boolean);
-    await onSave({
-      name,
-      description,
-      rule_type: ruleType,
-      keywords,
-      effective_to: effectiveTo
-        ? new Date(effectiveTo).toISOString()
-        : null,
-    });
-    setSaving(false);
+  function removeChip(kw: string) {
+    if (!chips) return;
+    setChips(chips.filter((c) => c !== kw));
+  }
+
+  async function handleActivate() {
+    if (!chips || chips.length === 0) return;
+    setBusy(true);
+    await onActivate(name.trim() || "Custom Policy Rule", chips);
+    setBusy(false);
   }
 
   return (
-    <div className="border-t border-[#E2E8F0] bg-[#F8F9FB]">
-      {/* Versioning warning — saving an edit creates a new authorized
-          version; the prior version stays in the audit trail. The
-          banner makes that explicit so a principal doesn't think they
-          can quietly tweak a live rule. */}
-      <div className="bg-[#FFFBEB] border-b border-[#FDE68A] px-5 py-3 flex items-start gap-3">
-        <span className="text-[#B45309] text-sm shrink-0" aria-hidden>
-          ⚠
-        </span>
-        <div className="text-xs text-[#92400E] leading-relaxed">
-          <strong>This rule is currently active.</strong> Changes
-          require re-authorization. Every edit creates a versioned
-          audit record — the prior version remains accessible.
+    <ModalShell title="Paste Policy" onClose={onClose} maxWidth="max-w-2xl">
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={8}
+        placeholder="Paste your policy text here"
+        className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] resize-none"
+      />
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={handleExtract}
+          disabled={!text.trim()}
+          className="bg-[#0F172A] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#1E293B] disabled:opacity-50 transition-colors cursor-pointer"
+        >
+          Extract keywords
+        </button>
+      </div>
+      {chips !== null && (
+        <div className="mt-5">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            Rule name
+          </div>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] mb-4"
+          />
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            Candidate keywords
+          </div>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {chips.length === 0 ? (
+              <span className="text-xs text-[#94A3B8]">
+                No candidate keywords found.
+              </span>
+            ) : (
+              chips.map((kw) => (
+                <span
+                  key={kw}
+                  className="font-mono text-xs bg-[#F1F5F9] text-[#475569] px-2 py-1 rounded-sm border border-[#E2E8F0] flex items-center gap-1.5"
+                >
+                  {kw}
+                  <button
+                    type="button"
+                    onClick={() => removeChip(kw)}
+                    className="text-[#94A3B8] hover:text-[#B91C1C] cursor-pointer"
+                    aria-label={`Remove ${kw}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleActivate}
+            disabled={busy || chips.length === 0 || !name.trim()}
+            className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors cursor-pointer"
+          >
+            {busy ? "Activating…" : "Activate rule"}
+          </button>
         </div>
-      </div>
-      <div className="px-5 py-5">
-      <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-4">
-        Edit rule
-      </div>
+      )}
+    </ModalShell>
+  );
+}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+// ---------- R3 Upload Document modal ---------------------------------------
+
+function UploadDocumentModal({
+  onClose,
+  onActivate,
+}: {
+  onClose: () => void;
+  onActivate: (name: string, keywords: string[]) => Promise<void>;
+}) {
+  const [filename, setFilename] = useState<string | null>(null);
+  const [chips, setChips] = useState<string[] | null>(null);
+  const [name, setName] = useState("Custom Policy Rule");
+  const [busy, setBusy] = useState(false);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFilename(file.name);
+    setChips(null);
+    const base = file.name.replace(/\.[^.]+$/, "");
+    const friendly = base
+      .split(/[-_\s]+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+    if (friendly) setName(friendly + " Rule");
+  }
+
+  function handleExtract() {
+    if (!filename) return;
+    setChips(extractKeywordsFromFilename(filename));
+  }
+
+  function removeChip(kw: string) {
+    if (!chips) return;
+    setChips(chips.filter((c) => c !== kw));
+  }
+
+  async function handleActivate() {
+    if (!chips || chips.length === 0) return;
+    setBusy(true);
+    await onActivate(name.trim() || "Custom Policy Rule", chips);
+    setBusy(false);
+  }
+
+  return (
+    <ModalShell title="Upload Document" onClose={onClose} maxWidth="max-w-2xl">
+      <input
+        type="file"
+        accept=".pdf,.docx"
+        onChange={handleFileChange}
+        className="block w-full text-sm text-[#475569] file:mr-3 file:py-2 file:px-4 file:rounded-sm file:border-0 file:text-xs file:font-mono file:font-medium file:bg-[#0F172A] file:text-white hover:file:bg-[#1E293B] cursor-pointer"
+      />
+      {filename && (
+        <div className="mt-3 text-sm text-[#475569]">
+          <span className="font-mono text-xs text-[#64748B]">Selected: </span>
+          {filename}
+        </div>
+      )}
+      {filename && chips === null && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={handleExtract}
+            className="bg-[#0F172A] text-white font-mono text-xs font-medium px-4 py-2 rounded-sm hover:bg-[#1E293B] transition-colors cursor-pointer"
+          >
+            Extract keywords
+          </button>
+        </div>
+      )}
+      {chips !== null && (
+        <div className="mt-5">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            Rule name
+          </div>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] mb-4"
+          />
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
+            Candidate keywords
+          </div>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {chips.length === 0 ? (
+              <span className="text-xs text-[#94A3B8]">
+                No candidate keywords.
+              </span>
+            ) : (
+              chips.map((kw) => (
+                <span
+                  key={kw}
+                  className="font-mono text-xs bg-[#F1F5F9] text-[#475569] px-2 py-1 rounded-sm border border-[#E2E8F0] flex items-center gap-1.5"
+                >
+                  {kw}
+                  <button
+                    type="button"
+                    onClick={() => removeChip(kw)}
+                    className="text-[#94A3B8] hover:text-[#B91C1C] cursor-pointer"
+                    aria-label={`Remove ${kw}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleActivate}
+            disabled={busy || chips.length === 0 || !name.trim()}
+            className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors cursor-pointer"
+          >
+            {busy ? "Activating…" : "Activate rule"}
+          </button>
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
+// ---------- R6 Rule Builder — Create ---------------------------------------
+
+function ChipInput({
+  chips,
+  onChange,
+}: {
+  chips: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  function commit() {
+    const v = draft.trim();
+    if (!v) return;
+    if (chips.includes(v)) {
+      setDraft("");
+      return;
+    }
+    onChange([...chips, v]);
+    setDraft("");
+  }
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2 mb-2">
+        {chips.map((c) => (
+          <span
+            key={c}
+            className="font-mono text-xs bg-[#F1F5F9] text-[#475569] px-2 py-1 rounded-sm border border-[#E2E8F0] flex items-center gap-1.5"
+          >
+            {c}
+            <button
+              type="button"
+              onClick={() => onChange(chips.filter((k) => k !== c))}
+              className="text-[#94A3B8] hover:text-[#B91C1C] cursor-pointer"
+              aria-label={`Remove ${c}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <input
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          }
+        }}
+        placeholder="Type a keyword and press Enter"
+        className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+      />
+    </div>
+  );
+}
+
+function BuildRuleModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (input: {
+    name: string;
+    keywords: string[];
+    verdict: "block" | "review";
+    effectiveFrom: string;
+    effectiveUntil: string | null;
+  }) => Promise<void>;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [name, setName] = useState("");
+  const [chips, setChips] = useState<string[]>([]);
+  const [severity, setSeverity] = useState<"BLOCK" | "REVIEW">("BLOCK");
+  const [activation, setActivation] = useState(today);
+  const [expiry, setExpiry] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function handleCreate() {
+    if (!name.trim() || chips.length === 0) return;
+    setBusy(true);
+    await onCreate({
+      name: name.trim(),
+      keywords: chips,
+      verdict: severity === "BLOCK" ? "block" : "review",
+      effectiveFrom: activation,
+      effectiveUntil: expiry ? expiry : null,
+    });
+    setBusy(false);
+  }
+
+  return (
+    <ModalShell title="Build a rule from scratch" onClose={onClose}>
+      <div className="space-y-4">
         <div>
           <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
             Rule name
@@ -1505,179 +1618,362 @@ function EditRulePanel({
         </div>
         <div>
           <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
-            Verdict type
+            Keywords
           </label>
-          <div className="flex gap-1.5">
-            {(["block", "escalate", "review", "guide"] as const).map((v) => (
+          <ChipInput chips={chips} onChange={setChips} />
+        </div>
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+            Severity
+          </label>
+          <div className="flex gap-2">
+            {(["BLOCK", "REVIEW"] as const).map((s) => (
               <button
-                key={v}
+                key={s}
                 type="button"
-                onClick={() => setRuleType(v)}
-                className={`font-mono text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-sm border flex-1 transition-colors cursor-pointer ${
-                  ruleType === v
-                    ? VERDICT_BADGE_SELECTED[v]
+                onClick={() => setSeverity(s)}
+                className={`font-mono text-xs font-bold uppercase px-3 py-2 rounded-sm border transition-colors cursor-pointer ${
+                  severity === s
+                    ? s === "BLOCK"
+                      ? "bg-[#EF4444] text-white border-[#EF4444]"
+                      : "bg-[#F59E0B] text-white border-[#F59E0B]"
                     : "bg-white border-[#E2E8F0] text-[#64748B]"
                 }`}
               >
-                {v}
+                {s}
               </button>
             ))}
           </div>
         </div>
-      </div>
-
-      <div className="mb-4">
-        <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
-          Description
-        </label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={2}
-          className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] resize-none"
-        />
-      </div>
-
-      <div className="mb-4">
-        <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
-          Keywords
-          <span className="normal-case ml-1 text-[#94A3B8]">(comma-separated)</span>
-        </label>
-        <input
-          type="text"
-          value={keywordsStr}
-          onChange={(e) => {
-            setKeywordsStr(e.target.value);
-            setTestResult(null);
-          }}
-          placeholder="keyword one, keyword two, keyword three"
-          className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono"
-        />
-        {keywordsStr.trim() && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {keywordsStr
-              .split(",")
-              .map((k) => k.trim())
-              .filter(Boolean)
-              .map((kw, i) => (
-                <span
-                  key={`${kw}-${i}`}
-                  className="font-mono text-[10px] bg-white text-[#475569] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
-                >
-                  {kw}
-                </span>
-              ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+              Activation date
+            </label>
+            <input
+              type="date"
+              value={activation}
+              onChange={(e) => setActivation(e.target.value)}
+              className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono"
+            />
           </div>
-        )}
-      </div>
-
-      <div className="mb-4">
-        <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
-          Expires on
-          <span className="normal-case ml-1 text-[#94A3B8]">
-            (optional — leave blank for no expiry)
-          </span>
-        </label>
-        <input
-          type="date"
-          value={effectiveTo}
-          onChange={(e) => setEffectiveTo(e.target.value)}
-          className="border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono"
-        />
-      </div>
-
-      {/* Test this rule — uses the same case-insensitive substring
-          match the engine uses, so the principal sees exactly which
-          keyword would fire (or that none would). */}
-      <div className="mb-5 bg-white border border-[#E2E8F0] rounded-sm p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-2">
-          Test this rule
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+              Expiry date
+              <span className="normal-case ml-1 text-[#94A3B8]">(optional)</span>
+            </label>
+            <input
+              type="date"
+              value={expiry}
+              onChange={(e) => setExpiry(e.target.value)}
+              className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono"
+            />
+          </div>
         </div>
-        <div className="text-xs text-[#64748B] mb-3">
-          Paste a draft snippet to verify the keywords fire correctly.
-        </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={testDraft}
-            onChange={(e) => {
-              setTestDraft(e.target.value);
-              setTestResult(null);
-            }}
-            placeholder="Paste a sentence to test..."
-            className="flex-1 border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-[#F8F9FB] focus:outline-none focus:ring-1 focus:ring-[#4F46E5] placeholder:text-[#94A3B8]"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleTest();
-              }
-            }}
-          />
+        <div className="pt-2 flex items-center gap-3">
           <button
             type="button"
-            onClick={handleTest}
-            disabled={!testDraft.trim()}
-            className="font-mono text-xs bg-[#0F172A] text-white px-4 py-2 rounded-sm hover:bg-[#1E293B] disabled:opacity-40 transition-colors whitespace-nowrap cursor-pointer"
+            onClick={handleCreate}
+            disabled={busy || !name.trim() || chips.length === 0}
+            className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors cursor-pointer"
           >
-            Test →
+            {busy ? "Creating…" : "Create rule"}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
+          >
+            Cancel
           </button>
         </div>
+      </div>
+    </ModalShell>
+  );
+}
 
-        {testResult !== null && (
-          <div
-            className={`font-mono text-[10px] mt-2 flex items-center gap-1.5 ${
-              testResult.matched ? "text-[#B91C1C]" : "text-[#166534]"
-            }`}
-          >
-            {testResult.matched ? (
-              <>
-                <span aria-hidden>✗</span>
-                <span>
-                  Would trigger — matched keyword: &ldquo;{testResult.keyword}&rdquo;
-                </span>
-              </>
-            ) : (
-              <>
-                <span aria-hidden>✓</span>
-                <span>Would not trigger with current keywords</span>
-              </>
-            )}
+// ---------- R7-R8 Edit-rule sheet (two-column diff) ------------------------
+
+function EditRuleSheet({
+  rule,
+  onClose,
+  onSave,
+}: {
+  rule: RuleRow;
+  onClose: () => void;
+  onSave: (updates: {
+    name: string;
+    description: string;
+    verdict: string;
+    keywords: string[];
+    effective_from: string;
+    effective_until: string | null;
+  }) => Promise<void>;
+}) {
+  const initialName = rule.name;
+  const initialDescription = rule.description ?? "";
+  const initialVerdict = rule.verdict ?? "review";
+  const initialKeywords = rule.keywords ?? [];
+  const initialFrom = rule.effective_from
+    ? rule.effective_from.slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+  const initialUntil = rule.effective_until
+    ? rule.effective_until.slice(0, 10)
+    : "";
+
+  const [name, setName] = useState(initialName);
+  const [description, setDescription] = useState(initialDescription);
+  const [verdict, setVerdict] = useState(initialVerdict);
+  const [chips, setChips] = useState<string[]>(initialKeywords);
+  const [from, setFrom] = useState(initialFrom);
+  const [until, setUntil] = useState(initialUntil);
+  const [busy, setBusy] = useState(false);
+
+  function discard() {
+    setName(initialName);
+    setDescription(initialDescription);
+    setVerdict(initialVerdict);
+    setChips(initialKeywords);
+    setFrom(initialFrom);
+    setUntil(initialUntil);
+  }
+
+  async function reauthorize() {
+    setBusy(true);
+    await onSave({
+      name,
+      description,
+      verdict,
+      keywords: chips,
+      effective_from: new Date(from).toISOString(),
+      effective_until: until ? new Date(until).toISOString() : null,
+    });
+    setBusy(false);
+  }
+
+  const nameDiff = name !== initialName;
+  const descDiff = description !== initialDescription;
+  const verdictDiff = verdict !== initialVerdict;
+  const fromDiff = from !== initialFrom;
+  const untilDiff = until !== initialUntil;
+  const keywordsDiff =
+    initialKeywords.length !== chips.length ||
+    initialKeywords.some((k) => !chips.includes(k)) ||
+    chips.some((k) => !initialKeywords.includes(k));
+
+  const removedKeywords = initialKeywords.filter((k) => !chips.includes(k));
+  const addedKeywords = chips.filter((k) => !initialKeywords.includes(k));
+  const unchangedKeywords = chips.filter((k) => initialKeywords.includes(k));
+
+  function diffBorder(active: boolean) {
+    return active ? "border-l-2 border-[#0EA5E9] pl-4" : "";
+  }
+
+  return (
+    <ModalShell title="Edit rule" onClose={onClose} maxWidth="max-w-5xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Left — current live rule, read-only */}
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
+            Currently active — will remain active until you re-authorize
           </div>
-        )}
+          <div className="space-y-4 text-[#94A3B8]">
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-widest block mb-1.5">
+                Rule name
+              </label>
+              <div className="text-sm">{initialName || "—"}</div>
+            </div>
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-widest block mb-1.5">
+                Description
+              </label>
+              <div className="text-sm whitespace-pre-wrap">
+                {initialDescription || "—"}
+              </div>
+            </div>
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-widest block mb-1.5">
+                Verdict
+              </label>
+              <div className="text-sm font-mono uppercase">
+                {initialVerdict}
+              </div>
+            </div>
+            <div>
+              <label className="font-mono text-[10px] uppercase tracking-widest block mb-1.5">
+                Keywords
+              </label>
+              <div className="flex flex-wrap gap-1">
+                {initialKeywords.length === 0 ? (
+                  <span className="text-xs">—</span>
+                ) : (
+                  initialKeywords.map((k) => (
+                    <span
+                      key={k}
+                      className="font-mono text-[10px] bg-[#F1F5F9] text-[#94A3B8] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
+                    >
+                      {k}
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest block mb-1.5">
+                  Effective from
+                </label>
+                <div className="text-sm font-mono">
+                  {initialFrom || "—"}
+                </div>
+              </div>
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest block mb-1.5">
+                  Effective until
+                </label>
+                <div className="text-sm font-mono">{initialUntil || "—"}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right — editable */}
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#0EA5E9] mb-3">
+            Proposed update
+          </div>
+          <div className="space-y-4">
+            <div className={diffBorder(nameDiff)}>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+                Rule name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
+              />
+            </div>
+            <div className={diffBorder(descDiff)}>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+                Description
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] resize-none"
+              />
+            </div>
+            <div className={diffBorder(verdictDiff)}>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+                Verdict
+              </label>
+              <div className="flex gap-1.5 flex-wrap">
+                {(["block", "escalate", "review", "guide"] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setVerdict(v)}
+                    className={`font-mono text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-sm border transition-colors cursor-pointer ${
+                      verdict === v
+                        ? "bg-[#0F172A] text-white border-[#0F172A]"
+                        : "bg-white border-[#E2E8F0] text-[#64748B]"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className={diffBorder(keywordsDiff)}>
+              <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+                Keywords
+              </label>
+              {(removedKeywords.length > 0 || addedKeywords.length > 0 || unchangedKeywords.length > 0) && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {unchangedKeywords.map((k) => (
+                    <span
+                      key={`u-${k}`}
+                      className="font-mono text-[10px] bg-white text-[#475569] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
+                    >
+                      {k}
+                    </span>
+                  ))}
+                  {addedKeywords.map((k) => (
+                    <span
+                      key={`a-${k}`}
+                      className="font-mono text-[10px] bg-[#0EA5E9]/20 text-[#0EA5E9] px-2 py-0.5 rounded-sm flex items-center gap-1.5"
+                    >
+                      {k}
+                      <button
+                        type="button"
+                        onClick={() => setChips(chips.filter((c) => c !== k))}
+                        className="hover:opacity-70 cursor-pointer"
+                        aria-label={`Remove ${k}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {removedKeywords.map((k) => (
+                    <span
+                      key={`r-${k}`}
+                      className="font-mono text-[10px] bg-[#EF4444]/20 text-[#EF4444] px-2 py-0.5 rounded-sm line-through"
+                    >
+                      {k}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <ChipInput chips={chips} onChange={setChips} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className={diffBorder(fromDiff)}>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+                  Effective from
+                </label>
+                <input
+                  type="date"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                  className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono"
+                />
+              </div>
+              <div className={diffBorder(untilDiff)}>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+                  Effective until
+                </label>
+                <input
+                  type="date"
+                  value={until}
+                  onChange={(e) => setUntil(e.target.value)}
+                  className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 mt-6 pt-4 border-t border-[#E2E8F0]">
         <button
           type="button"
-          onClick={handleSave}
-          disabled={saving || !name.trim()}
-          className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
+          onClick={reauthorize}
+          disabled={busy || !name.trim()}
+          className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors cursor-pointer"
         >
-          {saving ? (
-            <>
-              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
-              </svg>
-              Saving...
-            </>
-          ) : (
-            "Re-authorize →"
-          )}
+          {busy ? "Saving…" : "Re-authorize →"}
         </button>
         <button
           type="button"
-          onClick={onCancel}
-          className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors px-2 py-2.5 cursor-pointer"
+          onClick={discard}
+          className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
         >
-          Cancel
+          Discard changes
         </button>
       </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

@@ -34,11 +34,21 @@ async function getRulesData(): Promise<{
   rules: RuleRow[];
   corpusCount: number;
   firmType: string | null;
+  corpusEarliest: string | null;
+  corpusLatest: string | null;
 }> {
   const sb = getSupabaseAdmin();
   const orgId = await resolveOrgId();
 
-  const [rulesRes, actionsRes, corpusRes, orgRes, draftStatusRes] = await Promise.all([
+  const [
+    rulesRes,
+    actionsRes,
+    corpusRes,
+    orgRes,
+    draftStatusRes,
+    corpusEarliestRes,
+    corpusLatestRes,
+  ] = await Promise.all([
     sb
       .from("rules")
       // PostgREST aliases:  alias_name:column_name. Surface DB columns under
@@ -69,6 +79,23 @@ async function getRulesData(): Promise<{
     // tell which of a rule's matched drafts ended up overridden. Mirrors
     // the dashboard's rules-perf computation.
     sb.from("drafts").select("id, status").eq("org_id", orgId),
+    // Earliest/latest approved-draft submitted_at — drives the
+    // Governance Memory date-range readout. We sort and limit(1) so
+    // the wire payload is one row.
+    sb
+      .from("drafts")
+      .select("submitted_at")
+      .eq("org_id", orgId)
+      .eq("status", "approved")
+      .order("submitted_at", { ascending: true })
+      .limit(1),
+    sb
+      .from("drafts")
+      .select("submitted_at")
+      .eq("org_id", orgId)
+      .eq("status", "approved")
+      .order("submitted_at", { ascending: false })
+      .limit(1),
   ]);
 
   if (rulesRes.error) throw new Error("rules: " + rulesRes.error.message);
@@ -114,15 +141,35 @@ async function getRulesData(): Promise<{
   const firmType =
     (orgRes.data as { firm_type?: string | null } | null)?.firm_type ?? null;
 
-  return { rules: rulesWithCounts, corpusCount: corpusRes.count ?? 0, firmType };
+  const earliestRow = (corpusEarliestRes.data ?? [])[0] as
+    | { submitted_at: string | null }
+    | undefined;
+  const latestRow = (corpusLatestRes.data ?? [])[0] as
+    | { submitted_at: string | null }
+    | undefined;
+
+  return {
+    rules: rulesWithCounts,
+    corpusCount: corpusRes.count ?? 0,
+    firmType,
+    corpusEarliest: earliestRow?.submitted_at ?? null,
+    corpusLatest: latestRow?.submitted_at ?? null,
+  };
 }
 
 export default async function RulesPage() {
-  const { rules, corpusCount, firmType } = await getRulesData();
+  const { rules, corpusCount, firmType, corpusEarliest, corpusLatest } =
+    await getRulesData();
   return (
     <>
       <SiteHeader />
-      <RulesClient rules={rules} corpusCount={corpusCount} firmType={firmType} />
+      <RulesClient
+        rules={rules}
+        corpusCount={corpusCount}
+        firmType={firmType}
+        corpusEarliest={corpusEarliest}
+        corpusLatest={corpusLatest}
+      />
     </>
   );
 }
