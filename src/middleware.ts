@@ -27,6 +27,9 @@ const PUBLIC_PATHS = [
   "/pricing",
   "/use-cases",
   "/security",
+  // Public reviewer link — token-gated, no login required.
+  // Reviewers receive a /review/<token> URL and decide directly.
+  "/review",
 ];
 
 const PRINCIPAL_ONLY_PATHS = [
