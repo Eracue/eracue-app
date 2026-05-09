@@ -292,6 +292,16 @@ export function RulesClient({
     new Set(),
   );
 
+  // B5 — inline deactivate notice. When set, a banner renders at the
+  // top of the rules-list area for 5 seconds. The underlying card
+  // moves to the Deactivated tab on the same render via the data
+  // refresh, but the notice stays visible on the current tab to give
+  // the user feedback about what happened.
+  const [deactivateNotice, setDeactivateNotice] = useState<{
+    ruleName: string;
+    timestamp: string;
+  } | null>(null);
+
   // Post-authorization success state.
   const [justAuthorized, setJustAuthorized] = useState(activatedFromConfirm);
 
@@ -394,14 +404,45 @@ export function RulesClient({
   const totalActiveLike =
     counts.active + counts.expiring + counts.silent + counts.draft;
 
+  // B7 — summary status bar values. `rulesActiveCount` mirrors the
+  // page-header headline. `weeklyTriggerCount` is left at 0 since
+  // weekly-resolution trigger data isn't loaded into this surface
+  // (per spec: "use 0 if data unavailable"). `lastAuthorized` picks
+  // the most recently authorized rule by `effective_from`.
+  const rulesActiveCount =
+    counts.active + counts.expiring + counts.silent;
+  const weeklyTriggerCount: number = 0;
+  const lastAuthorizedRule = useMemo(() => {
+    let pick: RuleRow | null = null;
+    let pickTs = -Infinity;
+    for (const r of rules) {
+      if (!r.effective_from) continue;
+      const ts = new Date(r.effective_from).getTime();
+      if (Number.isFinite(ts) && ts > pickTs) {
+        pickTs = ts;
+        pick = r;
+      }
+    }
+    return pick;
+  }, [rules]);
+
   // ---- mutations ----------------------------------------------------------
 
-  function refreshAndClose() {
+  // Post-action handlers (B1–B4). Each returns ok/error rather than
+  // auto-closing the modal — the modal stays open and renders an
+  // inline confirmation panel on success. `closeAndRefresh`, called
+  // from the panel's "Back to rules" / close button, dismisses the
+  // modal and refreshes the rule list.
+  type CreateResult = { ok: true } | { ok: false; error: string };
+
+  function closeAndRefresh() {
     setOpenModal(null);
     router.refresh();
   }
 
-  async function handleEnableTemplate(t: BuiltInTemplate) {
+  async function handleEnableTemplate(
+    t: BuiltInTemplate,
+  ): Promise<CreateResult> {
     const today = new Date().toISOString().slice(0, 10);
     const result = await createRuleAction({
       name: t.name,
@@ -415,8 +456,7 @@ export function RulesClient({
       authorized_by: "",
       rule_status: "active",
     });
-    if (result.ok) refreshAndClose();
-    else alert("Could not create rule: " + result.error);
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
   }
 
   async function handleCreateCustomRule(input: {
@@ -425,7 +465,7 @@ export function RulesClient({
     verdict: "block" | "review";
     effectiveFrom: string;
     effectiveUntil: string | null;
-  }) {
+  }): Promise<CreateResult> {
     const result = await createRuleAction({
       name: input.name,
       description: "",
@@ -438,11 +478,13 @@ export function RulesClient({
       authorized_by: "",
       rule_status: "active",
     });
-    if (result.ok) refreshAndClose();
-    else alert("Could not create rule: " + result.error);
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
   }
 
-  async function handleActivateExtractedRule(name: string, keywords: string[]) {
+  async function handleActivateExtractedRule(
+    name: string,
+    keywords: string[],
+  ): Promise<CreateResult> {
     const today = new Date().toISOString().slice(0, 10);
     const result = await createRuleAction({
       name,
@@ -456,8 +498,7 @@ export function RulesClient({
       authorized_by: "",
       rule_status: "active",
     });
-    if (result.ok) refreshAndClose();
-    else alert("Could not create rule: " + result.error);
+    return result.ok ? { ok: true } : { ok: false, error: result.error };
   }
 
   async function handleAuthorizeDraft(id: string) {
@@ -499,6 +540,19 @@ export function RulesClient({
         alert("Could not deactivate: " + result.error);
         return;
       }
+      // B5 — set the inline notice + auto-dismiss after 5 seconds.
+      // The router.refresh() that follows moves the card to the
+      // Deactivated tab; the notice is local component state so it
+      // persists across the refresh.
+      const ts = new Date().toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+      setDeactivateNotice({ ruleName, timestamp: ts });
+      window.setTimeout(() => setDeactivateNotice(null), 5000);
       router.refresh();
     });
   }
@@ -510,8 +564,8 @@ export function RulesClient({
     keywords: string[];
     effective_from: string;
     effective_until: string | null;
-  }) {
-    if (!editingRule) return;
+  }): Promise<{ ok: true } | { ok: false; error: string }> {
+    if (!editingRule) return { ok: false, error: "No rule selected." };
     const result = await updateRuleAction({
       ruleId: editingRule.id,
       name: updates.name,
@@ -522,12 +576,16 @@ export function RulesClient({
       effective_from: updates.effective_from,
       effective_until: updates.effective_until,
     });
-    if ("success" in result) {
-      setEditingRule(null);
-      router.refresh();
-    } else {
-      alert("Could not save: " + result.error);
-    }
+    if ("success" in result) return { ok: true };
+    return { ok: false, error: result.error };
+  }
+
+  // B6 — closes the edit sheet after the user clicks Done on the
+  // inline confirmation footer. Refreshes the rules list so the
+  // re-authorized rule (and its updated keywords) renders.
+  function closeEditAndRefresh() {
+    setEditingRule(null);
+    router.refresh();
   }
 
   function toggleHistory(id: string) {
@@ -577,19 +635,19 @@ export function RulesClient({
 
         {openModal === "template" && (
           <TemplateModal
-            onClose={() => setOpenModal(null)}
+            onClose={closeAndRefresh}
             onEnable={handleEnableTemplate}
           />
         )}
         {openModal === "paste" && (
           <PastePolicyModal
-            onClose={() => setOpenModal(null)}
+            onClose={closeAndRefresh}
             onActivate={handleActivateExtractedRule}
           />
         )}
         {openModal === "upload" && (
           <UploadDocumentModal
-            onClose={() => setOpenModal(null)}
+            onClose={closeAndRefresh}
             onActivate={handleActivateExtractedRule}
           />
         )}
@@ -626,6 +684,40 @@ export function RulesClient({
               ? "ERA CUE checks every draft against these rules before publication."
               : "Every draft your team submits is checked against these rules before publication."}
           </p>
+        </div>
+
+        {/* B7 — summary status bar. Three values in a horizontal row:
+            active rule count, triggers this week (0 when weekly data
+            unavailable), and the most recently authorized rule. */}
+        <div className="bg-[#1E293B] border border-[#334155] rounded px-4 py-2 text-sm text-[#94A3B8] mb-6 flex items-center gap-x-6 gap-y-1 flex-wrap">
+          <span>
+            <span className="text-[#F8FAFC] font-medium">
+              {rulesActiveCount}
+            </span>{" "}
+            rule{rulesActiveCount !== 1 ? "s" : ""} active
+          </span>
+          <span>
+            <span className="text-[#F8FAFC] font-medium">
+              {weeklyTriggerCount}
+            </span>{" "}
+            trigger{weeklyTriggerCount !== 1 ? "s" : ""} this week
+          </span>
+          <span>
+            Last authorized:{" "}
+            {lastAuthorizedRule && lastAuthorizedRule.effective_from ? (
+              <>
+                <span className="text-[#F8FAFC] font-medium">
+                  {lastAuthorizedRule.name}
+                </span>{" "}
+                on{" "}
+                <span className="text-[#F8FAFC] font-medium">
+                  {fmtDate(lastAuthorizedRule.effective_from)}
+                </span>
+              </>
+            ) : (
+              <span className="text-[#F8FAFC] font-medium">—</span>
+            )}
+          </span>
         </div>
 
         {/* R3 + R6 — Four entry-point buttons */}
@@ -695,6 +787,29 @@ export function RulesClient({
                 Check your first draft →
               </a>
             </div>
+          </div>
+        )}
+
+        {/* B5 — inline deactivate notice. Auto-dismisses after 5s; the
+            user can also dismiss manually via the × button. */}
+        {deactivateNotice && (
+          <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-sm px-4 py-3 mb-4 flex items-start justify-between gap-4">
+            <div className="text-sm text-[#92400E] leading-relaxed">
+              <span className="font-semibold">
+                {deactivateNotice.ruleName}
+              </span>{" "}
+              deactivated. Drafts submitted after {deactivateNotice.timestamp}{" "}
+              will not be checked against this rule. The rule record and all
+              prior triggers are preserved.
+            </div>
+            <button
+              type="button"
+              onClick={() => setDeactivateNotice(null)}
+              aria-label="Dismiss"
+              className="text-[#92400E] hover:text-[#0D1B2A] font-mono text-base leading-none cursor-pointer shrink-0"
+            >
+              ×
+            </button>
           </div>
         )}
 
@@ -1136,25 +1251,25 @@ export function RulesClient({
       {/* Modals */}
       {openModal === "template" && (
         <TemplateModal
-          onClose={() => setOpenModal(null)}
+          onClose={closeAndRefresh}
           onEnable={handleEnableTemplate}
         />
       )}
       {openModal === "paste" && (
         <PastePolicyModal
-          onClose={() => setOpenModal(null)}
+          onClose={closeAndRefresh}
           onActivate={handleActivateExtractedRule}
         />
       )}
       {openModal === "upload" && (
         <UploadDocumentModal
-          onClose={() => setOpenModal(null)}
+          onClose={closeAndRefresh}
           onActivate={handleActivateExtractedRule}
         />
       )}
       {openModal === "build" && (
         <BuildRuleModal
-          onClose={() => setOpenModal(null)}
+          onClose={closeAndRefresh}
           onCreate={handleCreateCustomRule}
         />
       )}
@@ -1162,7 +1277,7 @@ export function RulesClient({
       {editingRule && (
         <EditRuleSheet
           rule={editingRule}
-          onClose={() => setEditingRule(null)}
+          onClose={closeEditAndRefresh}
           onSave={handleSaveEdit}
         />
       )}
@@ -1231,6 +1346,107 @@ function ModalShell({
   );
 }
 
+// ---------- B1–B4 Post-action confirmation panel --------------------------
+//
+// Replaces the modal body after a successful rule creation. Shared by
+// TemplateModal, PastePolicyModal, UploadDocumentModal and
+// BuildRuleModal so each entry-point lands the same shape of
+// confirmation. The CTA links to /submit (Next.js navigation; clears
+// the modal as a side effect of the route change). "Back to rules"
+// closes the modal and refreshes the rules list.
+
+function formatActivationDate(iso: string): string {
+  // ISO YYYY-MM-DD → "May 8, 2026". Defensive against bad input.
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+type ConfirmationPanelProps = {
+  ruleName: string;
+  severity: "BLOCK" | "REVIEW";
+  keywordCount: number;
+  authorizedBy: string;
+  activationDateIso: string;
+  onBack: () => void;
+};
+
+function PostActionConfirmation({
+  ruleName,
+  severity,
+  keywordCount,
+  authorizedBy,
+  activationDateIso,
+  onBack,
+}: ConfirmationPanelProps) {
+  const severityClass =
+    severity === "BLOCK"
+      ? "bg-[#EF4444] text-white"
+      : "bg-[#F59E0B] text-white";
+  return (
+    <div className="text-center py-2">
+      <div
+        className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#F0FDF4] border border-[#BBF7D0] mb-4"
+        aria-hidden
+      >
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#166534"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </div>
+      <h3
+        style={{ fontFamily: "var(--font-newsreader)" }}
+        className="text-xl font-light text-[#0D1B2A] mb-3"
+      >
+        {ruleName}
+      </h3>
+      <div className="flex items-center justify-center gap-2 mb-3 flex-wrap">
+        <span
+          className={`font-mono text-[10px] font-bold uppercase px-2 py-0.5 rounded-sm ${severityClass}`}
+        >
+          {severity}
+        </span>
+        <span className="font-mono text-xs text-[#64748B]">
+          {keywordCount} keyword{keywordCount !== 1 ? "s" : ""} active
+        </span>
+      </div>
+      <div className="text-sm text-[#475569] mb-1">
+        Authorized by: {authorizedBy}
+      </div>
+      <div className="font-mono text-xs text-[#94A3B8] mb-6">
+        {formatActivationDate(activationDateIso)}
+      </div>
+      <a
+        href="/submit"
+        className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] transition-colors inline-block"
+      >
+        Check a draft against this rule →
+      </a>
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
+        >
+          Back to rules
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ---------- R3 Template modal ----------------------------------------------
 
 function TemplateModal({
@@ -1238,9 +1454,21 @@ function TemplateModal({
   onEnable,
 }: {
   onClose: () => void;
-  onEnable: (t: BuiltInTemplate) => Promise<void>;
+  onEnable: (t: BuiltInTemplate) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmationPanelProps | null>(
+    null,
+  );
+
+  if (confirmation) {
+    return (
+      <ModalShell title="Rule activated" onClose={onClose}>
+        <PostActionConfirmation {...confirmation} />
+      </ModalShell>
+    );
+  }
+
   return (
     <ModalShell title="Enable via Template" onClose={onClose} maxWidth="max-w-3xl">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1273,8 +1501,22 @@ function TemplateModal({
               disabled={busy !== null}
               onClick={async () => {
                 setBusy(t.id);
-                await onEnable(t);
+                const result = await onEnable(t);
                 setBusy(null);
+                if (result.ok) {
+                  setConfirmation({
+                    ruleName: t.name,
+                    severity: "BLOCK",
+                    keywordCount: t.keywords.length,
+                    authorizedBy: "Sarah Chen · GC",
+                    activationDateIso: new Date()
+                      .toISOString()
+                      .slice(0, 10),
+                    onBack: onClose,
+                  });
+                } else {
+                  alert("Could not create rule: " + result.error);
+                }
               }}
               className="mt-auto bg-[#4F46E5] text-white font-mono text-xs font-medium px-3 py-2 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer disabled:opacity-50"
             >
@@ -1294,16 +1536,36 @@ function PastePolicyModal({
   onActivate,
 }: {
   onClose: () => void;
-  onActivate: (name: string, keywords: string[]) => Promise<void>;
+  onActivate: (
+    name: string,
+    keywords: string[],
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const [text, setText] = useState("");
   const [chips, setChips] = useState<string[] | null>(null);
   const [name, setName] = useState("Custom Policy Rule");
   const [busy, setBusy] = useState(false);
+  const [confirmation, setConfirmation] = useState<ConfirmationPanelProps | null>(
+    null,
+  );
+
+  // B2 — auto-generate the rule name from the first six words of the
+  // pasted text + "— Policy Rule" suffix. Runs at extraction time so
+  // the user sees the candidate name in the input before activating.
+  function autoNameFromPaste(src: string): string {
+    const words = src
+      .replace(/[^\p{L}\p{N}\s'-]/gu, " ")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 6);
+    if (words.length === 0) return "Custom Policy Rule";
+    return `${words.join(" ")} — Policy Rule`;
+  }
 
   function handleExtract() {
     const kws = extractKeywords(text);
     setChips(kws);
+    setName(autoNameFromPaste(text));
   }
 
   function removeChip(kw: string) {
@@ -1314,8 +1576,29 @@ function PastePolicyModal({
   async function handleActivate() {
     if (!chips || chips.length === 0) return;
     setBusy(true);
-    await onActivate(name.trim() || "Custom Policy Rule", chips);
+    const finalName = name.trim() || "Custom Policy Rule";
+    const result = await onActivate(finalName, chips);
     setBusy(false);
+    if (result.ok) {
+      setConfirmation({
+        ruleName: finalName,
+        severity: "BLOCK",
+        keywordCount: chips.length,
+        authorizedBy: "Sarah Chen · GC",
+        activationDateIso: new Date().toISOString().slice(0, 10),
+        onBack: onClose,
+      });
+    } else {
+      alert("Could not create rule: " + result.error);
+    }
+  }
+
+  if (confirmation) {
+    return (
+      <ModalShell title="Rule activated" onClose={onClose}>
+        <PostActionConfirmation {...confirmation} />
+      </ModalShell>
+    );
   }
 
   return (
@@ -1396,25 +1679,33 @@ function UploadDocumentModal({
   onActivate,
 }: {
   onClose: () => void;
-  onActivate: (name: string, keywords: string[]) => Promise<void>;
+  onActivate: (
+    name: string,
+    keywords: string[],
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const [filename, setFilename] = useState<string | null>(null);
   const [chips, setChips] = useState<string[] | null>(null);
   const [name, setName] = useState("Custom Policy Rule");
   const [busy, setBusy] = useState(false);
+  const [confirmation, setConfirmation] = useState<ConfirmationPanelProps | null>(
+    null,
+  );
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setFilename(file.name);
     setChips(null);
+    // B3 — rule name auto-derived from the filename (extension stripped),
+    // mapped to title case and rendered as the candidate rule name.
     const base = file.name.replace(/\.[^.]+$/, "");
     const friendly = base
       .split(/[-_\s]+/)
       .filter(Boolean)
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(" ");
-    if (friendly) setName(friendly + " Rule");
+    if (friendly) setName(friendly);
   }
 
   function handleExtract() {
@@ -1430,8 +1721,29 @@ function UploadDocumentModal({
   async function handleActivate() {
     if (!chips || chips.length === 0) return;
     setBusy(true);
-    await onActivate(name.trim() || "Custom Policy Rule", chips);
+    const finalName = name.trim() || "Custom Policy Rule";
+    const result = await onActivate(finalName, chips);
     setBusy(false);
+    if (result.ok) {
+      setConfirmation({
+        ruleName: finalName,
+        severity: "BLOCK",
+        keywordCount: chips.length,
+        authorizedBy: "Sarah Chen · GC",
+        activationDateIso: new Date().toISOString().slice(0, 10),
+        onBack: onClose,
+      });
+    } else {
+      alert("Could not create rule: " + result.error);
+    }
+  }
+
+  if (confirmation) {
+    return (
+      <ModalShell title="Rule activated" onClose={onClose}>
+        <PostActionConfirmation {...confirmation} />
+      </ModalShell>
+    );
   }
 
   return (
@@ -1579,7 +1891,7 @@ function BuildRuleModal({
     verdict: "block" | "review";
     effectiveFrom: string;
     effectiveUntil: string | null;
-  }) => Promise<void>;
+  }) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const [name, setName] = useState("");
@@ -1588,11 +1900,14 @@ function BuildRuleModal({
   const [activation, setActivation] = useState(today);
   const [expiry, setExpiry] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmation, setConfirmation] = useState<ConfirmationPanelProps | null>(
+    null,
+  );
 
   async function handleCreate() {
     if (!name.trim() || chips.length === 0) return;
     setBusy(true);
-    await onCreate({
+    const result = await onCreate({
       name: name.trim(),
       keywords: chips,
       verdict: severity === "BLOCK" ? "block" : "review",
@@ -1600,6 +1915,26 @@ function BuildRuleModal({
       effectiveUntil: expiry ? expiry : null,
     });
     setBusy(false);
+    if (result.ok) {
+      setConfirmation({
+        ruleName: name.trim(),
+        severity,
+        keywordCount: chips.length,
+        authorizedBy: "Sarah Chen · GC",
+        activationDateIso: activation,
+        onBack: onClose,
+      });
+    } else {
+      alert("Could not create rule: " + result.error);
+    }
+  }
+
+  if (confirmation) {
+    return (
+      <ModalShell title="Rule activated" onClose={onClose}>
+        <PostActionConfirmation {...confirmation} />
+      </ModalShell>
+    );
   }
 
   return (
@@ -1708,7 +2043,7 @@ function EditRuleSheet({
     keywords: string[];
     effective_from: string;
     effective_until: string | null;
-  }) => Promise<void>;
+  }) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const initialName = rule.name;
   const initialDescription = rule.description ?? "";
@@ -1728,6 +2063,15 @@ function EditRuleSheet({
   const [from, setFrom] = useState(initialFrom);
   const [until, setUntil] = useState(initialUntil);
   const [busy, setBusy] = useState(false);
+  // B6 — once a re-authorize succeeds the footer flips to a static
+  // confirmation row showing the version, the prior keyword count and
+  // the new keyword count. The "Done" button calls onClose, which the
+  // parent wires to closeEditAndRefresh.
+  const [completed, setCompleted] = useState<{
+    version: number;
+    oldCount: number;
+    newCount: number;
+  } | null>(null);
 
   function discard() {
     setName(initialName);
@@ -1740,7 +2084,7 @@ function EditRuleSheet({
 
   async function reauthorize() {
     setBusy(true);
-    await onSave({
+    const result = await onSave({
       name,
       description,
       verdict,
@@ -1749,6 +2093,19 @@ function EditRuleSheet({
       effective_until: until ? new Date(until).toISOString() : null,
     });
     setBusy(false);
+    if (result.ok) {
+      // Version 2 is the static post-edit value — the persisted rule
+      // schema doesn't track an explicit version number, so re-
+      // authorizations always read as "Version 2" relative to the
+      // session's starting state.
+      setCompleted({
+        version: 2,
+        oldCount: initialKeywords.length,
+        newCount: chips.length,
+      });
+    } else {
+      alert("Could not save: " + result.error);
+    }
   }
 
   const nameDiff = name !== initialName;
@@ -1957,23 +2314,47 @@ function EditRuleSheet({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 mt-6 pt-4 border-t border-[#E2E8F0]">
-        <button
-          type="button"
-          onClick={reauthorize}
-          disabled={busy || !name.trim()}
-          className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors cursor-pointer"
-        >
-          {busy ? "Saving…" : "Re-authorize →"}
-        </button>
-        <button
-          type="button"
-          onClick={discard}
-          className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
-        >
-          Discard changes
-        </button>
-      </div>
+      {completed ? (
+        <div className="mt-6 pt-4 border-t border-[#E2E8F0] bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm px-4 py-3">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="text-sm text-[#0D1B2A] leading-relaxed">
+              <span className="font-semibold">
+                Version {completed.version} authorized.
+              </span>{" "}
+              Previously: {completed.oldCount} keyword
+              {completed.oldCount !== 1 ? "s" : ""}. Now:{" "}
+              {completed.newCount} keyword
+              {completed.newCount !== 1 ? "s" : ""}. All future submissions
+              will be checked against the updated rule.
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer shrink-0"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 mt-6 pt-4 border-t border-[#E2E8F0]">
+          <button
+            type="button"
+            onClick={reauthorize}
+            disabled={busy || !name.trim()}
+            className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors cursor-pointer"
+          >
+            {busy ? "Saving…" : "Re-authorize →"}
+          </button>
+          <button
+            type="button"
+            onClick={discard}
+            className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
+          >
+            Discard changes
+          </button>
+        </div>
+      )}
     </ModalShell>
   );
 }
