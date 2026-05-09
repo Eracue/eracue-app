@@ -60,6 +60,38 @@ export async function deactivateRuleAction(
   }
 }
 
+export async function reactivateRuleAction(
+  input: { ruleId: string },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const sb = getSupabaseAdmin();
+    const { error } = await sb
+      .from("rules")
+      .update({
+        rule_status: "active",
+        deactivated_at: null,
+        deactivated_reason: null,
+      })
+      .eq("id", input.ruleId)
+      .eq("org_id", DEMO_ORG_ID);
+    if (error) {
+      if (IS_DEMO_MODE) {
+        await delay(800);
+        return { ok: true };
+      }
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Unknown error";
+    if (IS_DEMO_MODE) {
+      await delay(800);
+      return { ok: true };
+    }
+    return { ok: false, error: message };
+  }
+}
+
 // Hard-delete a draft rule. Only allowed when rule_status === "draft"
 // — authorized rules go through deactivateRuleAction so the audit
 // trail is preserved. The Drafts tab "Delete" action calls this.

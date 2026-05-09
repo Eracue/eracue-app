@@ -6,6 +6,7 @@ import {
   createRuleAction,
   deactivateRuleAction,
   deleteDraftRuleAction,
+  reactivateRuleAction,
   updateRuleAction,
 } from "./actions";
 
@@ -589,8 +590,40 @@ export function RulesClient({
   // handling lives in the dropdown component below.
   const [addRuleDropdownOpen, setAddRuleDropdownOpen] = useState(false);
 
-  // Edit-rule sheet (R7-R8). Holds the rule being edited; null = closed.
-  const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
+  // V2 — id of the rule whose inline edit panel is open (null = closed).
+  const [inlineEditId, setInlineEditId] = useState<string | null>(null);
+
+  // V3 — id of the rule whose deactivate confirmation strip is open.
+  const [confirmingDeactivateId, setConfirmingDeactivateId] = useState<
+    string | null
+  >(null);
+
+  // V4 — newly created rule id; row gets a 3s teal highlight before
+  // settling back to default styling.
+  const [highlightedRuleId, setHighlightedRuleId] = useState<string | null>(
+    null,
+  );
+
+  // V4 — optimistic rule rows appended to the table when the live
+  // refresh can't surface a freshly-created rule (demo mode mostly).
+  // Rendered with a "Demo — session only" chip.
+  const [optimisticRules, setOptimisticRules] = useState<RuleRow[]>([]);
+
+  // V7 — bottom-right toast queue (success or error). Auto-dismisses
+  // after 3s. Used by the inline edit panel, deactivate strip, and
+  // reactivate flow to confirm what just happened.
+  const [toast, setToast] = useState<{
+    message: string;
+    tone: "success" | "error";
+  } | null>(null);
+
+  function showToast(
+    message: string,
+    tone: "success" | "error" = "success",
+  ): void {
+    setToast({ message, tone });
+    window.setTimeout(() => setToast(null), 3000);
+  }
 
   // Mobile-only per-row "Show details" toggle. The desktop table
   // shows every column at once; mobile collapses to two columns
@@ -598,16 +631,6 @@ export function RulesClient({
   const [expandedMobileRows, setExpandedMobileRows] = useState<Set<string>>(
     new Set(),
   );
-
-  // B5 — inline deactivate notice. When set, a banner renders at the
-  // top of the rules-list area for 5 seconds. The underlying card
-  // moves to the Deactivated tab on the same render via the data
-  // refresh, but the notice stays visible on the current tab to give
-  // the user feedback about what happened.
-  const [deactivateNotice, setDeactivateNotice] = useState<{
-    ruleName: string;
-    timestamp: string;
-  } | null>(null);
 
   // Post-authorization success state.
   const [justAuthorized, setJustAuthorized] = useState(activatedFromConfirm);
@@ -621,9 +644,31 @@ export function RulesClient({
 
   const now = Date.now();
 
+  // V4 — merge optimistic rows into the source list so freshly-created
+  // rules render immediately, even when the underlying refresh hasn't
+  // surfaced them yet (demo mode, or a delayed write). Optimistic ids
+  // that show up in the real `rules` payload are dropped automatically
+  // so we never double-count.
+  const mergedRules = useMemo(() => {
+    if (optimisticRules.length === 0) return rules;
+    const realIds = new Set(rules.map((r) => r.id));
+    const stillPending = optimisticRules.filter((r) => !realIds.has(r.id));
+    return [...rules, ...stillPending];
+  }, [rules, optimisticRules]);
+
+  const optimisticIds = useMemo(() => {
+    const realIds = new Set(rules.map((r) => r.id));
+    return new Set(
+      optimisticRules.filter((r) => !realIds.has(r.id)).map((r) => r.id),
+    );
+  }, [rules, optimisticRules]);
+
   const classified = useMemo(() => {
-    return rules.map((r) => ({ rule: r, status: classifyLifecycle(r, now) }));
-  }, [rules, now]);
+    return mergedRules.map((r) => ({
+      rule: r,
+      status: classifyLifecycle(r, now),
+    }));
+  }, [mergedRules, now]);
 
   const counts = useMemo(() => {
     let active = 0,
@@ -638,8 +683,15 @@ export function RulesClient({
       else if (status === "DRAFT") draft++;
       else if (status === "DEACTIVATED") deactivated++;
     }
-    return { total: rules.length, active, expiring, silent, draft, deactivated };
-  }, [classified, rules.length]);
+    return {
+      total: mergedRules.length,
+      active,
+      expiring,
+      silent,
+      draft,
+      deactivated,
+    };
+  }, [classified, mergedRules.length]);
 
   // Demo curated list — sorted to spec order.
   const demoRules = useMemo(() => {
@@ -722,7 +774,7 @@ export function RulesClient({
   const lastAuthorizedRule = useMemo(() => {
     let pick: RuleRow | null = null;
     let pickTs = -Infinity;
-    for (const r of rules) {
+    for (const r of mergedRules) {
       if (!r.effective_from) continue;
       const ts = new Date(r.effective_from).getTime();
       if (Number.isFinite(ts) && ts > pickTs) {
@@ -731,14 +783,14 @@ export function RulesClient({
       }
     }
     return pick;
-  }, [rules]);
+  }, [mergedRules]);
 
   // Most recent trigger across all rules — drives the page-header
   // subhead. Null when no rule has fired.
   const lastTriggeredOverall = useMemo(() => {
     let pick: string | null = null;
     let pickTs = -Infinity;
-    for (const r of rules) {
+    for (const r of mergedRules) {
       if (!r.last_triggered) continue;
       const ts = new Date(r.last_triggered).getTime();
       if (Number.isFinite(ts) && ts > pickTs) {
@@ -747,7 +799,7 @@ export function RulesClient({
       }
     }
     return pick;
-  }, [rules]);
+  }, [mergedRules]);
 
   // ---- mutations ----------------------------------------------------------
 
@@ -760,7 +812,7 @@ export function RulesClient({
   // FIX 1 — success returns now carry `ruleName` and `keywordCount`
   // echoed from the input, mirroring the server-action shape.
   type CreateResult =
-    | { ok: true; ruleName: string; keywordCount: number }
+    | { ok: true; ruleId: string; ruleName: string; keywordCount: number }
     | { ok: false; error: string };
 
   function closeAndRefresh() {
@@ -768,18 +820,56 @@ export function RulesClient({
     router.refresh();
   }
 
+  // V4 — record a freshly-created rule for the row-highlight pulse
+  // and (in demo mode) seed an optimistic row so the new rule shows
+  // up immediately, even when the live refresh wouldn't surface it.
+  function recordNewRule(input: {
+    ruleId: string;
+    name: string;
+    keywords: string[];
+    verdict: "block" | "review";
+    effective_from: string;
+    effective_until: string | null;
+  }): void {
+    setHighlightedRuleId(input.ruleId);
+    window.setTimeout(() => setHighlightedRuleId(null), 3000);
+    if (IS_DEMO_MODE && input.ruleId.startsWith("demo-")) {
+      const optimistic: RuleRow = {
+        id: input.ruleId,
+        name: input.name,
+        description: null,
+        verdict: input.verdict,
+        keywords: input.keywords,
+        effective_from: input.effective_from,
+        effective_until: input.effective_until,
+        scope: "all_speakers",
+        rule_status: "active",
+        deactivated_at: null,
+        deactivated_reason: null,
+        wsp_reference: null,
+        trigger_count: 0,
+        last_triggered: null,
+        effectiveness_score: null,
+        authorized_by: null,
+      };
+      setOptimisticRules((prev) => [...prev, optimistic]);
+    }
+  }
+
   async function handleEnableTemplate(
     t: BuiltInTemplate,
   ): Promise<CreateResult> {
     const today = new Date().toISOString().slice(0, 10);
+    const verdict: "block" | "review" =
+      t.severity === "BLOCK" ? "block" : "review";
     const result = await createRuleAction({
       name: t.name,
       description: `Catches ${t.catches}.`,
       // C1 — verdict reflects the template's declared severity.
       // BLOCK templates fire a hard stop; REVIEW templates route to
       // principal review.
-      verdict: t.severity === "BLOCK" ? "block" : "review",
-      keywords: t.keywords,
+      verdict,
+      keywords: [...t.keywords],
       scope: "all_speakers",
       effective_from: today,
       effective_until: null,
@@ -787,9 +877,23 @@ export function RulesClient({
       authorized_by: "",
       rule_status: "active",
     });
-    return result.ok
-      ? { ok: true, ruleName: result.ruleName, keywordCount: result.keywordCount }
-      : { ok: false, error: result.error };
+    if (result.ok) {
+      recordNewRule({
+        ruleId: result.ruleId,
+        name: result.ruleName,
+        keywords: [...t.keywords],
+        verdict,
+        effective_from: today,
+        effective_until: null,
+      });
+      return {
+        ok: true,
+        ruleId: result.ruleId,
+        ruleName: result.ruleName,
+        keywordCount: result.keywordCount,
+      };
+    }
+    return { ok: false, error: result.error };
   }
 
   async function handleCreateCustomRule(input: {
@@ -811,9 +915,23 @@ export function RulesClient({
       authorized_by: "",
       rule_status: "active",
     });
-    return result.ok
-      ? { ok: true, ruleName: result.ruleName, keywordCount: result.keywordCount }
-      : { ok: false, error: result.error };
+    if (result.ok) {
+      recordNewRule({
+        ruleId: result.ruleId,
+        name: result.ruleName,
+        keywords: input.keywords,
+        verdict: input.verdict,
+        effective_from: input.effectiveFrom,
+        effective_until: input.effectiveUntil,
+      });
+      return {
+        ok: true,
+        ruleId: result.ruleId,
+        ruleName: result.ruleName,
+        keywordCount: result.keywordCount,
+      };
+    }
+    return { ok: false, error: result.error };
   }
 
   async function handleActivateExtractedRule(
@@ -833,23 +951,37 @@ export function RulesClient({
       authorized_by: "",
       rule_status: "active",
     });
-    return result.ok
-      ? { ok: true, ruleName: result.ruleName, keywordCount: result.keywordCount }
-      : { ok: false, error: result.error };
+    if (result.ok) {
+      recordNewRule({
+        ruleId: result.ruleId,
+        name: result.ruleName,
+        keywords,
+        verdict: "block",
+        effective_from: today,
+        effective_until: null,
+      });
+      return {
+        ok: true,
+        ruleId: result.ruleId,
+        ruleName: result.ruleName,
+        keywordCount: result.keywordCount,
+      };
+    }
+    return { ok: false, error: result.error };
   }
 
   async function handleAuthorizeDraft(id: string) {
+    const target = mergedRules.find((r) => r.id === id);
     const result = await updateRuleAction({
       ruleId: id,
-      name: rules.find((r) => r.id === id)?.name ?? "",
-      description: rules.find((r) => r.id === id)?.description ?? "",
-      verdict: rules.find((r) => r.id === id)?.verdict ?? "review",
-      keywords: rules.find((r) => r.id === id)?.keywords ?? [],
-      scope: rules.find((r) => r.id === id)?.scope ?? "all_speakers",
+      name: target?.name ?? "",
+      description: target?.description ?? "",
+      verdict: target?.verdict ?? "review",
+      keywords: target?.keywords ?? [],
+      scope: target?.scope ?? "all_speakers",
       effective_from:
-        rules.find((r) => r.id === id)?.effective_from ??
-        new Date().toISOString(),
-      effective_until: rules.find((r) => r.id === id)?.effective_until ?? null,
+        target?.effective_from ?? new Date().toISOString(),
+      effective_until: target?.effective_until ?? null,
     });
     if ("success" in result) router.refresh();
   }
@@ -863,85 +995,94 @@ export function RulesClient({
     if (result.ok) router.refresh();
   }
 
-  function handleDeactivate(id: string, ruleName: string) {
-    const ok = window.confirm(
-      `Deactivate "${ruleName}"? ERA CUE will stop enforcing this rule immediately.`,
-    );
-    if (!ok) return;
-    startTransition(async () => {
-      try {
-        const result = await deactivateRuleAction({
-          ruleId: id,
-          reason: "Deactivated by principal",
-        });
-        if (!result.ok) {
-          // FIX 3 — surface the failure inline rather than via a
-          // native alert dialog. Production deploys will rarely hit
-          // this path (demo mode falls through with a simulated
-          // success); when it does, the visitor sees the error in
-          // the notice slot the success message normally uses.
-          setDeactivateNotice({
-            ruleName: `Could not deactivate "${ruleName}": ${result.error}`,
-            timestamp: new Date().toLocaleString("en-US"),
+  // V3 — inline deactivate confirmation. The confirmation strip lives
+  // in RulesTable; this handler runs after the user clicks "Confirm
+  // deactivate" inside that strip. On success the optimistic copy
+  // (if any) is removed from `optimisticRules` so the row stops
+  // rendering; on failure the toast surfaces the error.
+  function handleDeactivate(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+    return new Promise((resolve) => {
+      startTransition(async () => {
+        try {
+          const result = await deactivateRuleAction({
+            ruleId: id,
+            reason: "Deactivated by principal",
           });
-          window.setTimeout(() => setDeactivateNotice(null), 5000);
+          if (!result.ok) {
+            showToast(
+              `Could not deactivate rule — ${result.error}.`,
+              "error",
+            );
+            resolve({ ok: false, error: result.error });
+            return;
+          }
+        } catch (e) {
+          const message = e instanceof Error ? e.message : "Unknown error";
+          showToast(`Could not deactivate rule — ${message}.`, "error");
+          resolve({ ok: false, error: message });
           return;
         }
-      } catch (e) {
-        const message = e instanceof Error ? e.message : "Unknown error";
-        setDeactivateNotice({
-          ruleName: `Could not deactivate "${ruleName}": ${message}`,
-          timestamp: new Date().toLocaleString("en-US"),
-        });
-        window.setTimeout(() => setDeactivateNotice(null), 5000);
-        return;
-      }
-      // B5 — set the inline notice + auto-dismiss after 5 seconds.
-      // The router.refresh() that follows moves the card to the
-      // Deactivated tab; the notice is local component state so it
-      // persists across the refresh.
-      const ts = new Date().toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
+        setOptimisticRules((prev) => prev.filter((r) => r.id !== id));
+        setConfirmingDeactivateId(null);
+        showToast(
+          "Rule deactivated — no longer checking drafts. Record preserved.",
+          "success",
+        );
+        router.refresh();
+        resolve({ ok: true });
       });
-      setDeactivateNotice({ ruleName, timestamp: ts });
-      window.setTimeout(() => setDeactivateNotice(null), 5000);
-      router.refresh();
     });
   }
 
-  async function handleSaveEdit(updates: {
-    name: string;
-    description: string;
-    verdict: string;
-    keywords: string[];
-    effective_from: string;
-    effective_until: string | null;
-  }): Promise<{ ok: true } | { ok: false; error: string }> {
-    if (!editingRule) return { ok: false, error: "No rule selected." };
+  // V5 — reactivate a deactivated rule. Mirrors handleDeactivate.
+  async function handleReactivate(id: string): Promise<void> {
+    try {
+      const result = await reactivateRuleAction({ ruleId: id });
+      if (!result.ok) {
+        showToast(`Could not reactivate rule — ${result.error}.`, "error");
+        return;
+      }
+      setHighlightedRuleId(id);
+      window.setTimeout(() => setHighlightedRuleId(null), 3000);
+      showToast("Rule reactivated — now checking drafts.", "success");
+      router.refresh();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Unknown error";
+      showToast(`Could not reactivate rule — ${message}.`, "error");
+    }
+  }
+
+  // V2 — inline edit save handler. The inline panel passes the rule
+  // id explicitly so this no longer depends on a sheet-level
+  // `editingRule` state. On success the panel closes itself and the
+  // toast confirms the update.
+  async function handleSaveEdit(
+    ruleId: string,
+    updates: {
+      name: string;
+      description: string;
+      verdict: string;
+      keywords: string[];
+      effective_from: string;
+      effective_until: string | null;
+    },
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    const target = mergedRules.find((r) => r.id === ruleId);
     const result = await updateRuleAction({
-      ruleId: editingRule.id,
+      ruleId,
       name: updates.name,
       description: updates.description,
       verdict: updates.verdict,
       keywords: updates.keywords,
-      scope: editingRule.scope ?? "all_speakers",
+      scope: target?.scope ?? "all_speakers",
       effective_from: updates.effective_from,
       effective_until: updates.effective_until,
     });
-    if ("success" in result) return { ok: true };
+    if ("success" in result) {
+      router.refresh();
+      return { ok: true };
+    }
     return { ok: false, error: result.error };
-  }
-
-  // B6 — closes the edit sheet after the user clicks Done on the
-  // inline confirmation footer. Refreshes the rules list so the
-  // re-authorized rule (and its updated keywords) renders.
-  function closeEditAndRefresh() {
-    setEditingRule(null);
-    router.refresh();
   }
 
   function toggleMobileRow(id: string) {
@@ -985,16 +1126,16 @@ export function RulesClient({
     ];
 
     return (
-      <main className="min-h-screen bg-[#0F172A]">
+      <main className="min-h-screen bg-[#F8FAFC]">
         <div className="max-w-[960px] mx-auto px-6 py-20">
           <div className="text-center mb-10">
             <h1
               style={{ fontFamily: "var(--font-newsreader)" }}
-              className="text-3xl md:text-4xl font-light text-[#F8FAFC] mb-3 leading-tight"
+              className="text-3xl md:text-4xl font-light text-[#0F172A] mb-3 leading-tight"
             >
               Set up your governance rules.
             </h1>
-            <p className="text-sm text-[#94A3B8] leading-relaxed max-w-2xl mx-auto">
+            <p className="text-sm text-[#64748B] leading-relaxed max-w-2xl mx-auto">
               ERA CUE checks every draft against your active rules
               before publication. Configure once — enforced on every
               submission.
@@ -1022,7 +1163,7 @@ export function RulesClient({
             ))}
           </div>
 
-          <p className="text-[#94A3B8] text-sm text-center mt-6 leading-relaxed">
+          <p className="text-[#64748B] text-sm text-center mt-6 leading-relaxed">
             Rules you configure here are checked against every draft
             submitted by your team.
           </p>
@@ -1050,9 +1191,9 @@ export function RulesClient({
     );
   }
 
-  // ---- main view (returning-user, dark theme, table layout) ---------------
+  // ---- main view (returning-user, light theme, table layout) -------------
   return (
-    <main className="min-h-screen bg-[#0F172A] pb-24">
+    <main className="min-h-screen bg-[#F8FAFC] pb-24">
       <div className="max-w-[1100px] mx-auto px-6 pt-10 pb-6">
         {/* CHANGE 6 — page header. Title + active count subhead on the
             left, "+ Add a rule" dropdown on the right. */}
@@ -1060,16 +1201,16 @@ export function RulesClient({
           <div className="min-w-0">
             <h1
               style={{ fontFamily: "var(--font-newsreader)" }}
-              className="text-3xl font-light text-[#F8FAFC] leading-tight"
+              className="text-3xl font-light text-[#0F172A] leading-tight"
             >
               Governance Rules
             </h1>
-            <p className="text-sm text-[#94A3B8] mt-2">
-              <span className="text-[#F8FAFC] font-medium">
+            <p className="text-sm text-[#64748B] mt-2">
+              <span className="text-[#0F172A] font-medium">
                 {rulesActiveCount}
               </span>{" "}
               active · Last checked:{" "}
-              <span className="text-[#F8FAFC] font-medium">
+              <span className="text-[#0F172A] font-medium">
                 {lastTriggeredOverall
                   ? fmtDate(lastTriggeredOverall)
                   : "No triggers yet"}
@@ -1089,24 +1230,24 @@ export function RulesClient({
 
         {/* CHANGE 2 — status bar: three independent stat boxes. */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-          <div className="bg-[#1E293B] border border-[#334155] rounded px-4 py-3 flex-1">
-            <div className="text-[#F8FAFC] text-2xl font-bold">
+          <div className="bg-white border border-[#E2E8F0] shadow-sm rounded px-4 py-3 flex-1">
+            <div className="text-[#0F172A] text-2xl font-bold">
               {rulesActiveCount}
             </div>
             <div className="text-[#64748B] text-xs uppercase tracking-widest mt-1">
               Active rules
             </div>
           </div>
-          <div className="bg-[#1E293B] border border-[#334155] rounded px-4 py-3 flex-1">
-            <div className="text-[#F8FAFC] text-2xl font-bold">
+          <div className="bg-white border border-[#E2E8F0] shadow-sm rounded px-4 py-3 flex-1">
+            <div className="text-[#0F172A] text-2xl font-bold">
               {weeklyTriggerCount}
             </div>
             <div className="text-[#64748B] text-xs uppercase tracking-widest mt-1">
               Triggers this week
             </div>
           </div>
-          <div className="bg-[#1E293B] border border-[#334155] rounded px-4 py-3 flex-1">
-            <div className="text-[#F8FAFC] text-sm font-medium truncate">
+          <div className="bg-white border border-[#E2E8F0] shadow-sm rounded px-4 py-3 flex-1">
+            <div className="text-[#0F172A] text-sm font-medium truncate">
               {lastAuthorizedRule?.name ?? "—"}
             </div>
             <div className="text-[#64748B] text-xs uppercase tracking-widest mt-1">
@@ -1120,15 +1261,15 @@ export function RulesClient({
           </div>
         </div>
 
-        {/* Success banner — restyled for dark theme */}
+        {/* Success banner — light-theme restyle. */}
         {!IS_DEMO_MODE && justAuthorized && (
-          <div className="bg-[#0EA5E9]/10 border border-[#0EA5E9]/40 rounded p-5 mb-6">
+          <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded p-5 mb-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-sm font-semibold text-[#F8FAFC] mb-1">
+                <div className="text-sm font-semibold text-[#0F172A] mb-1">
                   Your governance rules are live.
                 </div>
-                <div className="text-sm text-[#94A3B8]">
+                <div className="text-sm text-[#92400E]">
                   ERA CUE is now checking every draft your team submits
                   against these rules before publication.
                 </div>
@@ -1143,7 +1284,7 @@ export function RulesClient({
                 type="button"
                 onClick={clearActivated}
                 aria-label="Dismiss"
-                className="text-[#94A3B8] hover:text-[#F8FAFC] font-mono text-base leading-none cursor-pointer shrink-0"
+                className="text-[#92400E] hover:text-[#0F172A] font-mono text-base leading-none cursor-pointer shrink-0"
               >
                 ×
               </button>
@@ -1151,31 +1292,9 @@ export function RulesClient({
           </div>
         )}
 
-        {/* B5 — inline deactivate notice. Restyled for dark theme. */}
-        {deactivateNotice && (
-          <div className="bg-[#1E293B] border border-[#F59E0B]/40 rounded px-4 py-3 mb-4 flex items-start justify-between gap-4">
-            <div className="text-sm text-[#94A3B8] leading-relaxed">
-              <span className="font-semibold text-[#F8FAFC]">
-                {deactivateNotice.ruleName}
-              </span>{" "}
-              deactivated. Drafts submitted after {deactivateNotice.timestamp}{" "}
-              will not be checked against this rule. The rule record and all
-              prior triggers are preserved.
-            </div>
-            <button
-              type="button"
-              onClick={() => setDeactivateNotice(null)}
-              aria-label="Dismiss"
-              className="text-[#94A3B8] hover:text-[#F8FAFC] font-mono text-base leading-none cursor-pointer shrink-0"
-            >
-              ×
-            </button>
-          </div>
-        )}
-
-        {/* Tab bar — dark theme */}
+        {/* Tab bar — light theme */}
         {!IS_DEMO_MODE && (
-          <div className="flex gap-0 border-b border-[#334155] mb-5 overflow-x-auto">
+          <div className="flex gap-0 border-b border-[#E2E8F0] mb-5 overflow-x-auto">
             {(
               [
                 { key: "active" as const, label: "Active", count: activeRules.length, alert: false },
@@ -1195,7 +1314,7 @@ export function RulesClient({
                   className={`font-mono text-xs px-5 py-3 whitespace-nowrap border-b-2 -mb-px transition-colors flex items-center gap-1.5 cursor-pointer ${
                     selected
                       ? "border-[#0EA5E9] text-[#0EA5E9]"
-                      : "border-transparent text-[#94A3B8] hover:text-[#F8FAFC]"
+                      : "border-transparent text-[#64748B] hover:text-[#0F172A]"
                   }`}
                 >
                   {t.label}
@@ -1204,7 +1323,7 @@ export function RulesClient({
                       className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                         t.alert
                           ? "bg-[#F59E0B] text-white"
-                          : "bg-[#334155] text-[#94A3B8]"
+                          : "bg-[#F1F5F9] text-[#64748B]"
                       }`}
                     >
                       {t.count}
@@ -1216,10 +1335,10 @@ export function RulesClient({
           </div>
         )}
 
-        {/* History tab — dark theme */}
+        {/* History tab — light theme */}
         {!IS_DEMO_MODE && activeTab === "history" && (
           <>
-            {rules.length === 0 ? (
+            {mergedRules.length === 0 ? (
               <div className="text-center py-16">
                 <div className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#94A3B8] mb-2">
                   No history yet
@@ -1230,8 +1349,8 @@ export function RulesClient({
               </div>
             ) : (
               <>
-                <div className="divide-y divide-[#1E293B]">
-                  {[...rules]
+                <div className="divide-y divide-[#F1F5F9]">
+                  {[...mergedRules]
                     .sort((a, b) => {
                       const ta = a.effective_from ? new Date(a.effective_from).getTime() : 0;
                       const tb = b.effective_from ? new Date(b.effective_from).getTime() : 0;
@@ -1251,7 +1370,7 @@ export function RulesClient({
                               {status}
                             </span>
                             <div className="min-w-0">
-                              <div className="text-sm font-medium text-[#F8FAFC] truncate">
+                              <div className="text-sm font-medium text-[#0F172A] truncate">
                                 {rule.name}
                               </div>
                               <div className="font-mono text-[9px] text-[#94A3B8]">
@@ -1263,7 +1382,7 @@ export function RulesClient({
                       );
                     })}
                 </div>
-                <div className="font-mono text-[9px] text-[#64748B] italic text-center pt-6 mt-6 border-t border-[#334155]">
+                <div className="font-mono text-[9px] text-[#64748B] italic text-center pt-6 mt-6 border-t border-[#E2E8F0]">
                   ERA CUE records that this governance process ran. Whether
                   the communication satisfies applicable regulatory
                   requirements is a determination for qualified legal counsel.
@@ -1281,10 +1400,27 @@ export function RulesClient({
             now={now}
             expandedMobileRows={expandedMobileRows}
             onToggleMobile={toggleMobileRow}
-            onEdit={(r) => setEditingRule(r)}
-            onDeactivate={(r) => handleDeactivate(r.id, r.name)}
+            inlineEditId={inlineEditId}
+            onStartEdit={(id) => {
+              setInlineEditId(id);
+              setConfirmingDeactivateId(null);
+            }}
+            onCancelEdit={() => setInlineEditId(null)}
+            onSaveEdit={handleSaveEdit}
+            confirmingDeactivateId={confirmingDeactivateId}
+            onStartDeactivate={(id) => {
+              setConfirmingDeactivateId(id);
+              setInlineEditId(null);
+            }}
+            onCancelDeactivate={() => setConfirmingDeactivateId(null)}
+            onConfirmDeactivate={handleDeactivate}
+            onReactivate={handleReactivate}
             onAuthorizeDraft={(id) => handleAuthorizeDraft(id)}
             onDeleteDraft={(id) => handleDeleteDraft(id)}
+            highlightedRuleId={highlightedRuleId}
+            optimisticIds={optimisticIds}
+            showToast={showToast}
+            onOpenModal={(key) => setOpenModal(key)}
             pending={pending}
           />
         )}
@@ -1337,12 +1473,35 @@ export function RulesClient({
         />
       )}
 
-      {editingRule && (
-        <EditRuleSheet
-          rule={editingRule}
-          onClose={closeEditAndRefresh}
-          onSave={handleSaveEdit}
-        />
+      {/* V7 — Toast renderer. Sits above the BottomMoatBar (which lives
+          at the bottom of the viewport at z-50); the toast offsets up
+          by bottom-20 so the two never overlap. */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed bottom-20 right-6 z-50 bg-white border rounded-lg shadow-xl px-4 py-3 max-w-sm ${
+            toast.tone === "success"
+              ? "border-[#BBF7D0]"
+              : "border-[#FECACA]"
+          }`}
+        >
+          <div className="flex items-start gap-2">
+            <span
+              aria-hidden
+              className={`font-bold ${
+                toast.tone === "success"
+                  ? "text-[#166534]"
+                  : "text-[#B91C1C]"
+              }`}
+            >
+              {toast.tone === "success" ? "✓" : "✗"}
+            </span>
+            <span className="text-sm text-[#0F172A] leading-relaxed">
+              {toast.message}
+            </span>
+          </div>
+        </div>
       )}
     </main>
   );
@@ -1476,10 +1635,41 @@ type RulesTableProps = {
   now: number;
   expandedMobileRows: Set<string>;
   onToggleMobile: (id: string) => void;
-  onEdit: (rule: RuleRow) => void;
-  onDeactivate: (rule: RuleRow) => void;
+  // V2 — inline edit panel.
+  inlineEditId: string | null;
+  onStartEdit: (id: string) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (
+    ruleId: string,
+    updates: {
+      name: string;
+      description: string;
+      verdict: string;
+      keywords: string[];
+      effective_from: string;
+      effective_until: string | null;
+    },
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
+  // V3 — inline deactivate confirmation strip.
+  confirmingDeactivateId: string | null;
+  onStartDeactivate: (id: string) => void;
+  onCancelDeactivate: () => void;
+  onConfirmDeactivate: (
+    id: string,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
+  // V5 — reactivate handler for deactivated rows.
+  onReactivate: (id: string) => void | Promise<void>;
   onAuthorizeDraft: (id: string) => void;
   onDeleteDraft: (id: string) => void;
+  // V4 — newly-created or freshly-reactivated row gets a 3s teal pulse.
+  highlightedRuleId: string | null;
+  // V4 — set of optimistic-only rule ids (rendered with a "Demo —
+  // session only" chip).
+  optimisticIds: Set<string>;
+  // V7 — toast renderer threaded down for the inline edit panel.
+  showToast: (message: string, tone?: "success" | "error") => void;
+  // V8 — three-button empty state opens a creation modal.
+  onOpenModal: (key: "template" | "paste" | "build") => void;
   pending: boolean;
 };
 
@@ -1537,240 +1727,875 @@ function RulesTable({
   now,
   expandedMobileRows,
   onToggleMobile,
-  onEdit,
-  onDeactivate,
+  inlineEditId,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  confirmingDeactivateId,
+  onStartDeactivate,
+  onCancelDeactivate,
+  onConfirmDeactivate,
+  onReactivate,
   onAuthorizeDraft,
   onDeleteDraft,
+  highlightedRuleId,
+  optimisticIds,
+  showToast,
+  onOpenModal,
   pending,
 }: RulesTableProps) {
+  // V6 — split active and deactivated rules so the deactivated set
+  // renders as a separate, dimmed section at the bottom.
+  const activeBucket: RuleRow[] = [];
+  const deactivatedBucket: RuleRow[] = [];
+  for (const r of rules) {
+    if (classifyLifecycle(r, now) === "DEACTIVATED") {
+      deactivatedBucket.push(r);
+    } else {
+      activeBucket.push(r);
+    }
+  }
+
+  // V8 — when no active rules but there are deactivated rules (or a
+  // truly empty bucket), surface the three-path empty state above the
+  // deactivated section. The "no active and no deactivated" case is
+  // covered by the truly-empty branch below.
+  const showEmptyCard = activeBucket.length === 0;
+
   if (rules.length === 0) {
     return (
-      <div className="bg-[#1E293B] border border-[#334155] rounded p-12 text-center text-[#94A3B8] text-sm">
+      <div className="bg-white border border-[#E2E8F0] rounded p-12 text-center text-[#64748B] text-sm">
         No rules in this view.
+      </div>
+    );
+  }
+
+  function highlightRowClass(id: string): string {
+    return id === highlightedRuleId
+      ? "bg-[#0EA5E9]/10 border-l-4 border-[#0EA5E9]"
+      : "";
+  }
+
+  function emptyStateCard() {
+    return (
+      <div className="bg-white border border-[#E2E8F0] rounded p-8 text-center mb-4">
+        <div className="text-base font-medium text-[#0F172A]">
+          No active governance rules.
+        </div>
+        <div className="text-sm text-[#64748B] mt-2">
+          Add a rule to start checking drafts against your governance
+          requirements.
+        </div>
+        <div className="flex flex-wrap justify-center gap-2 mt-4">
+          {(
+            [
+              { key: "template" as const, label: "From a template" },
+              { key: "paste" as const, label: "From existing policy" },
+              { key: "build" as const, label: "Build from scratch" },
+            ]
+          ).map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => onOpenModal(opt.key)}
+              className="bg-white border border-[#E2E8F0] hover:border-[#0EA5E9] text-[#475569] font-mono text-xs font-medium px-3 py-2 rounded-sm cursor-pointer transition-colors"
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
     <>
+      {showEmptyCard && emptyStateCard()}
+
       {/* Desktop table — hidden under md breakpoint */}
-      <div className="hidden md:block w-full overflow-x-auto bg-[#0F172A] border border-[#334155] rounded">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-[#0F172A] border-b border-[#334155]">
-            <tr>
-              {[
-                "Rule name",
-                "Status",
-                "Keywords",
-                "Last triggered",
-                "Triggers",
-                "Authorized by",
-                "Actions",
-              ].map((h) => (
-                <th
-                  key={h}
-                  className="text-left font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] px-4 py-3"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rules.map((r) => {
-              const status = classifyLifecycle(r, now);
-              const isDraft = status === "DRAFT";
-              const lifecycle = lifecycleStateLabel(r, now);
-              const triggers = r.trigger_count ?? 0;
-              const keywordCount = (r.keywords ?? []).length;
-              return (
-                <tr
+      {(activeBucket.length > 0 || deactivatedBucket.length > 0) && (
+        <div className="hidden md:block w-full overflow-x-auto bg-white border border-[#E2E8F0] rounded">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-[#F1F5F9] border-b border-[#E2E8F0]">
+              <tr>
+                {[
+                  "Rule name",
+                  "Status",
+                  "Keywords",
+                  "Last triggered",
+                  "Triggers",
+                  "Authorized by",
+                  "Actions",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="text-left font-mono text-[10px] uppercase tracking-widest text-[#64748B] px-4 py-3"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {activeBucket.map((r) => (
+                <DesktopRuleRow
                   key={r.id}
-                  id={`rule-${r.id}`}
-                  className="border-b border-[#1E293B] hover:bg-[#1E293B]/60 transition-colors"
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-medium text-[#F8FAFC] truncate">
-                        {r.name}
-                      </span>
-                      {ruleSeverityBadge(r.verdict)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-block text-xs font-medium px-2 py-0.5 rounded-sm ${lifecycle.className}`}
+                  rule={r}
+                  now={now}
+                  deactivated={false}
+                  inlineEditOpen={inlineEditId === r.id}
+                  confirmingDeactivate={confirmingDeactivateId === r.id}
+                  highlightClass={highlightRowClass(r.id)}
+                  isOptimistic={optimisticIds.has(r.id)}
+                  onStartEdit={onStartEdit}
+                  onCancelEdit={onCancelEdit}
+                  onSaveEdit={onSaveEdit}
+                  onStartDeactivate={onStartDeactivate}
+                  onCancelDeactivate={onCancelDeactivate}
+                  onConfirmDeactivate={onConfirmDeactivate}
+                  onReactivate={onReactivate}
+                  onAuthorizeDraft={onAuthorizeDraft}
+                  onDeleteDraft={onDeleteDraft}
+                  showToast={showToast}
+                  pending={pending}
+                />
+              ))}
+              {deactivatedBucket.length > 0 && (
+                <>
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] py-3 px-4 border-t border-[#E2E8F0] bg-[#F8FAFC]"
                     >
-                      {lifecycle.label}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-[#94A3B8] text-sm">
-                    {keywordCount} keyword{keywordCount !== 1 ? "s" : ""}
-                  </td>
-                  <td className="px-4 py-3 text-[#94A3B8] text-sm">
-                    {r.last_triggered ? fmtDate(r.last_triggered) : "Never"}
-                  </td>
-                  <td className="px-4 py-3 text-[#F8FAFC] font-mono">
-                    {triggers}
-                  </td>
-                  <td className="px-4 py-3 text-[#94A3B8] text-xs">
-                    {authorizedByLabel(r)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      {isDraft ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => onAuthorizeDraft(r.id)}
-                            className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
-                          >
-                            Authorize
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onEdit(r)}
-                            className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onDeleteDraft(r.id)}
-                            className="text-[#94A3B8] text-xs hover:text-[#EF4444] cursor-pointer"
-                          >
-                            Delete
-                          </button>
-                        </>
-                      ) : status !== "DEACTIVATED" ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => onEdit(r)}
-                            className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onDeactivate(r)}
-                            disabled={pending}
-                            className="text-[#0EA5E9] text-xs hover:underline cursor-pointer disabled:opacity-50"
-                          >
-                            Deactivate
-                          </button>
-                        </>
-                      ) : (
-                        <span className="text-[#64748B] text-xs">—</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                      Deactivated rules ({deactivatedBucket.length})
+                    </td>
+                  </tr>
+                  {deactivatedBucket.map((r) => (
+                    <DesktopRuleRow
+                      key={r.id}
+                      rule={r}
+                      now={now}
+                      deactivated
+                      inlineEditOpen={false}
+                      confirmingDeactivate={false}
+                      highlightClass={highlightRowClass(r.id)}
+                      isOptimistic={optimisticIds.has(r.id)}
+                      onStartEdit={onStartEdit}
+                      onCancelEdit={onCancelEdit}
+                      onSaveEdit={onSaveEdit}
+                      onStartDeactivate={onStartDeactivate}
+                      onCancelDeactivate={onCancelDeactivate}
+                      onConfirmDeactivate={onConfirmDeactivate}
+                      onReactivate={onReactivate}
+                      onAuthorizeDraft={onAuthorizeDraft}
+                      onDeleteDraft={onDeleteDraft}
+                      showToast={showToast}
+                      pending={pending}
+                    />
+                  ))}
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Mobile cards — name + status + Actions visible; "Show
           details" toggles the rest inline. Visible only under md. */}
       <div className="md:hidden space-y-2">
-        {rules.map((r) => {
-          const status = classifyLifecycle(r, now);
-          const isDraft = status === "DRAFT";
-          const lifecycle = lifecycleStateLabel(r, now);
-          const expanded = expandedMobileRows.has(r.id);
-          const triggers = r.trigger_count ?? 0;
-          const keywordCount = (r.keywords ?? []).length;
-          return (
-            <div
-              key={r.id}
-              id={`rule-${r.id}-mobile`}
-              className="bg-[#0F172A] border border-[#334155] rounded p-3"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-[#F8FAFC] text-sm">
-                      {r.name}
-                    </span>
-                    {ruleSeverityBadge(r.verdict)}
-                  </div>
-                  <span
-                    className={`inline-block text-xs font-medium px-2 py-0.5 rounded-sm mt-1 ${lifecycle.className}`}
-                  >
-                    {lifecycle.label}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  {isDraft ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => onAuthorizeDraft(r.id)}
-                        className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
-                      >
-                        Authorize
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onEdit(r)}
-                        className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
-                      >
-                        Edit
-                      </button>
-                    </>
-                  ) : status !== "DEACTIVATED" ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => onEdit(r)}
-                        className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDeactivate(r)}
-                        disabled={pending}
-                        className="text-[#0EA5E9] text-xs hover:underline cursor-pointer disabled:opacity-50"
-                      >
-                        Deactivate
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onToggleMobile(r.id)}
-                className="text-[#94A3B8] text-xs mt-2 hover:text-[#F8FAFC] cursor-pointer"
-                aria-expanded={expanded}
-              >
-                {expanded ? "Hide details" : "Show details"}
-              </button>
-              {expanded && (
-                <dl className="mt-2 grid grid-cols-[8rem_1fr] gap-y-1 text-xs">
-                  <dt className="text-[#94A3B8]">Keywords</dt>
-                  <dd className="text-[#F8FAFC]">
-                    {keywordCount} keyword
-                    {keywordCount !== 1 ? "s" : ""}
-                  </dd>
-                  <dt className="text-[#94A3B8]">Last triggered</dt>
-                  <dd className="text-[#F8FAFC]">
-                    {r.last_triggered ? fmtDate(r.last_triggered) : "Never"}
-                  </dd>
-                  <dt className="text-[#94A3B8]">Triggers</dt>
-                  <dd className="text-[#F8FAFC] font-mono">{triggers}</dd>
-                  <dt className="text-[#94A3B8]">Authorized by</dt>
-                  <dd className="text-[#F8FAFC]">{authorizedByLabel(r)}</dd>
-                </dl>
-              )}
+        {activeBucket.map((r) => (
+          <MobileRuleCard
+            key={r.id}
+            rule={r}
+            now={now}
+            deactivated={false}
+            expanded={expandedMobileRows.has(r.id)}
+            onToggleMobile={onToggleMobile}
+            inlineEditOpen={inlineEditId === r.id}
+            confirmingDeactivate={confirmingDeactivateId === r.id}
+            highlightClass={highlightRowClass(r.id)}
+            isOptimistic={optimisticIds.has(r.id)}
+            onStartEdit={onStartEdit}
+            onCancelEdit={onCancelEdit}
+            onSaveEdit={onSaveEdit}
+            onStartDeactivate={onStartDeactivate}
+            onCancelDeactivate={onCancelDeactivate}
+            onConfirmDeactivate={onConfirmDeactivate}
+            onReactivate={onReactivate}
+            onAuthorizeDraft={onAuthorizeDraft}
+            onDeleteDraft={onDeleteDraft}
+            showToast={showToast}
+            pending={pending}
+          />
+        ))}
+        {deactivatedBucket.length > 0 && (
+          <>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] py-3">
+              Deactivated rules ({deactivatedBucket.length})
             </div>
-          );
-        })}
+            {deactivatedBucket.map((r) => (
+              <MobileRuleCard
+                key={r.id}
+                rule={r}
+                now={now}
+                deactivated
+                expanded={expandedMobileRows.has(r.id)}
+                onToggleMobile={onToggleMobile}
+                inlineEditOpen={false}
+                confirmingDeactivate={false}
+                highlightClass={highlightRowClass(r.id)}
+                isOptimistic={optimisticIds.has(r.id)}
+                onStartEdit={onStartEdit}
+                onCancelEdit={onCancelEdit}
+                onSaveEdit={onSaveEdit}
+                onStartDeactivate={onStartDeactivate}
+                onCancelDeactivate={onCancelDeactivate}
+                onConfirmDeactivate={onConfirmDeactivate}
+                onReactivate={onReactivate}
+                onAuthorizeDraft={onAuthorizeDraft}
+                onDeleteDraft={onDeleteDraft}
+                showToast={showToast}
+                pending={pending}
+              />
+            ))}
+          </>
+        )}
       </div>
     </>
+  );
+}
+
+// ---------- Desktop row + inline edit / deactivate strips ------------------
+
+type DesktopRowProps = {
+  rule: RuleRow;
+  now: number;
+  deactivated: boolean;
+  inlineEditOpen: boolean;
+  confirmingDeactivate: boolean;
+  highlightClass: string;
+  isOptimistic: boolean;
+  onStartEdit: (id: string) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: RulesTableProps["onSaveEdit"];
+  onStartDeactivate: (id: string) => void;
+  onCancelDeactivate: () => void;
+  onConfirmDeactivate: RulesTableProps["onConfirmDeactivate"];
+  onReactivate: RulesTableProps["onReactivate"];
+  onAuthorizeDraft: (id: string) => void;
+  onDeleteDraft: (id: string) => void;
+  showToast: RulesTableProps["showToast"];
+  pending: boolean;
+};
+
+function DesktopRuleRow({
+  rule,
+  now,
+  deactivated,
+  inlineEditOpen,
+  confirmingDeactivate,
+  highlightClass,
+  isOptimistic,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onStartDeactivate,
+  onCancelDeactivate,
+  onConfirmDeactivate,
+  onReactivate,
+  onAuthorizeDraft,
+  onDeleteDraft,
+  showToast,
+  pending,
+}: DesktopRowProps) {
+  const status = classifyLifecycle(rule, now);
+  const isDraft = status === "DRAFT";
+  const lifecycle = lifecycleStateLabel(rule, now);
+  const triggers = rule.trigger_count ?? 0;
+  const keywordCount = (rule.keywords ?? []).length;
+  const baseRowClass =
+    "border-b border-[#F1F5F9] hover:bg-[#F8FAFC] transition-colors";
+  const dimmed = deactivated ? "opacity-50" : "";
+  const nameTextClass = deactivated
+    ? "text-[#94A3B8] font-medium"
+    : "text-[#0F172A] font-medium";
+  const muted = "text-[#64748B] text-sm";
+  const numericClass = deactivated
+    ? "text-[#94A3B8] font-mono"
+    : "text-[#0F172A] font-mono";
+
+  const statusPill = deactivated ? (
+    <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-sm bg-[#F1F5F9] text-[#94A3B8]">
+      DEACTIVATED
+    </span>
+  ) : (
+    <span
+      className={`inline-block text-xs font-medium px-2 py-0.5 rounded-sm ${lifecycle.className}`}
+    >
+      {lifecycle.label}
+    </span>
+  );
+
+  return (
+    <>
+      <tr
+        id={`rule-${rule.id}`}
+        className={`${baseRowClass} ${dimmed} ${highlightClass}`.trim()}
+      >
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            <span className={`${nameTextClass} truncate`}>{rule.name}</span>
+            {ruleSeverityBadge(rule.verdict)}
+            {isOptimistic && (
+              <span className="font-mono text-[9px] uppercase tracking-widest bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] px-1.5 py-0.5 rounded-sm">
+                Demo — session only
+              </span>
+            )}
+          </div>
+        </td>
+        <td className="px-4 py-3">{statusPill}</td>
+        <td className={`px-4 py-3 ${muted}`}>
+          {keywordCount} keyword{keywordCount !== 1 ? "s" : ""}
+        </td>
+        <td className={`px-4 py-3 ${muted}`}>
+          {rule.last_triggered ? fmtDate(rule.last_triggered) : "Never"}
+        </td>
+        <td className={`px-4 py-3 ${numericClass}`}>{triggers}</td>
+        <td className="px-4 py-3 text-[#64748B] text-xs">
+          {authorizedByLabel(rule)}
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-3">
+            {deactivated ? (
+              <button
+                type="button"
+                onClick={() => onReactivate(rule.id)}
+                className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+              >
+                Reactivate
+              </button>
+            ) : isDraft ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onAuthorizeDraft(rule.id)}
+                  className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+                >
+                  Authorize
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    inlineEditOpen ? onCancelEdit() : onStartEdit(rule.id)
+                  }
+                  className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+                >
+                  {inlineEditOpen ? "Cancel" : "Edit"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDeleteDraft(rule.id)}
+                  className="text-[#94A3B8] text-xs hover:text-[#EF4444] cursor-pointer"
+                >
+                  Delete
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    inlineEditOpen ? onCancelEdit() : onStartEdit(rule.id)
+                  }
+                  className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+                >
+                  {inlineEditOpen ? "Cancel" : "Edit"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onStartDeactivate(rule.id)}
+                  disabled={pending}
+                  className="text-[#0EA5E9] text-xs hover:underline cursor-pointer disabled:opacity-50"
+                >
+                  Deactivate
+                </button>
+              </>
+            )}
+          </div>
+        </td>
+      </tr>
+      {inlineEditOpen && (
+        <tr className="bg-[#F8FAFC] border-b border-[#F1F5F9]">
+          <td colSpan={7} className="px-4 py-4">
+            <InlineEditPanel
+              rule={rule}
+              onCancel={onCancelEdit}
+              onSave={onSaveEdit}
+              showToast={showToast}
+            />
+          </td>
+        </tr>
+      )}
+      {confirmingDeactivate && (
+        <tr className="bg-[#FEF2F2] border-b border-[#F1F5F9]">
+          <td colSpan={7} className="px-4 py-3">
+            <DeactivateConfirmStrip
+              ruleName={rule.name}
+              ruleId={rule.id}
+              onCancel={onCancelDeactivate}
+              onConfirm={onConfirmDeactivate}
+              pending={pending}
+            />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// ---------- Mobile card ----------------------------------------------------
+
+type MobileCardProps = {
+  rule: RuleRow;
+  now: number;
+  deactivated: boolean;
+  expanded: boolean;
+  onToggleMobile: (id: string) => void;
+  inlineEditOpen: boolean;
+  confirmingDeactivate: boolean;
+  highlightClass: string;
+  isOptimistic: boolean;
+  onStartEdit: (id: string) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: RulesTableProps["onSaveEdit"];
+  onStartDeactivate: (id: string) => void;
+  onCancelDeactivate: () => void;
+  onConfirmDeactivate: RulesTableProps["onConfirmDeactivate"];
+  onReactivate: RulesTableProps["onReactivate"];
+  onAuthorizeDraft: (id: string) => void;
+  // Drafts on mobile expose a Delete affordance only inside the
+  // expanded details block (the collapsed top row keeps to the two
+  // primary actions to fit width-constrained layouts).
+  onDeleteDraft: (id: string) => void;
+  showToast: RulesTableProps["showToast"];
+  pending: boolean;
+};
+
+function MobileRuleCard({
+  rule,
+  now,
+  deactivated,
+  expanded,
+  onToggleMobile,
+  inlineEditOpen,
+  confirmingDeactivate,
+  highlightClass,
+  isOptimistic,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onStartDeactivate,
+  onCancelDeactivate,
+  onConfirmDeactivate,
+  onReactivate,
+  onAuthorizeDraft,
+  onDeleteDraft,
+  showToast,
+  pending,
+}: MobileCardProps) {
+  const status = classifyLifecycle(rule, now);
+  const isDraft = status === "DRAFT";
+  const lifecycle = lifecycleStateLabel(rule, now);
+  const triggers = rule.trigger_count ?? 0;
+  const keywordCount = (rule.keywords ?? []).length;
+  const dimmed = deactivated ? "opacity-50" : "";
+  const nameTextClass = deactivated ? "text-[#94A3B8]" : "text-[#0F172A]";
+  return (
+    <div
+      id={`rule-${rule.id}-mobile`}
+      className={`bg-white border border-[#E2E8F0] rounded p-3 ${dimmed} ${highlightClass}`.trim()}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`font-medium ${nameTextClass} text-sm`}>
+              {rule.name}
+            </span>
+            {ruleSeverityBadge(rule.verdict)}
+            {isOptimistic && (
+              <span className="font-mono text-[9px] uppercase tracking-widest bg-[#FFFBEB] border border-[#FDE68A] text-[#92400E] px-1.5 py-0.5 rounded-sm">
+                Demo — session only
+              </span>
+            )}
+          </div>
+          {deactivated ? (
+            <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-sm mt-1 bg-[#F1F5F9] text-[#94A3B8]">
+              DEACTIVATED
+            </span>
+          ) : (
+            <span
+              className={`inline-block text-xs font-medium px-2 py-0.5 rounded-sm mt-1 ${lifecycle.className}`}
+            >
+              {lifecycle.label}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {deactivated ? (
+            <button
+              type="button"
+              onClick={() => onReactivate(rule.id)}
+              className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+            >
+              Reactivate
+            </button>
+          ) : isDraft ? (
+            <>
+              <button
+                type="button"
+                onClick={() => onAuthorizeDraft(rule.id)}
+                className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+              >
+                Authorize
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  inlineEditOpen ? onCancelEdit() : onStartEdit(rule.id)
+                }
+                className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+              >
+                {inlineEditOpen ? "Cancel" : "Edit"}
+              </button>
+              <button
+                type="button"
+                onClick={() => onDeleteDraft(rule.id)}
+                className="text-[#94A3B8] text-xs hover:text-[#EF4444] cursor-pointer"
+              >
+                Delete
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  inlineEditOpen ? onCancelEdit() : onStartEdit(rule.id)
+                }
+                className="text-[#0EA5E9] text-xs hover:underline cursor-pointer"
+              >
+                {inlineEditOpen ? "Cancel" : "Edit"}
+              </button>
+              <button
+                type="button"
+                onClick={() => onStartDeactivate(rule.id)}
+                disabled={pending}
+                className="text-[#0EA5E9] text-xs hover:underline cursor-pointer disabled:opacity-50"
+              >
+                Deactivate
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onToggleMobile(rule.id)}
+        className="text-[#64748B] text-xs mt-2 hover:text-[#0F172A] cursor-pointer"
+        aria-expanded={expanded}
+      >
+        {expanded ? "Hide details" : "Show details"}
+      </button>
+      {expanded && (
+        <dl className="mt-2 grid grid-cols-[8rem_1fr] gap-y-1 text-xs">
+          <dt className="text-[#64748B]">Keywords</dt>
+          <dd className="text-[#0F172A]">
+            {keywordCount} keyword
+            {keywordCount !== 1 ? "s" : ""}
+          </dd>
+          <dt className="text-[#64748B]">Last triggered</dt>
+          <dd className="text-[#0F172A]">
+            {rule.last_triggered ? fmtDate(rule.last_triggered) : "Never"}
+          </dd>
+          <dt className="text-[#64748B]">Triggers</dt>
+          <dd className="text-[#0F172A] font-mono">{triggers}</dd>
+          <dt className="text-[#64748B]">Authorized by</dt>
+          <dd className="text-[#0F172A]">{authorizedByLabel(rule)}</dd>
+        </dl>
+      )}
+      {inlineEditOpen && (
+        <div className="mt-3 pt-3 border-t border-[#F1F5F9]">
+          <InlineEditPanel
+            rule={rule}
+            onCancel={onCancelEdit}
+            onSave={onSaveEdit}
+            showToast={showToast}
+          />
+        </div>
+      )}
+      {confirmingDeactivate && (
+        <div className="mt-3 pt-3 border-t border-[#F1F5F9]">
+          <DeactivateConfirmStrip
+            ruleName={rule.name}
+            ruleId={rule.id}
+            onCancel={onCancelDeactivate}
+            onConfirm={onConfirmDeactivate}
+            pending={pending}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- V2 Inline edit panel -------------------------------------------
+//
+// Renders inside a colSpan=7 row directly below the rule the visitor
+// is editing. Replaces the prior <EditRuleSheet> modal — the panel
+// stays in the table flow, the row above stays visible, and the
+// post-save toast confirms the update without leaving the page.
+
+function InlineEditPanel({
+  rule,
+  onCancel,
+  onSave,
+  showToast,
+}: {
+  rule: RuleRow;
+  onCancel: () => void;
+  onSave: RulesTableProps["onSaveEdit"];
+  showToast: RulesTableProps["showToast"];
+}) {
+  const initialName = rule.name;
+  const initialKeywords = rule.keywords ?? [];
+  const initialVerdict = rule.verdict ?? "review";
+  const initialFrom = rule.effective_from
+    ? rule.effective_from.slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+  const initialUntil = rule.effective_until
+    ? rule.effective_until.slice(0, 10)
+    : "";
+  const initialBasis = rule.wsp_reference ?? "";
+
+  const [name, setName] = useState(initialName);
+  const [chips, setChips] = useState<string[]>(initialKeywords);
+  // The DB stores four verdicts (block / escalate / review / guide).
+  // The inline panel only exposes BLOCK / REVIEW per spec; existing
+  // escalate/guide rules read in as REVIEW for display purposes.
+  const initialSeverity: "BLOCK" | "REVIEW" =
+    initialVerdict === "block" ? "BLOCK" : "REVIEW";
+  const [severity, setSeverity] = useState<"BLOCK" | "REVIEW">(
+    initialSeverity,
+  );
+  const [from, setFrom] = useState(initialFrom);
+  const [until, setUntil] = useState(initialUntil);
+  const [basis, setBasis] = useState(initialBasis);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave() {
+    if (!name.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const verdict = severity === "BLOCK" ? "block" : "review";
+      const result = await onSave(rule.id, {
+        name: name.trim(),
+        description: rule.description ?? "",
+        verdict,
+        keywords: chips,
+        effective_from: new Date(from).toISOString(),
+        effective_until: until ? new Date(until).toISOString() : null,
+      });
+      if (result.ok) {
+        showToast("Rule updated — changes are live", "success");
+        onCancel();
+      } else {
+        setError(result.error);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="bg-white border border-[#E2E8F0] rounded p-4">
+      <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-3">
+        Edit rule
+      </div>
+      <div className="space-y-3">
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1">
+            Rule name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#0EA5E9]"
+          />
+        </div>
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1">
+            Keywords
+          </label>
+          <ChipInput chips={chips} onChange={setChips} />
+        </div>
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1">
+            Severity
+          </label>
+          <div className="flex gap-2">
+            {(["BLOCK", "REVIEW"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSeverity(s)}
+                className={`font-mono text-xs font-bold uppercase px-3 py-2 rounded-sm border transition-colors cursor-pointer ${
+                  severity === s
+                    ? s === "BLOCK"
+                      ? "bg-[#EF4444] text-white border-[#EF4444]"
+                      : "bg-[#F59E0B] text-white border-[#F59E0B]"
+                    : "bg-white border-[#E2E8F0] text-[#64748B]"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1">
+              Activation date
+            </label>
+            <input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#0EA5E9] font-mono"
+            />
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1">
+              Expiry date
+              <span className="normal-case ml-1 text-[#94A3B8]">
+                (optional)
+              </span>
+            </label>
+            <input
+              type="date"
+              value={until}
+              onChange={(e) => setUntil(e.target.value)}
+              className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#0EA5E9] font-mono"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1">
+            Regulatory basis
+          </label>
+          <input
+            type="text"
+            value={basis}
+            onChange={(e) => setBasis(e.target.value)}
+            className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0F172A] bg-white focus:outline-none focus:ring-1 focus:ring-[#0EA5E9]"
+          />
+        </div>
+      </div>
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={busy || !name.trim()}
+          className={`bg-[#0EA5E9] text-white font-mono text-sm font-medium px-4 py-2 rounded-sm hover:bg-[#0284C7] disabled:opacity-50 transition-colors ${
+            busy ? "opacity-50 cursor-not-allowed animate-pulse" : "cursor-pointer"
+          }`}
+        >
+          {busy ? "Saving..." : "Save changes"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+      </div>
+      {error && (
+        <div className="text-[#EF4444] text-sm mt-2">
+          Save failed — {error}. Try again.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- V3 Deactivate confirmation strip --------------------------------
+
+function DeactivateConfirmStrip({
+  ruleName,
+  ruleId,
+  onCancel,
+  onConfirm,
+  pending,
+}: {
+  ruleName: string;
+  ruleId: string;
+  onCancel: () => void;
+  onConfirm: RulesTableProps["onConfirmDeactivate"];
+  pending: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function handleConfirm() {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await onConfirm(ruleId);
+      if (!result.ok) {
+        setError(result.error);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="text-sm text-[#0F172A] flex-1 min-w-0">
+        Deactivate{" "}
+        <span className="font-semibold">&ldquo;{ruleName}&rdquo;</span>?
+        This rule will stop checking drafts. The record is preserved.
+      </span>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={busy || pending}
+          className={`bg-[#EF4444] text-white font-mono text-xs font-medium px-3 py-2 rounded-sm hover:bg-[#DC2626] disabled:opacity-50 transition-colors ${
+            busy ? "animate-pulse cursor-not-allowed" : "cursor-pointer"
+          }`}
+        >
+          {busy ? "Deactivating..." : "Confirm deactivate"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="font-mono text-xs text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+        >
+          Cancel
+        </button>
+      </div>
+      {error && (
+        <div className="text-[#EF4444] text-sm w-full">
+          Deactivate failed — {error}. Try again.
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2637,363 +3462,3 @@ function BuildRuleModal({
   );
 }
 
-// ---------- R7-R8 Edit-rule sheet (two-column diff) ------------------------
-
-function EditRuleSheet({
-  rule,
-  onClose,
-  onSave,
-}: {
-  rule: RuleRow;
-  onClose: () => void;
-  onSave: (updates: {
-    name: string;
-    description: string;
-    verdict: string;
-    keywords: string[];
-    effective_from: string;
-    effective_until: string | null;
-  }) => Promise<{ ok: true } | { ok: false; error: string }>;
-}) {
-  const initialName = rule.name;
-  const initialDescription = rule.description ?? "";
-  const initialVerdict = rule.verdict ?? "review";
-  const initialKeywords = rule.keywords ?? [];
-  const initialFrom = rule.effective_from
-    ? rule.effective_from.slice(0, 10)
-    : new Date().toISOString().slice(0, 10);
-  const initialUntil = rule.effective_until
-    ? rule.effective_until.slice(0, 10)
-    : "";
-
-  const [name, setName] = useState(initialName);
-  const [description, setDescription] = useState(initialDescription);
-  const [verdict, setVerdict] = useState(initialVerdict);
-  const [chips, setChips] = useState<string[]>(initialKeywords);
-  const [from, setFrom] = useState(initialFrom);
-  const [until, setUntil] = useState(initialUntil);
-  const [busy, setBusy] = useState(false);
-  // FIX 4 — inline error state for the re-authorize footer. Replaces
-  // the prior alert() so the sheet stays open and surfaces the
-  // failure where the visitor expected the success.
-  const [saveError, setSaveError] = useState<string | null>(null);
-  // B6 — once a re-authorize succeeds the footer flips to a static
-  // confirmation row showing the version, the prior keyword count and
-  // the new keyword count. The "Done" button calls onClose, which the
-  // parent wires to closeEditAndRefresh. FIX 4 also auto-closes after
-  // 2 seconds via a useEffect below.
-  const [completed, setCompleted] = useState<{
-    version: number;
-    oldCount: number;
-    newCount: number;
-  } | null>(null);
-
-  // FIX 4 — auto-close after 2s once `completed` lands.
-  useEffect(() => {
-    if (!completed) return;
-    const id = window.setTimeout(() => onClose(), 2000);
-    return () => window.clearTimeout(id);
-  }, [completed, onClose]);
-
-  function discard() {
-    setName(initialName);
-    setDescription(initialDescription);
-    setVerdict(initialVerdict);
-    setChips(initialKeywords);
-    setFrom(initialFrom);
-    setUntil(initialUntil);
-  }
-
-  async function reauthorize() {
-    setBusy(true);
-    setSaveError(null);
-    try {
-      const result = await onSave({
-        name,
-        description,
-        verdict,
-        keywords: chips,
-        effective_from: new Date(from).toISOString(),
-        effective_until: until ? new Date(until).toISOString() : null,
-      });
-      if (result.ok) {
-        // Version 2 is the static post-edit value — the persisted
-        // rule schema doesn't track an explicit version number, so
-        // re-authorizations always read as "Version 2" relative to
-        // the session's starting state.
-        setCompleted({
-          version: 2,
-          oldCount: initialKeywords.length,
-          newCount: chips.length,
-        });
-      } else {
-        setSaveError(result.error);
-      }
-    } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const nameDiff = name !== initialName;
-  const descDiff = description !== initialDescription;
-  const verdictDiff = verdict !== initialVerdict;
-  const fromDiff = from !== initialFrom;
-  const untilDiff = until !== initialUntil;
-  const keywordsDiff =
-    initialKeywords.length !== chips.length ||
-    initialKeywords.some((k) => !chips.includes(k)) ||
-    chips.some((k) => !initialKeywords.includes(k));
-
-  const removedKeywords = initialKeywords.filter((k) => !chips.includes(k));
-  const addedKeywords = chips.filter((k) => !initialKeywords.includes(k));
-  const unchangedKeywords = chips.filter((k) => initialKeywords.includes(k));
-
-  function diffBorder(active: boolean) {
-    return active ? "border-l-2 border-[#0EA5E9] pl-4" : "";
-  }
-
-  return (
-    <ModalShell title="Edit rule" onClose={onClose} maxWidth="max-w-5xl">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left — current live rule, read-only */}
-        <div>
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#94A3B8] mb-3">
-            Currently active — will remain active until you re-authorize
-          </div>
-          <div className="space-y-4 text-[#94A3B8]">
-            <div>
-              <label className="font-mono text-[10px] uppercase tracking-widest block mb-1.5">
-                Rule name
-              </label>
-              <div className="text-sm">{initialName || "—"}</div>
-            </div>
-            <div>
-              <label className="font-mono text-[10px] uppercase tracking-widest block mb-1.5">
-                Description
-              </label>
-              <div className="text-sm whitespace-pre-wrap">
-                {initialDescription || "—"}
-              </div>
-            </div>
-            <div>
-              <label className="font-mono text-[10px] uppercase tracking-widest block mb-1.5">
-                Verdict
-              </label>
-              <div className="text-sm font-mono uppercase">
-                {initialVerdict}
-              </div>
-            </div>
-            <div>
-              <label className="font-mono text-[10px] uppercase tracking-widest block mb-1.5">
-                Keywords
-              </label>
-              <div className="flex flex-wrap gap-1">
-                {initialKeywords.length === 0 ? (
-                  <span className="text-xs">—</span>
-                ) : (
-                  initialKeywords.map((k) => (
-                    <span
-                      key={k}
-                      className="font-mono text-[10px] bg-[#F1F5F9] text-[#94A3B8] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
-                    >
-                      {k}
-                    </span>
-                  ))
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="font-mono text-[10px] uppercase tracking-widest block mb-1.5">
-                  Effective from
-                </label>
-                <div className="text-sm font-mono">
-                  {initialFrom || "—"}
-                </div>
-              </div>
-              <div>
-                <label className="font-mono text-[10px] uppercase tracking-widest block mb-1.5">
-                  Effective until
-                </label>
-                <div className="text-sm font-mono">{initialUntil || "—"}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right — editable */}
-        <div>
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#0EA5E9] mb-3">
-            Proposed update
-          </div>
-          <div className="space-y-4">
-            <div className={diffBorder(nameDiff)}>
-              <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
-                Rule name
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5]"
-              />
-            </div>
-            <div className={diffBorder(descDiff)}>
-              <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
-                Description
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={2}
-                className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] resize-none"
-              />
-            </div>
-            <div className={diffBorder(verdictDiff)}>
-              <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
-                Verdict
-              </label>
-              <div className="flex gap-1.5 flex-wrap">
-                {(["block", "escalate", "review", "guide"] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setVerdict(v)}
-                    className={`font-mono text-[10px] font-bold uppercase px-2.5 py-1.5 rounded-sm border transition-colors cursor-pointer ${
-                      verdict === v
-                        ? "bg-[#0F172A] text-white border-[#0F172A]"
-                        : "bg-white border-[#E2E8F0] text-[#64748B]"
-                    }`}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className={diffBorder(keywordsDiff)}>
-              <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
-                Keywords
-              </label>
-              {(removedKeywords.length > 0 || addedKeywords.length > 0 || unchangedKeywords.length > 0) && (
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {unchangedKeywords.map((k) => (
-                    <span
-                      key={`u-${k}`}
-                      className="font-mono text-[10px] bg-white text-[#475569] px-2 py-0.5 rounded-sm border border-[#E2E8F0]"
-                    >
-                      {k}
-                    </span>
-                  ))}
-                  {addedKeywords.map((k) => (
-                    <span
-                      key={`a-${k}`}
-                      className="font-mono text-[10px] bg-[#0EA5E9]/20 text-[#0EA5E9] px-2 py-0.5 rounded-sm flex items-center gap-1.5"
-                    >
-                      {k}
-                      <button
-                        type="button"
-                        onClick={() => setChips(chips.filter((c) => c !== k))}
-                        className="hover:opacity-70 cursor-pointer"
-                        aria-label={`Remove ${k}`}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                  {removedKeywords.map((k) => (
-                    <span
-                      key={`r-${k}`}
-                      className="font-mono text-[10px] bg-[#EF4444]/20 text-[#EF4444] px-2 py-0.5 rounded-sm line-through"
-                    >
-                      {k}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <ChipInput chips={chips} onChange={setChips} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className={diffBorder(fromDiff)}>
-                <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
-                  Effective from
-                </label>
-                <input
-                  type="date"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                  className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono"
-                />
-              </div>
-              <div className={diffBorder(untilDiff)}>
-                <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
-                  Effective until
-                </label>
-                <input
-                  type="date"
-                  value={until}
-                  onChange={(e) => setUntil(e.target.value)}
-                  className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] font-mono"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {completed ? (
-        <div className="mt-6 pt-4 border-t border-[#E2E8F0] bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm px-4 py-3">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="text-sm text-[#0D1B2A] leading-relaxed">
-              <span className="font-semibold">
-                Version {completed.version} authorized.
-              </span>{" "}
-              Previously: {completed.oldCount} keyword
-              {completed.oldCount !== 1 ? "s" : ""}. Now:{" "}
-              {completed.newCount} keyword
-              {completed.newCount !== 1 ? "s" : ""}. All future submissions
-              will be checked against the updated rule.
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] transition-colors cursor-pointer shrink-0"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-6 pt-4 border-t border-[#E2E8F0]">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={reauthorize}
-              disabled={busy || !name.trim()}
-              className={`bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors ${
-                busy
-                  ? "opacity-50 cursor-not-allowed animate-pulse"
-                  : "cursor-pointer"
-              }`}
-            >
-              {busy ? "Saving..." : "Re-authorize →"}
-            </button>
-            <button
-              type="button"
-              onClick={discard}
-              className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
-            >
-              Discard changes
-            </button>
-          </div>
-          {saveError && (
-            <div className="text-[#EF4444] text-sm mt-2">
-              Save failed — {saveError}. Try again.
-            </div>
-          )}
-        </div>
-      )}
-    </ModalShell>
-  );
-}
