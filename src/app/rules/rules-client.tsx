@@ -7,9 +7,11 @@ import {
   deactivateRuleAction,
   deleteDraftRuleAction,
   deleteRuleAction,
+  draftRuleAction,
   reactivateRuleAction,
   updateRuleAction,
 } from "./actions";
+import type { DraftedRule } from "./actions";
 
 // Six-way tab state for the managing view. Active is the default
 // landing tab; Expiring lights up amber when a rule sits inside
@@ -572,14 +574,25 @@ export function RulesClient({
   const [activeTab, setActiveTab] = useState<RulesTab>("active");
   const [pending, startTransition] = useTransition();
 
-  // R3 modal toggles — the four entry points sit above the rules list.
+  // R3 modal toggles — the chooser surfaces (popover + setup grid)
+  // expose four entry points: template / upload / describe / suggest.
+  // The legacy "paste" and "build" types are still in the union so
+  // older deep-links / triggers can still mount those modals; they
+  // just aren't reachable from the new chooser.
   const [openModal, setOpenModal] = useState<
-    "template" | "paste" | "upload" | "build" | null
+    | "template"
+    | "paste"
+    | "upload"
+    | "build"
+    | "describe"
+    | "suggest"
+    | null
   >(null);
 
-  // "+ Add a rule" dropdown — opens a small popover with three
-  // entry-point rows (template / paste / build). Click-outside
-  // handling lives in the dropdown component below.
+  // "+ Add a rule" dropdown — opens a small popover with the four
+  // chooser entry-points (Template / Upload document / Describe it /
+  // ERA CUE suggests). Click-outside handling lives in the dropdown
+  // component below.
   const [addRuleDropdownOpen, setAddRuleDropdownOpen] = useState(false);
 
   // V2 — id of the rule whose inline edit panel is open (null = closed).
@@ -1154,34 +1167,11 @@ export function RulesClient({
 
   // ---- new-user state ----------------------------------------------------
   // No active rules, no deactivated rules → fresh org. Drops the
-  // tabs / status bar / MOAT bar entirely and presents the three
-  // setup paths as the primary content. Demo mode is excluded
+  // tabs / status bar / MOAT bar entirely and presents the four
+  // chooser paths as the primary content. Demo mode is excluded
   // because the seed always supplies rules.
   if (!IS_DEMO_MODE && totalActiveLike === 0 && counts.deactivated === 0) {
-    const setupCards: ReadonlyArray<{
-      key: "template" | "paste" | "build";
-      title: string;
-      description: string;
-    }> = [
-      {
-        key: "template",
-        title: "Start from a template",
-        description:
-          "Choose from regulated industry or campaign templates. Active in 30 seconds.",
-      },
-      {
-        key: "paste",
-        title: "Import from existing policy",
-        description:
-          "Paste your communications policy, WSP, or legal brief. ERA CUE extracts the rules.",
-      },
-      {
-        key: "build",
-        title: "Build from scratch",
-        description:
-          "Define rule name, keywords, severity, and activation date.",
-      },
-    ];
+    const setupCards = ADD_RULE_CHOOSER_OPTIONS;
 
     return (
       <main className="min-h-screen bg-[#F8FAFC]">
@@ -1191,7 +1181,7 @@ export function RulesClient({
               style={{ fontFamily: "var(--font-newsreader)" }}
               className="text-3xl md:text-4xl font-light text-[#0F172A] mb-3 leading-tight"
             >
-              Set up your governance rules.
+              How do you want to add this rule?
             </h1>
             <p className="text-sm text-[#64748B] leading-relaxed max-w-2xl mx-auto">
               ERA CUE checks every draft against your active rules
@@ -1200,16 +1190,27 @@ export function RulesClient({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* 2×2 chooser grid on desktop, single column on mobile.
+              Each tile maps onto setOpenModal so the same chooser
+              wiring drives both the new-user surface and the
+              "+ Add a rule" popover above the rules table. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {setupCards.map((card) => (
               <button
                 key={card.key}
                 type="button"
                 onClick={() => setOpenModal(card.key)}
-                className="bg-[#1E293B] border border-[#334155] rounded p-6 cursor-pointer hover:border-[#0EA5E9] transition-colors text-left flex flex-col min-h-[160px]"
+                className="bg-[#1E293B] border border-[#334155] rounded p-6 cursor-pointer hover:border-[#0EA5E9] transition-colors text-left flex flex-col min-h-[180px]"
               >
-                <div className="text-[#F8FAFC] font-medium text-base">
-                  {card.title}
+                <div className="flex items-center justify-between gap-3 mb-1">
+                  <span className="text-[#F8FAFC] font-medium text-base">
+                    {card.title}
+                  </span>
+                  {card.badge && (
+                    <span className="font-mono text-[9px] uppercase tracking-widest bg-[#0EA5E9]/10 text-[#0EA5E9] border border-[#0EA5E9]/30 px-1.5 py-0.5 rounded-sm">
+                      {card.badge}
+                    </span>
+                  )}
                 </div>
                 <p className="text-[#94A3B8] text-sm mt-1 leading-relaxed flex-1">
                   {card.description}
@@ -1232,6 +1233,21 @@ export function RulesClient({
             onClose={closeAndRefresh}
             onEnable={handleEnableTemplate}
           />
+        )}
+        {openModal === "upload" && (
+          <UploadDocumentModal
+            onClose={closeAndRefresh}
+            onActivate={handleActivateExtractedRule}
+          />
+        )}
+        {openModal === "describe" && (
+          <DescribeRuleModal
+            onClose={closeAndRefresh}
+            onCreate={handleCreateCustomRule}
+          />
+        )}
+        {openModal === "suggest" && (
+          <SuggestionsModal onClose={closeAndRefresh} />
         )}
         {openModal === "paste" && (
           <PastePolicyModal
@@ -1556,6 +1572,15 @@ export function RulesClient({
           onCreate={handleCreateCustomRule}
         />
       )}
+      {openModal === "describe" && (
+        <DescribeRuleModal
+          onClose={closeAndRefresh}
+          onCreate={handleCreateCustomRule}
+        />
+      )}
+      {openModal === "suggest" && (
+        <SuggestionsModal onClose={closeAndRefresh} />
+      )}
 
       {/* Full-screen ruleset review + confirm flow. Independent of the
           four creation modals (template / paste / upload / build) so
@@ -1629,6 +1654,44 @@ function BottomMoatBar({ count }: { count: number }) {
 
 // ---------- CHANGE 3 — Add a rule dropdown -----------------------------------
 
+// Chooser entries shared by the popover and the new-user setup grid.
+// Single source of truth so wording and badge state can't drift
+// between the two surfaces.
+type AddRuleChoice = "template" | "upload" | "describe" | "suggest";
+
+const ADD_RULE_CHOOSER_OPTIONS: ReadonlyArray<{
+  key: AddRuleChoice;
+  title: string;
+  description: string;
+  badge?: string;
+}> = [
+  {
+    key: "template",
+    title: "Template",
+    description:
+      "Pre-built rules cited to FINRA, SEC, EU AI Act. Fastest path.",
+  },
+  {
+    key: "upload",
+    title: "Upload document",
+    description:
+      "Upload your WSP, policy PDF, or compliance manual. ERA CUE extracts the rules.",
+  },
+  {
+    key: "describe",
+    title: "Describe it",
+    description:
+      "Type or speak what you want to block or review. ERA CUE structures it.",
+  },
+  {
+    key: "suggest",
+    title: "ERA CUE suggests",
+    description:
+      "Based on your submission history, these keyword clusters may need a rule.",
+    badge: "0 suggestions",
+  },
+];
+
 function AddRuleDropdown({
   open,
   setOpen,
@@ -1636,7 +1699,7 @@ function AddRuleDropdown({
 }: {
   open: boolean;
   setOpen: (v: boolean) => void;
-  onSelect: (key: "template" | "paste" | "build") => void;
+  onSelect: (key: AddRuleChoice) => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -1660,27 +1723,7 @@ function AddRuleDropdown({
     };
   }, [open, setOpen]);
 
-  const options: ReadonlyArray<{
-    key: "template" | "paste" | "build";
-    title: string;
-    description: string;
-  }> = [
-    {
-      key: "template",
-      title: "From a template",
-      description: "Regulated industry or campaign templates",
-    },
-    {
-      key: "paste",
-      title: "From existing policy",
-      description: "Paste your WSP, policy doc, or legal brief",
-    },
-    {
-      key: "build",
-      title: "Build from scratch",
-      description: "Define keywords, severity, and dates",
-    },
-  ];
+  const options = ADD_RULE_CHOOSER_OPTIONS;
 
   return (
     <div className="relative" ref={ref}>
@@ -1703,8 +1746,13 @@ function AddRuleDropdown({
                 i < options.length - 1 ? "border-b border-[#334155]" : ""
               }`}
             >
-              <div className="text-sm font-medium text-[#F8FAFC]">
-                {opt.title}
+              <div className="text-sm font-medium text-[#F8FAFC] flex items-center justify-between gap-2">
+                <span>{opt.title}</span>
+                {opt.badge && (
+                  <span className="font-mono text-[9px] uppercase tracking-widest bg-[#0EA5E9]/10 text-[#0EA5E9] border border-[#0EA5E9]/30 px-1.5 py-0.5 rounded-sm">
+                    {opt.badge}
+                  </span>
+                )}
               </div>
               <div className="text-xs text-[#94A3B8] mt-0.5">
                 {opt.description}
@@ -4276,6 +4324,322 @@ function ReviewRulesetModal({
         )}
       </div>
     </div>
+  );
+}
+
+// ---------- Describe-it modal ---------------------------------------------
+//
+// Natural-language rule drafting. The visitor types (or pastes) what
+// they want governed; the server-side `draftRuleAction` calls Claude
+// to return a structured rule (name, verdict, keywords, basis,
+// suggested end date). On preview, "Activate" calls
+// `handleCreateCustomRule` (the same handler the legacy BuildRuleModal
+// uses) so the durable side effects — DB row, optimistic table row,
+// router refresh, post-save SavedConfirmation — stay shared with the
+// other creation flows.
+//
+// Stages:
+//   • idle   — input + Draft button
+//   • drafting — disabled state while the server action is in flight
+//   • preview — drafted rule rendered with Activate / Try again
+//   • saving — Activate clicked, write in flight
+//   • saved  — SavedConfirmation panel inside the modal
+
+function DescribeRuleModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (input: {
+    name: string;
+    keywords: string[];
+    verdict: "block" | "review";
+    effectiveFrom: string;
+    effectiveUntil: string | null;
+  }) => Promise<
+    | { ok: true; ruleName: string; keywordCount: number }
+    | { ok: false; error: string }
+  >;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [description, setDescription] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [drafted, setDrafted] = useState<DraftedRule | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<{
+    ruleName: string;
+    keywords: string[];
+    activationDateIso: string;
+  } | null>(null);
+
+  function resetForm() {
+    setDescription("");
+    setDrafted(null);
+    setDraftError(null);
+    setSaving(false);
+    setSaveError(null);
+    setSaved(null);
+  }
+
+  async function handleDraft() {
+    if (!description.trim()) return;
+    setDrafting(true);
+    setDraftError(null);
+    try {
+      const result = await draftRuleAction(description.trim());
+      if (result.ok) {
+        setDrafted(result.drafted);
+      } else {
+        setDraftError(result.error);
+      }
+    } catch (e) {
+      setDraftError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setDrafting(false);
+    }
+  }
+
+  async function handleActivate() {
+    if (!drafted) return;
+    // The chooser only exposes BLOCK / REVIEW severities. Map the
+    // four-verdict draft output (block / escalate / review / guide)
+    // onto the two-tier table verdicts: block → block, everything
+    // else → review. The original draftedVerdict is preserved on
+    // saveError when something goes wrong, so the visitor can see
+    // what Claude returned.
+    const verdict: "block" | "review" =
+      drafted.verdict === "block" ? "block" : "review";
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const result = await onCreate({
+        name: drafted.name,
+        keywords: drafted.keywords,
+        verdict,
+        effectiveFrom: today,
+        effectiveUntil: drafted.suggested_end_date ?? null,
+      });
+      if (result.ok) {
+        setSaved({
+          ruleName: result.ruleName,
+          keywords: [...drafted.keywords],
+          activationDateIso: today,
+        });
+      } else {
+        setSaveError(result.error);
+      }
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (saved) {
+    return (
+      <ModalShell title="Rule active" onClose={onClose}>
+        <SavedConfirmation
+          ruleName={saved.ruleName}
+          keywords={saved.keywords}
+          activationDateIso={saved.activationDateIso}
+          onAddAnother={resetForm}
+          onDone={onClose}
+        />
+      </ModalShell>
+    );
+  }
+
+  return (
+    <ModalShell title="Describe the rule" onClose={onClose} maxWidth="max-w-2xl">
+      <div className="space-y-4">
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] block mb-1.5">
+            What should this rule catch?
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={5}
+            placeholder="e.g. Block any mention of fundraising, valuation, or our Series B during the active quiet period."
+            disabled={drafting || drafted !== null}
+            className="w-full border border-[#E2E8F0] rounded-sm px-3 py-2 text-sm text-[#0D1B2A] bg-white focus:outline-none focus:ring-1 focus:ring-[#4F46E5] resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+          />
+          <p className="text-xs text-[#64748B] mt-2 leading-relaxed">
+            ERA CUE structures your description into a named rule with
+            keywords, severity, and a regulatory basis. You review
+            before it goes live.
+          </p>
+        </div>
+
+        {!drafted && (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleDraft}
+              disabled={drafting || !description.trim()}
+              className={`bg-[#4F46E5] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#4338CA] disabled:opacity-50 transition-colors ${
+                drafting
+                  ? "opacity-60 cursor-not-allowed animate-pulse"
+                  : "cursor-pointer"
+              }`}
+            >
+              {drafting ? "Drafting..." : "Draft rule with ERA CUE →"}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {draftError && (
+          <div
+            role="alert"
+            className="border border-[#FECACA] bg-[#FEF2F2] rounded-sm px-3 py-2"
+          >
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#B91C1C] font-bold mb-1">
+              Could not draft rule
+            </div>
+            <div className="text-sm text-[#B91C1C] break-words font-mono">
+              {draftError}
+            </div>
+          </div>
+        )}
+
+        {drafted && (
+          <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-sm p-4 space-y-3">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B]">
+              Draft preview
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {ruleSeverityBadge(drafted.verdict)}
+              <span className="text-sm font-medium text-[#0F172A]">
+                {drafted.name}
+              </span>
+            </div>
+            <p className="text-sm text-[#475569] leading-relaxed">
+              {drafted.description}
+            </p>
+            {drafted.keywords.length > 0 && (
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#64748B] mb-1.5">
+                  Keywords
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {drafted.keywords.map((kw) => (
+                    <span
+                      key={kw}
+                      className="font-mono text-xs bg-white text-[#475569] border border-[#E2E8F0] px-2 py-1 rounded-sm"
+                    >
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {drafted.regulatory_basis && (
+              <div className="font-mono text-[10px] text-[#64748B]">
+                Regulatory basis: {drafted.regulatory_basis}
+              </div>
+            )}
+            {drafted.suggested_end_date && (
+              <div className="font-mono text-[10px] text-[#64748B]">
+                Suggested end date: {drafted.suggested_end_date}
+              </div>
+            )}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleActivate}
+                disabled={saving}
+                className={`bg-[#0EA5E9] text-white font-mono text-sm font-medium px-5 py-2 rounded-sm hover:bg-[#0284C7] disabled:opacity-50 transition-colors ${
+                  saving
+                    ? "opacity-60 cursor-not-allowed animate-pulse"
+                    : "cursor-pointer"
+                }`}
+              >
+                {saving ? "Activating..." : "Activate rule"}
+              </button>
+              <button
+                type="button"
+                onClick={resetForm}
+                disabled={saving}
+                className="font-mono text-xs text-[#64748B] hover:text-[#0D1B2A] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Try a different description
+              </button>
+            </div>
+            {saveError && (
+              <div
+                role="alert"
+                className="border border-[#EF4444] bg-[#FEF2F2] rounded-sm px-3 py-2 mt-2"
+              >
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#B91C1C] font-bold mb-1">
+                  Save failed
+                </div>
+                <div className="text-sm text-[#B91C1C] break-words font-mono">
+                  {saveError}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </ModalShell>
+  );
+}
+
+// ---------- ERA CUE suggests modal (stub) ---------------------------------
+//
+// The suggestion engine doesn't exist yet — it'd need a server-side
+// pass over past drafts + rule_check actions to surface keyword
+// clusters that recur in flagged content but aren't covered by an
+// explicit rule. Until that lands, this modal is the placeholder
+// surface so the chooser can render the card and the wiring is in
+// place. When the engine is ready, swap the body for a list of
+// suggested rules with one-click adopt buttons (similar to
+// TemplateModal) — no chooser changes needed.
+
+function SuggestionsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <ModalShell title="ERA CUE suggests" onClose={onClose} maxWidth="max-w-2xl">
+      <div className="text-center py-6">
+        <div
+          className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#0EA5E9]/10 border border-[#0EA5E9]/30 mb-4"
+          aria-hidden
+        >
+          <span className="text-[#0EA5E9] text-xl">✦</span>
+        </div>
+        <h3
+          style={{ fontFamily: "var(--font-newsreader)" }}
+          className="text-xl font-light text-[#0D1B2A] mb-2"
+        >
+          No suggestions yet
+        </h3>
+        <p className="text-sm text-[#475569] max-w-md mx-auto leading-relaxed mb-2">
+          ERA CUE is analysing your submission history. As your team
+          submits drafts, recurring keyword patterns that aren&apos;t
+          covered by an existing rule will surface here as suggested
+          rules.
+        </p>
+        <p className="text-xs text-[#64748B] max-w-md mx-auto leading-relaxed mb-6">
+          You&apos;ll see them here once enough drafts are in the
+          corpus.
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="bg-[#0EA5E9] text-white font-mono text-sm font-medium px-5 py-2.5 rounded-sm hover:bg-[#0284C7] transition-colors cursor-pointer"
+        >
+          Done
+        </button>
+      </div>
+    </ModalShell>
   );
 }
 
