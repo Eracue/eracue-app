@@ -1736,29 +1736,29 @@ function AddRuleDropdown({
         + Add a rule
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-[#1E293B] border border-[#334155] rounded shadow-xl z-40">
-          {options.map((opt, i) => (
-            <button
-              key={opt.key}
-              type="button"
-              onClick={() => onSelect(opt.key)}
-              className={`w-full text-left px-4 py-3 hover:bg-[#0F172A] transition-colors cursor-pointer ${
-                i < options.length - 1 ? "border-b border-[#334155]" : ""
-              }`}
-            >
-              <div className="text-sm font-medium text-[#F8FAFC] flex items-center justify-between gap-2">
-                <span>{opt.title}</span>
-                {opt.badge && (
-                  <span className="font-mono text-[9px] uppercase tracking-widest bg-[#0EA5E9]/10 text-[#0EA5E9] border border-[#0EA5E9]/30 px-1.5 py-0.5 rounded-sm">
-                    {opt.badge}
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-[#94A3B8] mt-0.5">
-                {opt.description}
-              </div>
-            </button>
-          ))}
+        <div className="absolute top-full right-0 mt-2 z-50 w-[480px] bg-white border border-[#E2E8F0] shadow-lg rounded-lg">
+          <div className="grid grid-cols-2 gap-3 p-4">
+            {options.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => onSelect(opt.key)}
+                className="bg-white border border-[#E2E8F0] rounded-lg p-4 hover:border-[#0EA5E9] hover:shadow-sm cursor-pointer text-left transition-colors"
+              >
+                <div className="text-[#0F172A] font-medium text-sm flex items-center justify-between gap-2">
+                  <span>{opt.title}</span>
+                  {opt.badge && (
+                    <span className="font-mono text-[9px] uppercase tracking-widest bg-[#EFF8FF] text-[#1A56DB] border border-[#BAE6FD] px-1.5 py-0.5 rounded-sm">
+                      {opt.badge}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[#64748B] text-xs mt-1 leading-relaxed">
+                  {opt.description}
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
